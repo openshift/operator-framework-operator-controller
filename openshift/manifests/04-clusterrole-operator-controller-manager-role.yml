@@ -1,0 +1,61 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: operator-controller-manager-role
+rules:
+  - apiGroups:
+      - catalogd.operatorframework.io
+    resources:
+      - bundlemetadata
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - catalogd.operatorframework.io
+    resources:
+      - catalogs
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - catalogd.operatorframework.io
+    resources:
+      - packages
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - core.rukpak.io
+    resources:
+      - bundledeployments
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - operators.operatorframework.io
+    resources:
+      - operators
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - operators.operatorframework.io
+    resources:
+      - operators/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - operators.operatorframework.io
+    resources:
+      - operators/status
+    verbs:
+      - get
+      - patch
+      - update
