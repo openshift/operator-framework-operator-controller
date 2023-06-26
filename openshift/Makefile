@@ -11,6 +11,6 @@ include $(DIR)/../.bingo/Variables.mk
 manifests: $(KUSTOMIZE) $(YQ)
 	$(DIR)/generate-manifests.sh
 
-.PHONY: verify
-verify: manifests vendor verify-deps
+.PHONY: verify-manifests
+verify-manifests: manifests
 	git diff --exit-code
