@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/part-of: operator-controller
     control-plane: controller-manager
   name: operator-controller-controller-manager-metrics-service
-  namespace: openshift-operator-controller-system
+  namespace: openshift-operator-controller
 spec:
   ports:
     - name: https

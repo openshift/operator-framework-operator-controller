@@ -17,4 +17,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: operator-controller-controller-manager
-    namespace: openshift-operator-controller-system
+    namespace: openshift-operator-controller

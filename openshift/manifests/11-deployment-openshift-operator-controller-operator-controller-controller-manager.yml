@@ -13,7 +13,7 @@ metadata:
     app.kubernetes.io/part-of: operator-controller
     control-plane: controller-manager
   name: operator-controller-controller-manager
-  namespace: openshift-operator-controller-system
+  namespace: openshift-operator-controller
 spec:
   replicas: 1
   selector:

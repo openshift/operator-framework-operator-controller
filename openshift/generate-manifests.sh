@@ -19,8 +19,8 @@ trap 'rm -rf $TMP_ROOT' EXIT
 TMP_CONFIG="${TMP_ROOT}/config"
 cp -a "${REPO_ROOT}/config" "$TMP_CONFIG"
 
-# Override namespace to openshift-operator-controller-system
-$YQ -i '.namespace = "openshift-operator-controller-system"' "${TMP_CONFIG}/default/kustomization.yaml"
+# Override namespace to openshift-operator-controller
+$YQ -i '.namespace = "openshift-operator-controller"' "${TMP_CONFIG}/default/kustomization.yaml"
 
 # Create a temp dir for manifests
 TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"

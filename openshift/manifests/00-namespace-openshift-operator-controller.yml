@@ -9,4 +9,4 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: operator-controller
     control-plane: controller-manager
-  name: openshift-operator-controller-system
+  name: openshift-operator-controller

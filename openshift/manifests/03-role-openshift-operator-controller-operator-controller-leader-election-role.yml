@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: role
     app.kubernetes.io/part-of: operator-controller
   name: operator-controller-leader-election-role
-  namespace: openshift-operator-controller-system
+  namespace: openshift-operator-controller
 rules:
   - apiGroups:
       - ""
