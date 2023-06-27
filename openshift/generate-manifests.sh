@@ -67,8 +67,10 @@ cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
     if ! [[ "$new_name" =~ yml$ ]]; then
       new_name="${new_name}".yml
     fi
-    # Rename
-    mv "$f" "${new_name}"
+    if [[ "$f" != "$new_name" ]]; then
+      # Rename
+      mv "$f" "${new_name}"
+    fi
   done
 )
 
