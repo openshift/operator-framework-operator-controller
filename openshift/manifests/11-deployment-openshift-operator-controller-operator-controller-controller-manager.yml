@@ -48,7 +48,7 @@ spec:
             - --upstream=http://127.0.0.1:8080/
             - --logtostderr=true
             - --v=0
-          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+          image: ${KUBE_RBAC_PROXY_IMAGE}
           name: kube-rbac-proxy
           ports:
             - containerPort: 8443
@@ -72,7 +72,7 @@ spec:
             - --leader-elect
           command:
             - /manager
-          image: quay.io/operator-framework/operator-controller:devel
+          image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
