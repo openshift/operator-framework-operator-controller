@@ -9,4 +9,6 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: operator-controller
     control-plane: controller-manager
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
   name: openshift-operator-controller
