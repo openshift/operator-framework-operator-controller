@@ -23,6 +23,7 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
       labels:
         control-plane: controller-manager
     spec:
@@ -105,3 +106,4 @@ spec:
           type: RuntimeDefault
       serviceAccountName: operator-controller-controller-manager
       terminationGracePeriodSeconds: 10
+      priorityClassName: system-cluster-critical
