@@ -24,13 +24,11 @@ IMAGE_MAPPINGS[manager]='${OPERATOR_CONTROLLER_IMAGE}'
 # You shouldn't need to change anything below here
 ##################################################
 
-
-
 # Know where the repo root is so we can reference things relative to it
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Source bingo so we can use kustomize and yq
-. "${REPO_ROOT}/.bingo/variables.env"
+. "${REPO_ROOT}/openshift/.bingo/variables.env"
 
 # We're going to do file manipulation, so let's work in a temp dir
 TMP_ROOT="$(mktemp -p . -d 2>/dev/null || mktemp -d ./tmpdir.XXXXXXX)"

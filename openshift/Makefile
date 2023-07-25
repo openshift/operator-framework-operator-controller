@@ -5,7 +5,7 @@ include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/,
     targets/openshift/deps.mk \
 )
 
-include $(DIR)/../.bingo/Variables.mk
+include $(DIR)/.bingo/Variables.mk
 
 .PHONY: manifests
 manifests: $(KUSTOMIZE) $(YQ)

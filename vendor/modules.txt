@@ -406,7 +406,7 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.17
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/operator-framework/api v0.17.3
+# github.com/operator-framework/api v0.17.4-0.20230223191600-0131a6301e42
 ## explicit; go 1.19
 github.com/operator-framework/api/pkg/constraints
 github.com/operator-framework/api/pkg/encoding
@@ -420,17 +420,17 @@ github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/operator-framework/catalogd v0.3.0
-## explicit; go 1.19
+# github.com/operator-framework/catalogd v0.4.1
+## explicit; go 1.20
 github.com/operator-framework/catalogd/api/core/v1alpha1
-# github.com/operator-framework/deppy v0.0.0-20230602120738-cbf2c66b141b
+# github.com/operator-framework/deppy v0.0.0-20230629133131-bb7b6ae7b266
 ## explicit; go 1.19
 github.com/operator-framework/deppy/internal/solver
 github.com/operator-framework/deppy/pkg/deppy
 github.com/operator-framework/deppy/pkg/deppy/constraint
 github.com/operator-framework/deppy/pkg/deppy/input
 github.com/operator-framework/deppy/pkg/deppy/solver
-# github.com/operator-framework/operator-registry v1.26.3
+# github.com/operator-framework/operator-registry v1.27.1
 ## explicit; go 1.19
 github.com/operator-framework/operator-registry/alpha/action
 github.com/operator-framework/operator-registry/alpha/declcfg
@@ -447,8 +447,8 @@ github.com/operator-framework/operator-registry/pkg/lib/validation
 github.com/operator-framework/operator-registry/pkg/registry
 github.com/operator-framework/operator-registry/pkg/sqlite
 github.com/operator-framework/operator-registry/pkg/sqlite/migrations
-# github.com/operator-framework/rukpak v0.12.0
-## explicit; go 1.19
+# github.com/operator-framework/rukpak v0.13.0
+## explicit; go 1.20
 github.com/operator-framework/rukpak/api/v1alpha1
 # github.com/otiai10/copy v1.2.0
 ## explicit; go 1.12
@@ -571,6 +571,9 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
+# go4.org v0.0.0-20230225012048-214862532bf5
+## explicit; go 1.13
+go4.org/bytereplacer
 # golang.org/x/net v0.10.0
 ## explicit; go 1.17
 golang.org/x/net/context
