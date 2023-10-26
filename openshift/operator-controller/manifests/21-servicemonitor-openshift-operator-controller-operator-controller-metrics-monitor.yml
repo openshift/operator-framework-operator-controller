@@ -1,0 +1,27 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    control-plane: operator-controller-controller-manager
+    openshift.io/cluster-monitoring: "true"
+  name: operator-controller-metrics-monitor
+  namespace: openshift-operator-controller
+spec:
+  endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      path: /metrics
+      port: https
+      scheme: https
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+        keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+        serverName: operator-controller-service.openshift-operator-controller.svc
+  namespaceSelector:
+    matchNames:
+      - openshift-operator-controller
+  selector:
+    matchLabels:
+      control-plane: operator-controller-controller-manager
