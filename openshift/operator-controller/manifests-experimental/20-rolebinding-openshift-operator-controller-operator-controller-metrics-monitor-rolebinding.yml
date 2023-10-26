@@ -1,0 +1,20 @@
+---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-metrics-monitor-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-monitor-rolebinding
+  namespace: openshift-operator-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-controller-metrics-monitor-role
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: openshift-monitoring
