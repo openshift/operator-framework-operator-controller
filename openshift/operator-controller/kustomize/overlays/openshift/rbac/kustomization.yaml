@@ -1,0 +1,5 @@
+namespace: OPENSHIFT-NAMESPACE
+resources:
+  - ../../../../../../config/base/operator-controller/rbac/standard
+components:
+  - patches
