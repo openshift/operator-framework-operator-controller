@@ -1,0 +1,8 @@
+# Adds namespace to all resources.
+namespace: openshift-config
+
+namePrefix: catalogd-
+
+resources:
+- rbac/catalogd_manager_role.yaml
+- rbac/catalogd_manager_role_binding.yaml
