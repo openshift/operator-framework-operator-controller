@@ -1,0 +1,7 @@
+- op: add
+  path: /rules/-
+  value:
+    apiGroups: [security.openshift.io]
+    resources: [securitycontextconstraints]
+    resourceNames: [privileged]
+    verbs: [use]
