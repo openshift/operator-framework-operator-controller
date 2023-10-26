@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ -z "${1}" ]; then
+   echo "No destination specified"
+   exit 1
+fi
+
+DEST="${1}/helm/operator-controller"
+
+mkdir -p "${DEST}"
+cp -a /openshift/helm/* "${DEST}"
+
