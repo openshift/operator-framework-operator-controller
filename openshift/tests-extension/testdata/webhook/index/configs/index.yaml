@@ -1,0 +1,47 @@
+{
+    "schema": "olm.package",
+    "name": "webhook-operator",
+    "defaultChannel": "alpha"
+}
+{
+    "schema": "olm.channel",
+    "name": "alpha",
+    "package": "webhook-operator",
+    "entries": [
+        {
+            "name": "webhook-operator.v0.0.5"
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "webhook-operator.v0.0.5",
+    "package": "webhook-operator",
+    "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+    "properties": [
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "webhook.operators.coreos.io",
+                "kind": "WebhookTest",
+                "version": "v1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "webhook.operators.coreos.io",
+                "kind": "WebhookTest",
+                "version": "v2"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "webhook-operator",
+                "version": "0.0.5"
+            }
+        }
+    ]
+}
+
