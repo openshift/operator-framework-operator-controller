@@ -1,0 +1,9 @@
+# administrators of this repo are controlled via GitHub teams, not this file
+
+approvers:
+- operator-runtime-approvers
+
+reviewers:
+- operator-runtime-approvers
+- operator-runtime-reviewers
+
