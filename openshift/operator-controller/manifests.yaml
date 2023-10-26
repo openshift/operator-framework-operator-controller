@@ -1,0 +1,1287 @@
+---
+# Source: olmv1/templates/namespace.yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+    openshift.io/node-selector: ""
+    workload.openshift.io/allowed: management
+  labels:
+    app.kubernetes.io/name: operator-controller
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: privileged
+    pod-security.kubernetes.io/warn-version: latest
+    app.kubernetes.io/part-of: olm
+    openshift.io/cluster-monitoring: "true"
+  name: openshift-operator-controller
+---
+# Source: olmv1/templates/networkpolicy/networkpolicy-olmv1-system-default-deny-all-traffic.yml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-default-deny-all-traffic
+  namespace: openshift-operator-controller
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: olmv1/templates/networkpolicy/networkpolicy-olmv1-system-operator-controller-controller-manager.yml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+spec:
+  egress:
+    - {}
+  ingress:
+    - ports:
+        - port: 8443
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      control-plane: operator-controller-controller-manager
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: olmv1/templates/poddisruptionbudget-olmv1-system-operator-controller.yml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      control-plane: operator-controller-controller-manager
+---
+# Source: olmv1/templates/serviceaccount-olmv1-system-common-controller-manager.yml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/openshift/configmap-trusted-ca.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-trusted-ca-bundle
+  namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/crds/customresourcedefinition-clusterextensions.olm.operatorframework.io.yml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.0
+    olm.operatorframework.io/generator: standard
+  name: clusterextensions.olm.operatorframework.io
+spec:
+  group: olm.operatorframework.io
+  names:
+    kind: ClusterExtension
+    listKind: ClusterExtensionList
+    plural: clusterextensions
+    singular: clusterextension
+  scope: Cluster
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .status.install.bundle.name
+          name: Installed Bundle
+          type: string
+        - jsonPath: .status.install.bundle.version
+          name: Version
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Installed')].status
+          name: Installed
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Progressing')].status
+          name: Progressing
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1
+      schema:
+        openAPIV3Schema:
+          description: ClusterExtension is the Schema for the clusterextensions API
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: spec is an optional field that defines the desired state of the ClusterExtension.
+              properties:
+                config:
+                  description: |-
+                    config is optional and specifies bundle-specific configuration.
+                    Configuration is bundle-specific and a bundle may provide a configuration schema.
+                    When not specified, the default configuration of the resolved bundle is used.
+
+                    config is validated against a configuration schema provided by the resolved bundle. If the bundle does not provide
+                    a configuration schema the bundle is deemed to not be configurable. More information on how
+                    to configure bundles can be found in the OLM documentation associated with your current OLM version.
+                  properties:
+                    configType:
+                      description: |-
+                        configType is required and specifies the type of configuration source.
+
+                        The only allowed value is "Inline".
+
+                        When set to "Inline", the cluster extension configuration is defined inline within the ClusterExtension resource.
+                      enum:
+                        - Inline
+                      type: string
+                    inline:
+                      description: |-
+                        inline contains JSON or YAML values specified directly in the ClusterExtension.
+
+                        It is used to specify arbitrary configuration values for the ClusterExtension.
+                        It must be set if configType is 'Inline' and must be a valid JSON/YAML object containing at least one property.
+                        The configuration values are validated at runtime against a JSON schema provided by the bundle.
+                      minProperties: 1
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                    - configType
+                  type: object
+                  x-kubernetes-validations:
+                    - message: inline is required when configType is Inline, and forbidden otherwise
+                      rule: 'has(self.configType) && self.configType == ''Inline'' ?has(self.inline) : !has(self.inline)'
+                install:
+                  description: |-
+                    install is optional and configures installation options for the ClusterExtension,
+                    such as the pre-flight check configuration.
+                  properties:
+                    preflight:
+                      description: |-
+                        preflight is optional and configures the checks that run before installation or upgrade
+                        of the content for the package specified in the packageName field.
+
+                        When specified, it replaces the default preflight configuration for install/upgrade actions.
+                        When not specified, the default configuration is used.
+                      properties:
+                        crdUpgradeSafety:
+                          description: |-
+                            crdUpgradeSafety configures the CRD Upgrade Safety pre-flight checks that run
+                            before upgrades of installed content.
+
+                            The CRD Upgrade Safety pre-flight check safeguards from unintended consequences of upgrading a CRD,
+                            such as data loss.
+                          properties:
+                            enforcement:
+                              description: |-
+                                enforcement is required and configures the state of the CRD Upgrade Safety pre-flight check.
+
+                                Allowed values are "None" or "Strict". The default value is "Strict".
+
+                                When set to "None", the CRD Upgrade Safety pre-flight check is skipped during an upgrade operation.
+                                Use this option with caution as unintended consequences such as data loss can occur.
+
+                                When set to "Strict", the CRD Upgrade Safety pre-flight check runs during an upgrade operation.
+                              enum:
+                                - None
+                                - Strict
+                              type: string
+                          required:
+                            - enforcement
+                          type: object
+                      required:
+                        - crdUpgradeSafety
+                      type: object
+                      x-kubernetes-validations:
+                        - message: at least one of [crdUpgradeSafety] are required when preflight is specified
+                          rule: has(self.crdUpgradeSafety)
+                  type: object
+                  x-kubernetes-validations:
+                    - message: at least one of [preflight] are required when install is specified
+                      rule: has(self.preflight)
+                namespace:
+                  description: |-
+                    namespace specifies a Kubernetes namespace.
+                    This is the namespace where the provided ServiceAccount must exist.
+                    It also designates the default namespace where namespace-scoped resources for the extension are applied to the cluster.
+                    Some extensions may contain namespace-scoped resources to be applied in other namespaces.
+                    This namespace must exist.
+
+                    The namespace field is required, immutable, and follows the DNS label standard as defined in [RFC 1123].
+                    It must contain only lowercase alphanumeric characters or hyphens (-), start and end with an alphanumeric character,
+                    and be no longer than 63 characters.
+
+                    [RFC 1123]: https://tools.ietf.org/html/rfc1123
+                  maxLength: 63
+                  type: string
+                  x-kubernetes-validations:
+                    - message: namespace is immutable
+                      rule: self == oldSelf
+                    - message: namespace must be a valid DNS1123 label
+                      rule: self.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+                serviceAccount:
+                  description: |-
+                    serviceAccount specifies a ServiceAccount used to perform all interactions with the cluster
+                    that are required to manage the extension.
+                    The ServiceAccount must be configured with the necessary permissions to perform these interactions.
+                    The ServiceAccount must exist in the namespace referenced in the spec.
+                    The serviceAccount field is required.
+                  properties:
+                    name:
+                      description: |-
+                        name is a required, immutable reference to the name of the ServiceAccount used for installation
+                        and management of the content for the package specified in the packageName field.
+
+                        This ServiceAccount must exist in the installNamespace.
+
+                        The name field follows the DNS subdomain standard as defined in [RFC 1123].
+                        It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
+                        start and end with an alphanumeric character, and be no longer than 253 characters.
+
+                        Some examples of valid values are:
+                          - some-serviceaccount
+                          - 123-serviceaccount
+                          - 1-serviceaccount-2
+                          - someserviceaccount
+                          - some.serviceaccount
+
+                        Some examples of invalid values are:
+                          - -some-serviceaccount
+                          - some-serviceaccount-
+
+                        [RFC 1123]: https://tools.ietf.org/html/rfc1123
+                      maxLength: 253
+                      type: string
+                      x-kubernetes-validations:
+                        - message: name is immutable
+                          rule: self == oldSelf
+                        - message: name must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters
+                          rule: self.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+                  required:
+                    - name
+                  type: object
+                source:
+                  description: |-
+                    source is required and selects the installation source of content for this ClusterExtension.
+                    Set the sourceType field to perform the selection.
+
+                    Catalog is currently the only implemented sourceType.
+                    Setting sourceType to "Catalog" requires the catalog field to also be defined.
+
+                    Below is a minimal example of a source definition (in yaml):
+
+                    source:
+                      sourceType: Catalog
+                      catalog:
+                        packageName: example-package
+                  properties:
+                    catalog:
+                      description: |-
+                        catalog configures how information is sourced from a catalog.
+                        It is required when sourceType is "Catalog", and forbidden otherwise.
+                      properties:
+                        channels:
+                          description: |-
+                            channels is optional and specifies a set of channels belonging to the package
+                            specified in the packageName field.
+
+                            A channel is a package-author-defined stream of updates for an extension.
+
+                            Each channel in the list must follow the DNS subdomain standard as defined in [RFC 1123].
+                            It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
+                            start and end with an alphanumeric character, and be no longer than 253 characters.
+                            You can specify no more than 256 channels.
+
+                            When specified, it constrains the set of installable bundles and the automated upgrade path.
+                            This constraint is an AND operation with the version field. For example:
+                              - Given channel is set to "foo"
+                              - Given version is set to ">=1.0.0, <1.5.0"
+                              - Only bundles that exist in channel "foo" AND satisfy the version range comparison are considered installable
+                              - Automatic upgrades are constrained to upgrade edges defined by the selected channel
+
+                            When unspecified, upgrade edges across all channels are used to identify valid automatic upgrade paths.
+
+                            Some examples of valid values are:
+                              - 1.1.x
+                              - alpha
+                              - stable
+                              - stable-v1
+                              - v1-stable
+                              - dev-preview
+                              - preview
+                              - community
+
+                            Some examples of invalid values are:
+                              - -some-channel
+                              - some-channel-
+                              - thisisareallylongchannelnamethatisgreaterthanthemaximumlength
+                              - original_40
+                              - --default-channel
+
+                            [RFC 1123]: https://tools.ietf.org/html/rfc1123
+                          items:
+                            maxLength: 253
+                            type: string
+                            x-kubernetes-validations:
+                              - message: channels entries must be valid DNS1123 subdomains
+                                rule: self.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+                          maxItems: 256
+                          type: array
+                        packageName:
+                          description: |-
+                            packageName specifies the name of the package to be installed and is used to filter
+                            the content from catalogs.
+
+                            It is required, immutable, and follows the DNS subdomain standard as defined in [RFC 1123].
+                            It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
+                            start and end with an alphanumeric character, and be no longer than 253 characters.
+
+                            Some examples of valid values are:
+                              - some-package
+                              - 123-package
+                              - 1-package-2
+                              - somepackage
+
+                            Some examples of invalid values are:
+                              - -some-package
+                              - some-package-
+                              - thisisareallylongpackagenamethatisgreaterthanthemaximumlength
+                              - some.package
+
+                            [RFC 1123]: https://tools.ietf.org/html/rfc1123
+                          maxLength: 253
+                          type: string
+                          x-kubernetes-validations:
+                            - message: packageName is immutable
+                              rule: self == oldSelf
+                            - message: packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters
+                              rule: self.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+                        selector:
+                          description: |-
+                            selector is optional and filters the set of ClusterCatalogs used in the bundle selection process.
+
+                            When unspecified, all ClusterCatalogs are used in the bundle selection process.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                  - key
+                                  - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        upgradeConstraintPolicy:
+                          default: CatalogProvided
+                          description: |-
+                            upgradeConstraintPolicy is optional and controls whether the upgrade paths defined in the catalog
+                            are enforced for the package referenced in the packageName field.
+
+                            Allowed values are "CatalogProvided", "SelfCertified", or omitted.
+
+                            When set to "CatalogProvided", automatic upgrades only occur when upgrade constraints specified by the package
+                            author are met.
+
+                            When set to "SelfCertified", the upgrade constraints specified by the package author are ignored.
+                            This allows upgrades and downgrades to any version of the package.
+                            This is considered a dangerous operation as it can lead to unknown and potentially disastrous outcomes,
+                            such as data loss.
+                            Use this option only if you have independently verified the changes.
+
+                            When omitted, the default value is "CatalogProvided".
+                          enum:
+                            - CatalogProvided
+                            - SelfCertified
+                          type: string
+                        version:
+                          description: |-
+                            version is an optional semver constraint (a specific version or range of versions).
+                            When unspecified, the latest version available is installed.
+
+                            Acceptable version ranges are no longer than 64 characters.
+                            Version ranges are composed of comma- or space-delimited values and one or more comparison operators,
+                            known as comparison strings.
+                            You can add additional comparison strings using the OR operator (||).
+
+                            # Range Comparisons
+
+                            To specify a version range, you can use a comparison string like ">=3.0,
+                            <3.6". When specifying a range, automatic updates will occur within that
+                            range. The example comparison string means "install any version greater than
+                            or equal to 3.0.0 but less than 3.6.0.". It also states intent that if any
+                            upgrades are available within the version range after initial installation,
+                            those upgrades should be automatically performed.
+
+                            # Pinned Versions
+
+                            To specify an exact version to install you can use a version range that
+                            "pins" to a specific version. When pinning to a specific version, no
+                            automatic updates will occur. An example of a pinned version range is
+                            "0.6.0", which means "only install version 0.6.0 and never
+                            upgrade from this version".
+
+                            # Basic Comparison Operators
+
+                            The basic comparison operators and their meanings are:
+                              - "=", equal (not aliased to an operator)
+                              - "!=", not equal
+                              - "<", less than
+                              - ">", greater than
+                              - ">=", greater than OR equal to
+                              - "<=", less than OR equal to
+
+                            # Wildcard Comparisons
+
+                            You can use the "x", "X", and "*" characters as wildcard characters in all
+                            comparison operations. Some examples of using the wildcard characters:
+                              - "1.2.x", "1.2.X", and "1.2.*" is equivalent to ">=1.2.0, < 1.3.0"
+                              - ">= 1.2.x", ">= 1.2.X", and ">= 1.2.*" is equivalent to ">= 1.2.0"
+                              - "<= 2.x", "<= 2.X", and "<= 2.*" is equivalent to "< 3"
+                              - "x", "X", and "*" is equivalent to ">= 0.0.0"
+
+                            # Patch Release Comparisons
+
+                            When you want to specify a minor version up to the next major version you
+                            can use the "~" character to perform patch comparisons. Some examples:
+                              - "~1.2.3" is equivalent to ">=1.2.3, <1.3.0"
+                              - "~1" and "~1.x" is equivalent to ">=1, <2"
+                              - "~2.3" is equivalent to ">=2.3, <2.4"
+                              - "~1.2.x" is equivalent to ">=1.2.0, <1.3.0"
+
+                            # Major Release Comparisons
+
+                            You can use the "^" character to make major release comparisons after a
+                            stable 1.0.0 version is published. If there is no stable version published, // minor versions define the stability level. Some examples:
+                              - "^1.2.3" is equivalent to ">=1.2.3, <2.0.0"
+                              - "^1.2.x" is equivalent to ">=1.2.0, <2.0.0"
+                              - "^2.3" is equivalent to ">=2.3, <3"
+                              - "^2.x" is equivalent to ">=2.0.0, <3"
+                              - "^0.2.3" is equivalent to ">=0.2.3, <0.3.0"
+                              - "^0.2" is equivalent to ">=0.2.0, <0.3.0"
+                              - "^0.0.3" is equvalent to ">=0.0.3, <0.0.4"
+                              - "^0.0" is equivalent to ">=0.0.0, <0.1.0"
+                              - "^0" is equivalent to ">=0.0.0, <1.0.0"
+
+                            # OR Comparisons
+                            You can use the "||" character to represent an OR operation in the version
+                            range. Some examples:
+                              - ">=1.2.3, <2.0.0 || >3.0.0"
+                              - "^0 || ^3 || ^5"
+
+                            For more information on semver, please see https://semver.org/
+                          maxLength: 64
+                          type: string
+                          x-kubernetes-validations:
+                            - message: invalid version expression
+                              rule: self.matches("^(\\s*(=||!=|>|<|>=|=>|<=|=<|~|~>|\\^)\\s*(v?(0|[1-9]\\d*|[x|X|\\*])(\\.(0|[1-9]\\d*|x|X|\\*]))?(\\.(0|[1-9]\\d*|x|X|\\*))?(-([0-9A-Za-z\\-]+(\\.[0-9A-Za-z\\-]+)*))?(\\+([0-9A-Za-z\\-]+(\\.[0-9A-Za-z\\-]+)*))?)\\s*)((?:\\s+|,\\s*|\\s*\\|\\|\\s*)(=||!=|>|<|>=|=>|<=|=<|~|~>|\\^)\\s*(v?(0|[1-9]\\d*|x|X|\\*])(\\.(0|[1-9]\\d*|x|X|\\*))?(\\.(0|[1-9]\\d*|x|X|\\*]))?(-([0-9A-Za-z\\-]+(\\.[0-9A-Za-z\\-]+)*))?(\\+([0-9A-Za-z\\-]+(\\.[0-9A-Za-z\\-]+)*))?)\\s*)*$")
+                      required:
+                        - packageName
+                      type: object
+                    sourceType:
+                      description: |-
+                        sourceType is required and specifies the type of install source.
+
+                        The only allowed value is "Catalog".
+
+                        When set to "Catalog", information for determining the appropriate bundle of content to install
+                        is fetched from ClusterCatalog resources on the cluster.
+                        When using the Catalog sourceType, the catalog field must also be set.
+                      enum:
+                        - Catalog
+                      type: string
+                  required:
+                    - sourceType
+                  type: object
+                  x-kubernetes-validations:
+                    - message: catalog is required when sourceType is Catalog, and forbidden otherwise
+                      rule: 'has(self.sourceType) && self.sourceType == ''Catalog'' ? has(self.catalog) : !has(self.catalog)'
+              required:
+                - namespace
+                - serviceAccount
+                - source
+              type: object
+            status:
+              description: status is an optional field that defines the observed state of the ClusterExtension.
+              properties:
+                conditions:
+                  description: |-
+                    conditions represents the current state of the ClusterExtension.
+
+                    The set of condition types which apply to all spec.source variations are Installed and Progressing.
+
+                    The Installed condition represents whether the bundle has been installed for this ClusterExtension:
+                      - When Installed is True and the Reason is Succeeded, the bundle has been successfully installed.
+                      - When Installed is False and the Reason is Failed, the bundle has failed to install.
+
+                    The Progressing condition represents whether or not the ClusterExtension is advancing towards a new state.
+                    When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.
+                    When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.
+                    When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.
+
+                    When the ClusterExtension is sourced from a catalog, it surfaces deprecation conditions based on catalog metadata.
+                    These are indications from a package owner to guide users away from a particular package, channel, or bundle:
+                      - BundleDeprecated is True if the installed bundle is marked deprecated, False if not deprecated, or Unknown if no bundle is installed yet or if catalog data is unavailable.
+                      - ChannelDeprecated is True if any requested channel is marked deprecated, False if not deprecated, or Unknown if catalog data is unavailable.
+                      - PackageDeprecated is True if the requested package is marked deprecated, False if not deprecated, or Unknown if catalog data is unavailable.
+                      - Deprecated is a rollup condition that is True when any deprecation exists, False when none exist, or Unknown when catalog data is unavailable.
+                  items:
+                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    properties:
+                      lastTransitionTime:
+                        description: |-
+                          lastTransitionTime is the last time the condition transitioned from one status to another.
+                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                        format: date-time
+                        type: string
+                      message:
+                        description: |-
+                          message is a human readable message indicating details about the transition.
+                          This may be an empty string.
+                        maxLength: 32768
+                        type: string
+                      observedGeneration:
+                        description: |-
+                          observedGeneration represents the .metadata.generation that the condition was set based upon.
+                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                          with respect to the current state of the instance.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      reason:
+                        description: |-
+                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                          Producers of specific condition types may define expected values and meanings for this field,
+                          and whether the values are considered a guaranteed API.
+                          The value should be a CamelCase string.
+                          This field may not be empty.
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                        type: string
+                      status:
+                        description: status of the condition, one of True, False, Unknown.
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                        type: string
+                      type:
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        maxLength: 316
+                        pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                    - type
+                  x-kubernetes-list-type: map
+                install:
+                  description: install is a representation of the current installation status for this ClusterExtension.
+                  properties:
+                    bundle:
+                      description: |-
+                        bundle is required and represents the identifying attributes of a bundle.
+
+                        A "bundle" is a versioned set of content that represents the resources that need to be applied
+                        to a cluster to install a package.
+                      properties:
+                        name:
+                          description: |-
+                            name is required and follows the DNS subdomain standard as defined in [RFC 1123].
+                            It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
+                            start and end with an alphanumeric character, and be no longer than 253 characters.
+                          type: string
+                          x-kubernetes-validations:
+                            - message: packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters
+                              rule: self.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+                        version:
+                          description: |-
+                            version is required and references the version that this bundle represents.
+                            It follows the semantic versioning standard as defined in https://semver.org/.
+                          type: string
+                          x-kubernetes-validations:
+                            - message: version must be well-formed semver
+                              rule: self.matches("^([0-9]+)(\\.[0-9]+)?(\\.[0-9]+)?(-([-0-9A-Za-z]+(\\.[-0-9A-Za-z]+)*))?(\\+([-0-9A-Za-z]+(-\\.[-0-9A-Za-z]+)*))?")
+                      required:
+                        - name
+                        - version
+                      type: object
+                  required:
+                    - bundle
+                  type: object
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+---
+# Source: olmv1/templates/rbac/clusterrole-common-metrics-reader.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-reader
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+# Source: olmv1/templates/rbac/clusterrole-common-proxy-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-proxy-role
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+---
+# Source: olmv1/templates/rbac/clusterrole-operator-controller-clusterextension-viewer-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-clusterextension-viewer-role
+rules:
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clusterextensions
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/rbac/clusterrole-operator-controller-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: operator-controller-manager-role
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts/token
+    verbs:
+      - create
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clustercatalogs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clusterextensions
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clusterextensions/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clusterextensions/status
+    verbs:
+      - patch
+      - update
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterrolebindings
+      - clusterroles
+      - rolebindings
+      - roles
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    resourceNames:
+      - privileged
+    verbs:
+      - use
+---
+# Source: olmv1/templates/rbac/clusterrolebinding-common-proxy-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operator-controller-proxy-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/rbac/clusterrolebinding-operator-controller-manager-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operator-controller-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/openshift/role-openshift-config-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-role
+  namespace: openshift-config
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-common-leader-election-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-leader-election-role
+  namespace: openshift-operator-controller
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-metrics-monitor-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-monitor-role
+  namespace: openshift-operator-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-operator-controller-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operator-controller-manager-role
+  namespace: openshift-operator-controller
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/openshift/rolebinding-openshift-config-manager-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-rolebinding
+  namespace: openshift-config
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-controller-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-common-leader-election-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-leader-election-rolebinding
+  namespace: openshift-operator-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-controller-leader-election-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-common-manager-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-rolebinding
+  namespace: openshift-operator-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-controller-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-metrics-monitor-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-monitor-rolebinding
+  namespace: openshift-operator-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: operator-controller-metrics-monitor-role
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+---
+# Source: olmv1/templates/service-olmv1-system-operator-controller-service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+    service.beta.openshift.io/serving-cert-secret-name: operator-controller-cert
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-service
+  namespace: openshift-operator-controller
+spec:
+  ports:
+    - name: metrics
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+  selector:
+    app.kubernetes.io/name: operator-controller
+---
+# Source: olmv1/templates/deployment-olmv1-system-operator-controller-controller-manager.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubectl.kubernetes.io/default-logs-container: manager
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # Allow temporary 2 pods (1 + 1) for zero-downtime updates
+      maxUnavailable: 0 # Never allow pods to be unavailable during updates
+  selector:
+    matchLabels:
+      control-plane: operator-controller-controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        olm.operatorframework.io/feature-set: standard
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: privileged
+      labels:
+        app.kubernetes.io/name: operator-controller
+        control-plane: operator-controller-controller-manager
+        app.kubernetes.io/part-of: olm
+    spec:
+      containers:
+        - args:
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8443
+            - --leader-elect
+            - --tls-cert=/var/certs/tls.crt
+            - --tls-key=/var/certs/tls.key
+            - --catalogd-cas-dir=/var/ca-certs
+            - --v=${LOG_VERBOSITY}
+            - --global-pull-secret=openshift-config/pull-secret
+          command:
+            - /operator-controller
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
+          image: "${OPERATOR_CONTROLLER_IMAGE}"
+          name: manager
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          volumeMounts:
+            - mountPath: /var/cache
+              name: cache
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /var/certs
+              name: operator-controller-certs
+            - mountPath: /var/ca-certs
+              name: ca-certs
+              readOnly: true
+            - mountPath: /etc/containers
+              name: etc-containers
+              readOnly: true
+            - mountPath: /etc/docker
+              name: etc-docker
+              readOnly: true
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePolicy: FallbackToLogsOnError
+      serviceAccountName: operator-controller-controller-manager
+      volumes:
+        - emptyDir: {}
+          name: cache
+        - emptyDir: {}
+          name: tmp
+        - name: operator-controller-certs
+          secret:
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+            optional: false
+            secretName: operator-controller-cert
+        - name: ca-certs
+          projected:
+            sources:
+              - configMap:
+                  items:
+                    - key: ca-bundle.crt
+                      path: ca-bundle.crt
+                  name: operator-controller-trusted-ca-bundle
+                  optional: false
+              - configMap:
+                  items:
+                    - key: service-ca.crt
+                      path: service-ca.crt
+                  name: openshift-service-ca.crt
+                  optional: false
+        - hostPath:
+            path: /etc/containers
+            type: Directory
+          name: etc-containers
+        - hostPath:
+            path: /etc/docker
+            type: Directory
+          name: etc-docker
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/control-plane: ""
+        node-role.kubernetes.io/master: ""
+      priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        seLinuxOptions:
+          type: spc_t
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 120
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 120
+---
+# Source: olmv1/templates/servicemonitor-olmv1-system-metrics-monitor.yml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    openshift.io/cluster-monitoring: 'true'
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-monitor
+  namespace: openshift-operator-controller
+spec:
+  endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      path: /metrics
+      port: metrics
+      scheme: https
+      tlsConfig:
+        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+        keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+        serverName: operator-controller-service.openshift-operator-controller.svc
+  namespaceSelector:
+    matchNames:
+      - openshift-operator-controller
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: operator-controller
