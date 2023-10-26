@@ -471,13 +471,16 @@ export GO_BUILD_GCFLAGS := all=-trimpath=$(PWD)
 export GO_BUILD_EXTRA_FLAGS :=
 export GO_BUILD_LDFLAGS := -s -w \
     -X '$(VERSION_PATH).version=$(VERSION)' \
-    -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)' \
+    -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)'
 
 BINARIES=operator-controller catalogd
 
 .PHONY: $(BINARIES)
 $(BINARIES):
-	go build $(GO_BUILD_FLAGS) $(GO_BUILD_EXTRA_FLAGS) -tags '$(GO_BUILD_TAGS)' -ldflags '$(GO_BUILD_LDFLAGS)' -gcflags '$(GO_BUILD_GCFLAGS)' -asmflags '$(GO_BUILD_ASMFLAGS)' -o $(BUILDBIN)/$@ ./cmd/$@
+	# use double quotes around $(GO_BUILD_LDFLAGS) to avoid conflicts with the
+	# single quotes that are embedded inside the variable itself. this prevents
+	# malformed arguments such as "malformed import path \" \"" when the git commit is empty.
+	go build $(GO_BUILD_FLAGS) $(GO_BUILD_EXTRA_FLAGS) -tags '$(GO_BUILD_TAGS)' -ldflags "$(GO_BUILD_LDFLAGS)" -gcflags '$(GO_BUILD_GCFLAGS)' -asmflags '$(GO_BUILD_ASMFLAGS)' -o $(BUILDBIN)/$@ ./cmd/$@
 
 .PHONY: build-deps
 build-deps: manifests generate fmt
