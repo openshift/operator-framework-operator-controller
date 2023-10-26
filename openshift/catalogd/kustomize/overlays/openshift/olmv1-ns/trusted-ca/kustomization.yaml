@@ -1,0 +1,2 @@
+resources:
+- catalogd_trusted_ca_configmap.yaml 

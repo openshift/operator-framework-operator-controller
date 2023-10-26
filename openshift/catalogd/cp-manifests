@@ -1,0 +1,24 @@
+#!/bin/sh
+
+if [ -z "${1}" ]; then
+   echo "No destination specified"
+   exit 1
+fi
+
+DEST=${1}
+
+if [ -d /openshift/manifests ]; then
+    mkdir -p "${DEST}/standard/catalogd"
+    cp -a /openshift/manifests "${DEST}/standard/catalogd"
+fi
+
+if [ -d /openshift/manifests-experimental ]; then
+    mkdir -p "${DEST}/experimental/catalogd"
+    cp -a /openshift/manifests-experimental "${DEST}/experimental/catalogd"
+fi
+
+if [ -d /openshift/helm ]; then
+    mkdir -p "${DEST}/helm/catalogd"
+    cp -a /openshift/helm "${DEST}/helm/catalogd"
+fi
+

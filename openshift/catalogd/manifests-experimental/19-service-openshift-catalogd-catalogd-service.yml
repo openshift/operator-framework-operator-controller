@@ -1,0 +1,29 @@
+---
+# Source: olmv1/templates/service-olmv1-system-catalogd-service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+    service.beta.openshift.io/serving-cert-secret-name: catalogserver-cert
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  name: catalogd-service
+  namespace: openshift-catalogd
+spec:
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 8443
+    - name: webhook
+      port: 9443
+      protocol: TCP
+      targetPort: 9443
+    - name: metrics
+      port: 7443
+      protocol: TCP
+      targetPort: 7443
+  selector:
+    app.kubernetes.io/name: catalogd
