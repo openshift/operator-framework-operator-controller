@@ -1,0 +1,12 @@
+# Adds namespace to all resources.
+namespace: OPENSHIFT-NAMESPACE
+
+namePrefix: catalogd-
+
+resources:
+- ../../../../../../config/base/catalogd/manager
+- ../../../../../../config/base/common
+- metrics
+- trusted-ca
+components:
+- patches
