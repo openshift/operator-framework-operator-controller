@@ -1,0 +1,9 @@
+# administrators of this repo are controlled via GitHub teams, not this file
+
+approvers:
+- operator-framework-approvers
+
+reviewers:
+- operator-framework-approvers
+- operator-framework-reviewers
+
