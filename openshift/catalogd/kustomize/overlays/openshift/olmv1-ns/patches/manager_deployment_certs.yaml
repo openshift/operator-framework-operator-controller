@@ -1,0 +1,24 @@
+- op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"catalogserver-certs", "secret":{"optional":false,"secretName":"catalogserver-cert","items":[{"key":"tls.crt","path":"tls.crt"},{"key":"tls.key","path":"tls.key"}]}}
+- op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"ca-certs", "projected": {"sources":[{"configMap":{"optional":false,"name":"trusted-ca-bundle", "items":[{"key":"ca-bundle.crt","path":"ca-bundle.crt"}]}},{"configMap":{"optional":false,"name":"openshift-service-ca.crt", "items":[{"key":"service-ca.crt","path":"service-ca.crt"}]}}]}}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"catalogserver-certs", "mountPath":"/var/certs"}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"ca-certs", "mountPath":"/var/ca-certs", "readOnly": true}
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--tls-cert=/var/certs/tls.crt"
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--tls-key=/var/certs/tls.key"
+- op: add
+  path: /spec/template/spec/containers/0/env
+  value: [{"name":"SSL_CERT_DIR", "value":"/var/ca-certs"}]
+- op: add
+  path: /spec/template/spec/securityContext/seLinuxOptions
+  value: {"type":"spc_t"}
