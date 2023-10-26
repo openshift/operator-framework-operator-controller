@@ -1,0 +1,10 @@
+- op: add
+  path: /metadata/annotations
+  value:
+    service.beta.openshift.io/serving-cert-secret-name: catalogserver-cert
+- op: replace
+  path: /spec/ports/0/port
+  value: 443
+- op: replace
+  path: /spec/ports/0/name
+  value: https
