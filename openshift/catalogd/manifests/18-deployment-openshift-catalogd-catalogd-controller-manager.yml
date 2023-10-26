@@ -1,0 +1,156 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubectl.kubernetes.io/default-logs-container: manager
+  labels:
+    control-plane: catalogd-controller-manager
+  name: catalogd-controller-manager
+  namespace: openshift-catalogd
+spec:
+  minReadySeconds: 5
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: catalogd-controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: privileged
+      labels:
+        control-plane: catalogd-controller-manager
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      containers:
+        - args:
+            - --leader-elect
+            - --metrics-bind-address=:7443
+            - --external-address=catalogd-service.openshift-catalogd.svc
+            - --tls-cert=/var/certs/tls.crt
+            - --tls-key=/var/certs/tls.key
+            - --v=${LOG_VERBOSITY}
+            - --global-pull-secret=openshift-config/pull-secret
+          command:
+            - ./catalogd
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
+          image: ${CATALOGD_IMAGE}
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          name: manager
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+            - mountPath: /var/cache/
+              name: cache
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /var/certs
+              name: catalogserver-certs
+            - mountPath: /var/ca-certs
+              name: ca-certs
+              readOnly: true
+            - mountPath: /etc/containers
+              name: etc-containers
+              readOnly: true
+            - mountPath: /etc/docker
+              name: etc-docker
+              readOnly: true
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/master: ""
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: catalogd-controller-manager
+      terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 120
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 120
+      volumes:
+        - emptyDir: {}
+          name: cache
+        - emptyDir: {}
+          name: tmp
+        - name: catalogserver-certs
+          secret:
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+            optional: false
+            secretName: catalogserver-cert
+        - name: ca-certs
+          projected:
+            sources:
+              - configMap:
+                  items:
+                    - key: ca-bundle.crt
+                      path: ca-bundle.crt
+                  name: catalogd-trusted-ca-bundle
+                  optional: false
+              - configMap:
+                  items:
+                    - key: service-ca.crt
+                      path: service-ca.crt
+                  name: openshift-service-ca.crt
+                  optional: false
+        - hostPath:
+            path: /etc/containers
+            type: Directory
+          name: etc-containers
+        - hostPath:
+            path: /etc/docker
+            type: Directory
+          name: etc-docker
+      priorityClassName: system-cluster-critical
