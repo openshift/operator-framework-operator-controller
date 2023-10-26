@@ -1,0 +1,33 @@
+{
+  "schema": "olm.package",
+  "name": "{{ TEST-BUNDLE }}"
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v0.0.1",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "0.0.1"
+      }
+    },
+    {
+      "type": "olm.maxOpenShiftVersion",
+      "value": "{{ VERSION }}"
+    }
+  ]
+}
+{
+  "schema": "olm.channel",
+  "name": "preview",
+  "package": "{{ TEST-BUNDLE }}",
+  "entries": [
+    {
+      "name": "{{ TEST-BUNDLE }}.v0.0.1"
+    }
+  ]
+}
