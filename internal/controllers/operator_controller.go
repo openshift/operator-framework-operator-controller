@@ -18,10 +18,14 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
+	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/solver"
 	rukpakv1alpha1 "github.com/operator-framework/rukpak/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -40,8 +44,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	operatorsv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
+	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
 	"github.com/operator-framework/operator-controller/internal/controllers/validators"
-	"github.com/operator-framework/operator-controller/internal/resolution/entities"
 	olmvariables "github.com/operator-framework/operator-controller/internal/resolution/variables"
 )
 
@@ -58,9 +62,8 @@ type OperatorReconciler struct {
 
 //+kubebuilder:rbac:groups=core.rukpak.io,resources=bundledeployments,verbs=get;list;watch;create;update;patch
 
-//+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=bundlemetadata,verbs=list;watch
-//+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=packages,verbs=list;watch
 //+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=catalogs,verbs=list;watch
+//+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=catalogmetadata,verbs=list;watch
 
 func (r *OperatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx).WithName("operator-controller")
@@ -136,9 +139,24 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 		return ctrl.Result{}, err
 	}
 
-	// lookup the bundle entity in the solution that corresponds to the
+	// TODO: Checking for unsat is awkward using the current version of deppy.
+	//    This awkwardness has been fixed in an unreleased version of deppy.
+	//    When there is a new minor release of deppy, we can revisit this and
+	//    simplify this to a normal error check.
+	//    See https://github.com/operator-framework/deppy/issues/139.
+	unsat := deppy.NotSatisfiable{}
+	if ok := errors.As(solution.Error(), &unsat); ok && len(unsat) > 0 {
+		op.Status.InstalledBundleResource = ""
+		setInstalledStatusConditionUnknown(&op.Status.Conditions, "installation has not been attempted as resolution is unsatisfiable", op.GetGeneration())
+		op.Status.ResolvedBundleResource = ""
+		msg := prettyUnsatMessage(unsat)
+		setResolvedStatusConditionFailed(&op.Status.Conditions, msg, op.GetGeneration())
+		return ctrl.Result{}, unsat
+	}
+
+	// lookup the bundle in the solution that corresponds to the
 	// Operator's desired package name.
-	bundleEntity, err := r.getBundleEntityFromSolution(solution, op.Spec.PackageName)
+	bundle, err := r.bundleFromSolution(solution, op.Spec.PackageName)
 	if err != nil {
 		op.Status.InstalledBundleResource = ""
 		setInstalledStatusConditionUnknown(&op.Status.Conditions, "installation has not been attempted as resolution failed", op.GetGeneration())
@@ -147,22 +165,11 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 		return ctrl.Result{}, err
 	}
 
-	// Get the bundle image reference for the bundle
-	bundleImage, err := bundleEntity.BundlePath()
-	if err != nil {
-		op.Status.InstalledBundleResource = ""
-		setInstalledStatusConditionUnknown(&op.Status.Conditions, "installation has not been attempted as resolution failed", op.GetGeneration())
+	// Now we can set the Resolved Condition, and the resolvedBundleSource field to the bundle.Image value.
+	op.Status.ResolvedBundleResource = bundle.Image
+	setResolvedStatusConditionSuccess(&op.Status.Conditions, fmt.Sprintf("resolved to %q", bundle.Image), op.GetGeneration())
 
-		op.Status.ResolvedBundleResource = ""
-		setResolvedStatusConditionFailed(&op.Status.Conditions, err.Error(), op.GetGeneration())
-		return ctrl.Result{}, err
-	}
-
-	// Now we can set the Resolved Condition, and the resolvedBundleSource field to the bundleImage value.
-	op.Status.ResolvedBundleResource = bundleImage
-	setResolvedStatusConditionSuccess(&op.Status.Conditions, fmt.Sprintf("resolved to %q", bundleImage), op.GetGeneration())
-
-	mediaType, err := bundleEntity.MediaType()
+	mediaType, err := bundle.MediaType()
 	if err != nil {
 		setInstalledStatusConditionFailed(&op.Status.Conditions, err.Error(), op.GetGeneration())
 		return ctrl.Result{}, err
@@ -174,7 +181,7 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 	}
 	// Ensure a BundleDeployment exists with its bundle source from the bundle
 	// image we just looked up in the solution.
-	dep := r.generateExpectedBundleDeployment(*op, bundleImage, bundleProvisioner)
+	dep := r.generateExpectedBundleDeployment(*op, bundle.Image, bundleProvisioner)
 	if err := r.ensureBundleDeployment(ctx, dep); err != nil {
 		// originally Reason: operatorsv1alpha1.ReasonInstallationFailed
 		op.Status.InstalledBundleResource = ""
@@ -244,20 +251,17 @@ func mapBDStatusToInstalledCondition(existingTypedBundleDeployment *rukpakv1alph
 	}
 }
 
-func (r *OperatorReconciler) getBundleEntityFromSolution(solution *solver.Solution, packageName string) (*entities.BundleEntity, error) {
+func (r *OperatorReconciler) bundleFromSolution(solution *solver.Solution, packageName string) (*catalogmetadata.Bundle, error) {
 	for _, variable := range solution.SelectedVariables() {
 		switch v := variable.(type) {
 		case *olmvariables.BundleVariable:
-			entityPkgName, err := v.BundleEntity().PackageName()
-			if err != nil {
-				return nil, err
-			}
-			if packageName == entityPkgName {
-				return v.BundleEntity(), nil
+			bundlePkgName := v.Bundle().Package
+			if packageName == bundlePkgName {
+				return v.Bundle(), nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("entity for package %q not found in solution", packageName)
+	return nil, fmt.Errorf("bundle for package %q not found in solution", packageName)
 }
 
 func (r *OperatorReconciler) generateExpectedBundleDeployment(o operatorsv1alpha1.Operator, bundlePath string, bundleProvisioner string) *unstructured.Unstructured {
@@ -358,13 +362,13 @@ func (r *OperatorReconciler) existingBundleDeploymentUnstructured(ctx context.Co
 // rukpak bundle provisioner class name that is capable of unpacking the bundle type
 func mapBundleMediaTypeToBundleProvisioner(mediaType string) (string, error) {
 	switch mediaType {
-	case entities.MediaTypePlain:
+	case catalogmetadata.MediaTypePlain:
 		return "core-rukpak-io-plain", nil
 	// To ensure compatibility with bundles created with OLMv0 where the
 	// olm.bundle.mediatype property doesn't exist, we assume that if the
 	// property is empty (i.e doesn't exist) that the bundle is one created
 	// with OLMv0 and therefore should use the registry provisioner
-	case entities.MediaTypeRegistry, "":
+	case catalogmetadata.MediaTypeRegistry, "":
 		return "core-rukpak-io-registry", nil
 	default:
 		return "", fmt.Errorf("unknown bundle mediatype: %s", mediaType)
@@ -458,4 +462,24 @@ func operatorRequestsForCatalog(ctx context.Context, c client.Reader, logger log
 		}
 		return requests
 	}
+}
+
+// TODO: This can be removed when operator controller bumps to a
+//    version of deppy that contains a fix for this issue:
+//    https://github.com/operator-framework/deppy/issues/142
+
+// prettyUnsatMessage ensures that the unsat message is deterministic and
+// human-readable. It sorts the individual constraint strings lexicographically
+// and joins them with a semicolon (rather than a comma, which the unsat.Error()
+// function does). This function also has the side effect of sorting the items
+// in the unsat slice.
+func prettyUnsatMessage(unsat deppy.NotSatisfiable) string {
+	sort.Slice(unsat, func(i, j int) bool {
+		return unsat[i].String() < unsat[j].String()
+	})
+	msgs := make([]string, 0, len(unsat))
+	for _, c := range unsat {
+		msgs = append(msgs, c.String())
+	}
+	return fmt.Sprintf("constraints not satisfiable: %s", strings.Join(msgs, "; "))
 }

@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
     - main
+  merge_group:
 
 jobs:
   goreleaser:
@@ -17,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
@@ -28,7 +29,7 @@ jobs:
 
     - name: Docker Login
       if: ${{ github.event_name != 'pull_request' }}
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         registry: quay.io
         username: ${{ secrets.QUAY_USERNAME }}

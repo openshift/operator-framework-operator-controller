@@ -16,7 +16,7 @@ import (
 // A successful execution of the solver can still end in an error when no solution can
 // be found.
 type Solution struct {
-	err       deppy.NotSatisfiable
+	err       error
 	selection map[deppy.Identifier]deppy.Variable
 	variables []deppy.Variable
 }
@@ -77,13 +77,11 @@ func AddAllVariablesToSolution() Option {
 // DeppySolver is a simple solver implementation that takes an entity source group and a constraint aggregator
 // to produce a Solution (or error if no solution can be found)
 type DeppySolver struct {
-	entitySource   input.EntitySource
 	variableSource input.VariableSource
 }
 
-func NewDeppySolver(entitySource input.EntitySource, variableSource input.VariableSource) *DeppySolver {
+func NewDeppySolver(variableSource input.VariableSource) *DeppySolver {
 	return &DeppySolver{
-		entitySource:   entitySource,
 		variableSource: variableSource,
 	}
 }
@@ -91,7 +89,7 @@ func NewDeppySolver(entitySource input.EntitySource, variableSource input.Variab
 func (d DeppySolver) Solve(ctx context.Context, options ...Option) (*Solution, error) {
 	solutionOpts := defaultSolutionOptions().apply(options...)
 
-	vars, err := d.variableSource.GetVariables(ctx, d.entitySource)
+	vars, err := d.variableSource.GetVariables(ctx)
 	if err != nil {
 		return nil, err
 	}

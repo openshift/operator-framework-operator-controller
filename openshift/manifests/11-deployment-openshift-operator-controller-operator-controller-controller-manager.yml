@@ -68,6 +68,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
+            - --feature-gates=ForceSemverUpgradeConstraints=true
           command:
             - /manager
           image: ${OPERATOR_CONTROLLER_IMAGE}
@@ -94,10 +95,16 @@ spec:
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - mountPath: /var/cache
+              name: cache
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: operator-controller-controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - emptyDir: {}
+          name: cache
       priorityClassName: system-cluster-critical

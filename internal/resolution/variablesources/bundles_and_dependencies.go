@@ -5,34 +5,36 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/blang/semver/v4"
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"k8s.io/apimachinery/pkg/util/sets"
 
-	olmentity "github.com/operator-framework/operator-controller/internal/resolution/entities"
-	"github.com/operator-framework/operator-controller/internal/resolution/util/predicates"
-	entitysort "github.com/operator-framework/operator-controller/internal/resolution/util/sort"
+	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
+	catalogfilter "github.com/operator-framework/operator-controller/internal/catalogmetadata/filter"
+	catalogsort "github.com/operator-framework/operator-controller/internal/catalogmetadata/sort"
 	olmvariables "github.com/operator-framework/operator-controller/internal/resolution/variables"
 )
 
 var _ input.VariableSource = &BundlesAndDepsVariableSource{}
 
 type BundlesAndDepsVariableSource struct {
+	catalogClient   BundleProvider
 	variableSources []input.VariableSource
 }
 
-func NewBundlesAndDepsVariableSource(inputVariableSources ...input.VariableSource) *BundlesAndDepsVariableSource {
+func NewBundlesAndDepsVariableSource(catalogClient BundleProvider, inputVariableSources ...input.VariableSource) *BundlesAndDepsVariableSource {
 	return &BundlesAndDepsVariableSource{
+		catalogClient:   catalogClient,
 		variableSources: inputVariableSources,
 	}
 }
 
-func (b *BundlesAndDepsVariableSource) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
+func (b *BundlesAndDepsVariableSource) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
 	var variables []deppy.Variable
 
 	// extract required package variables
 	for _, variableSource := range b.variableSources {
-		inputVariables, err := variableSource.GetVariables(ctx, entitySource)
+		inputVariables, err := variableSource.GetVariables(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -40,95 +42,77 @@ func (b *BundlesAndDepsVariableSource) GetVariables(ctx context.Context, entityS
 	}
 
 	// create bundle queue for dependency resolution
-	var bundleEntityQueue []*olmentity.BundleEntity
+	var bundleQueue []*catalogmetadata.Bundle
 	for _, variable := range variables {
 		switch v := variable.(type) {
 		case *olmvariables.RequiredPackageVariable:
-			bundleEntityQueue = append(bundleEntityQueue, v.BundleEntities()...)
+			bundleQueue = append(bundleQueue, v.Bundles()...)
+		case *olmvariables.InstalledPackageVariable:
+			bundleQueue = append(bundleQueue, v.Bundles()...)
 		}
 	}
 
+	allBundles, err := b.catalogClient.Bundles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// build bundle and dependency variables
-	visited := map[deppy.Identifier]struct{}{}
-	for len(bundleEntityQueue) > 0 {
+	visited := sets.Set[deppy.Identifier]{}
+	for len(bundleQueue) > 0 {
 		// pop head of queue
-		var head *olmentity.BundleEntity
-		head, bundleEntityQueue = bundleEntityQueue[0], bundleEntityQueue[1:]
+		var head *catalogmetadata.Bundle
+		head, bundleQueue = bundleQueue[0], bundleQueue[1:]
+
+		id := olmvariables.BundleVariableID(head)
 
 		// ignore bundles that have already been processed
-		if _, ok := visited[head.ID]; ok {
+		if visited.Has(id) {
 			continue
 		}
-		visited[head.ID] = struct{}{}
+		visited.Insert(id)
 
 		// get bundle dependencies
-		dependencyEntityBundles, err := b.getEntityDependencies(ctx, head, entitySource)
+		dependencies, err := b.filterBundleDependencies(allBundles, head)
 		if err != nil {
-			return nil, fmt.Errorf("could not determine dependencies for entity with id '%s': %w", head.ID, err)
+			return nil, fmt.Errorf("could not determine dependencies for bundle with id '%s': %w", id, err)
 		}
 
 		// add bundle dependencies to queue for processing
-		bundleEntityQueue = append(bundleEntityQueue, dependencyEntityBundles...)
+		bundleQueue = append(bundleQueue, dependencies...)
 
 		// create variable
-		variables = append(variables, olmvariables.NewBundleVariable(head, dependencyEntityBundles))
+		variables = append(variables, olmvariables.NewBundleVariable(head, dependencies))
 	}
 
 	return variables, nil
 }
 
-func (b *BundlesAndDepsVariableSource) getEntityDependencies(ctx context.Context, bundleEntity *olmentity.BundleEntity, entitySource input.EntitySource) ([]*olmentity.BundleEntity, error) {
-	var dependencies []*olmentity.BundleEntity
-	added := map[deppy.Identifier]struct{}{}
+func (b *BundlesAndDepsVariableSource) filterBundleDependencies(allBundles []*catalogmetadata.Bundle, bundle *catalogmetadata.Bundle) ([]*catalogmetadata.Bundle, error) {
+	var dependencies []*catalogmetadata.Bundle
+	added := sets.Set[deppy.Identifier]{}
 
 	// gather required package dependencies
 	// todo(perdasilva): disambiguate between not found and actual errors
-	requiredPackages, _ := bundleEntity.RequiredPackages()
+	requiredPackages, _ := bundle.RequiredPackages()
 	for _, requiredPackage := range requiredPackages {
-		semverRange, err := semver.ParseRange(requiredPackage.VersionRange)
-		if err != nil {
-			return nil, err
-		}
-		packageDependencyBundles, err := entitySource.Filter(ctx, input.And(predicates.WithPackageName(requiredPackage.PackageName), predicates.InSemverRange(semverRange)))
-		if err != nil {
-			return nil, err
-		}
+		packageDependencyBundles := catalogfilter.Filter(allBundles, catalogfilter.And(catalogfilter.WithPackageName(requiredPackage.PackageName), catalogfilter.InBlangSemverRange(requiredPackage.SemverRange)))
 		if len(packageDependencyBundles) == 0 {
-			return nil, fmt.Errorf("could not find package dependencies for bundle '%s'", bundleEntity.ID)
+			return nil, fmt.Errorf("could not find package dependencies for bundle '%s'", bundle.Name)
 		}
 		for i := 0; i < len(packageDependencyBundles); i++ {
-			entity := packageDependencyBundles[i]
-			if _, ok := added[entity.ID]; !ok {
-				dependencies = append(dependencies, olmentity.NewBundleEntity(&entity))
-				added[entity.ID] = struct{}{}
-			}
-		}
-	}
-
-	// gather required gvk dependencies
-	// todo(perdasilva): disambiguate between not found and actual errors
-	gvkDependencies, _ := bundleEntity.RequiredGVKs()
-	for i := 0; i < len(gvkDependencies); i++ {
-		providedGvk := gvkDependencies[i].AsGVK()
-		gvkDependencyBundles, err := entitySource.Filter(ctx, predicates.ProvidesGVK(&providedGvk))
-		if err != nil {
-			return nil, err
-		}
-		if len(gvkDependencyBundles) == 0 {
-			return nil, fmt.Errorf("could not find gvk dependencies for bundle '%s'", bundleEntity.ID)
-		}
-		for i := 0; i < len(gvkDependencyBundles); i++ {
-			entity := gvkDependencyBundles[i]
-			if _, ok := added[entity.ID]; !ok {
-				dependencies = append(dependencies, olmentity.NewBundleEntity(&entity))
-				added[entity.ID] = struct{}{}
+			bundle := packageDependencyBundles[i]
+			id := olmvariables.BundleVariableID(bundle)
+			if !added.Has(id) {
+				dependencies = append(dependencies, bundle)
+				added.Insert(id)
 			}
 		}
 	}
 
 	// sort bundles in version order
 	sort.SliceStable(dependencies, func(i, j int) bool {
-		return entitysort.ByChannelAndVersion(dependencies[i].Entity, dependencies[j].Entity)
+		return catalogsort.ByVersion(dependencies[i], dependencies[j])
 	})
 
 	return dependencies, nil

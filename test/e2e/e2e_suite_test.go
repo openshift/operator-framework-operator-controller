@@ -8,6 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/env"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -61,6 +64,13 @@ var _ = BeforeSuite(func() {
 	Expect(catalogd.AddToScheme(scheme)).To(Succeed())
 
 	var err error
+
+	err = appsv1.AddToScheme(scheme)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = corev1.AddToScheme(scheme)
+	Expect(err).ToNot(HaveOccurred())
+
 	c, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).To(Not(HaveOccurred()))
 
@@ -68,6 +78,8 @@ var _ = BeforeSuite(func() {
 	operatorCatalog, err = createTestCatalog(ctx, testCatalogName, getCatalogImageRef())
 	Expect(err).ToNot(HaveOccurred())
 
+	// TODO: REMOVE THIS. This should not be necessary if we have idiomatic APIs. Kubernetes is supposed
+	//   to be eventually consistent. Waits for preconditions like this hide bugs.
 	Eventually(func(g Gomega) {
 		err := c.Get(ctx, types.NamespacedName{Name: operatorCatalog.Name}, operatorCatalog)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -75,38 +87,19 @@ var _ = BeforeSuite(func() {
 		g.Expect(cond).ToNot(BeNil())
 		g.Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 		g.Expect(cond.Reason).To(Equal(catalogd.ReasonUnpackSuccessful))
-
-		// Ensure some packages exist before continuing so the
-		// operators don't get stuck in a bad state
-		pList := &catalogd.PackageList{}
-		err = c.List(ctx, pList)
-		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(pList.Items).To(HaveLen(2))
 	}).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
 	ctx := context.Background()
-
+	if basePath := env.GetString("ARTIFACT_PATH", ""); basePath != "" {
+		// get all the artifacts from the test run and save them to the artifact path
+		getArtifactsOutput(ctx, basePath)
+	}
 	Expect(c.Delete(ctx, operatorCatalog)).To(Succeed())
 	Eventually(func(g Gomega) {
 		err := c.Get(ctx, types.NamespacedName{Name: operatorCatalog.Name}, &catalogd.Catalog{})
-		Expect(errors.IsNotFound(err)).To(BeTrue())
-	}).Should(Succeed())
-
-	// speed up delete without waiting for gc
-	Expect(c.DeleteAllOf(ctx, &catalogd.BundleMetadata{})).To(Succeed())
-	Expect(c.DeleteAllOf(ctx, &catalogd.Package{})).To(Succeed())
-
-	Eventually(func(g Gomega) {
-		// ensure resource cleanup
-		packages := &catalogd.PackageList{}
-		g.Expect(c.List(ctx, packages)).To(Succeed())
-		g.Expect(packages.Items).To(BeEmpty())
-
-		bmd := &catalogd.BundleMetadataList{}
-		g.Expect(c.List(ctx, bmd)).To(Succeed())
-		g.Expect(bmd.Items).To(BeEmpty())
+		g.Expect(errors.IsNotFound(err)).To(BeTrue())
 	}).Should(Succeed())
 })
 

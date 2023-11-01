@@ -29,11 +29,14 @@ const (
 	SourceTypeImage SourceType = "image"
 
 	TypeUnpacked = "Unpacked"
+	TypeDelete   = "Delete"
 
-	ReasonUnpackPending    = "UnpackPending"
-	ReasonUnpacking        = "Unpacking"
-	ReasonUnpackSuccessful = "UnpackSuccessful"
-	ReasonUnpackFailed     = "UnpackFailed"
+	ReasonUnpackPending       = "UnpackPending"
+	ReasonUnpacking           = "Unpacking"
+	ReasonUnpackSuccessful    = "UnpackSuccessful"
+	ReasonUnpackFailed        = "UnpackFailed"
+	ReasonStorageFailed       = "FailedToStore"
+	ReasonStorageDeleteFailed = "FailedToDelete"
 
 	PhasePending   = "Pending"
 	PhaseUnpacking = "Unpacking"
@@ -78,6 +81,9 @@ type CatalogStatus struct {
 
 	ResolvedSource *CatalogSource `json:"resolvedSource,omitempty"`
 	Phase          string         `json:"phase,omitempty"`
+	// ContentURL is a cluster-internal address that on-cluster components
+	// can read the content of a catalog from
+	ContentURL string `json:"contentURL,omitempty"`
 }
 
 // CatalogSource contains the sourcing information for a Catalog
