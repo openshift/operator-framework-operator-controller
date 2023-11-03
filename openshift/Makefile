@@ -14,14 +14,3 @@ manifests: $(KUSTOMIZE) $(YQ)
 .PHONY: verify-manifests
 verify-manifests: manifests
 	git diff --exit-code
-
-COMMITCHECKER := $(DIR)/bin/commitchecker
-
-.PHONY: commitchecker
-$(COMMITCHECKER):
-	mkdir -p $(DIR)/bin
-	cd $(DIR) && go build -o $(COMMITCHECKER) ./commitchecker
-
-.PHONY: verify-commits
-verify-commits: $(COMMITCHECKER)
-	$(COMMITCHECKER) -start $(shell echo $${PULL_BASE_SHA:-main})
