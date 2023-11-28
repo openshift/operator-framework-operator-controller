@@ -1,76 +1,93 @@
 package variablesources
 
 import (
-	"context"
 	"fmt"
 	"sort"
 
 	mmsemver "github.com/Masterminds/semver/v3"
-	"github.com/operator-framework/deppy/pkg/deppy"
-	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	rukpakv1alpha1 "github.com/operator-framework/rukpak/api/v1alpha1"
+
+	operatorsv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
 	catalogfilter "github.com/operator-framework/operator-controller/internal/catalogmetadata/filter"
 	catalogsort "github.com/operator-framework/operator-controller/internal/catalogmetadata/sort"
-	"github.com/operator-framework/operator-controller/internal/resolution/variables"
+	olmvariables "github.com/operator-framework/operator-controller/internal/resolution/variables"
 	"github.com/operator-framework/operator-controller/pkg/features"
 )
 
-var _ input.VariableSource = &InstalledPackageVariableSource{}
-
-type InstalledPackageVariableSource struct {
-	catalogClient BundleProvider
-	successors    successorsFunc
-	bundleImage   string
-}
-
-func (r *InstalledPackageVariableSource) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
-	allBundles, err := r.catalogClient.Bundles(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// find corresponding bundle for the installed content
-	resultSet := catalogfilter.Filter(allBundles, catalogfilter.WithBundleImage(r.bundleImage))
-	if len(resultSet) == 0 {
-		return nil, r.notFoundError()
-	}
-
-	// TODO: fast follow - we should check whether we are already supporting the channel attribute in the operator spec.
-	//       if so, we should take the value from spec of the operator CR in the owner ref of the bundle deployment.
-	//       If that channel is set, we need to update the filter above to filter by channel as well.
-	sort.SliceStable(resultSet, func(i, j int) bool {
-		return catalogsort.ByVersion(resultSet[i], resultSet[j])
-	})
-	installedBundle := resultSet[0]
-
-	upgradeEdges, err := r.successors(allBundles, installedBundle)
-	if err != nil {
-		return nil, err
-	}
-
-	// you can always upgrade to yourself, i.e. not upgrade
-	upgradeEdges = append(upgradeEdges, installedBundle)
-	return []deppy.Variable{
-		variables.NewInstalledPackageVariable(installedBundle.Package, upgradeEdges),
-	}, nil
-}
-
-func (r *InstalledPackageVariableSource) notFoundError() error {
-	return fmt.Errorf("bundleImage %q not found", r.bundleImage)
-}
-
-func NewInstalledPackageVariableSource(catalogClient BundleProvider, bundleImage string) (*InstalledPackageVariableSource, error) {
-	successors := legacySemanticsSuccessors
+// MakeInstalledPackageVariables returns variables representing packages
+// already installed in the system.
+// Meaning that each BundleDeployment managed by operator-controller
+// has own variable.
+func MakeInstalledPackageVariables(
+	allBundles []*catalogmetadata.Bundle,
+	operators []operatorsv1alpha1.Operator,
+	bundleDeployments []rukpakv1alpha1.BundleDeployment,
+) ([]*olmvariables.InstalledPackageVariable, error) {
+	var successors successorsFunc = legacySemanticsSuccessors
 	if features.OperatorControllerFeatureGate.Enabled(features.ForceSemverUpgradeConstraints) {
 		successors = semverSuccessors
 	}
 
-	return &InstalledPackageVariableSource{
-		catalogClient: catalogClient,
-		bundleImage:   bundleImage,
-		successors:    successors,
-	}, nil
+	ownerIDToBundleDeployment := mapOwnerIDToBundleDeployment(bundleDeployments)
+
+	result := make([]*olmvariables.InstalledPackageVariable, 0, len(operators))
+	processed := sets.Set[string]{}
+	for _, operator := range operators {
+		if operator.Spec.UpgradeConstraintPolicy == operatorsv1alpha1.UpgradeConstraintPolicyIgnore {
+			continue
+		}
+
+		bundleDeployment, ok := ownerIDToBundleDeployment[operator.UID]
+		if !ok {
+			// This can happen when an Operator is requested,
+			// but not yet installed (e.g. no BundleDeployment created for it)
+			continue
+		}
+
+		if bundleDeployment.Spec.Template == nil {
+			continue
+		}
+		sourceImage := bundleDeployment.Spec.Template.Spec.Source.Image
+		if sourceImage == nil || sourceImage.Ref == "" {
+			continue
+		}
+
+		if processed.Has(sourceImage.Ref) {
+			continue
+		}
+		processed.Insert(sourceImage.Ref)
+
+		bundleImage := sourceImage.Ref
+
+		// find corresponding bundle for the installed content
+		resultSet := catalogfilter.Filter(allBundles, catalogfilter.And(
+			catalogfilter.WithPackageName(operator.Spec.PackageName),
+			catalogfilter.WithBundleImage(bundleImage),
+		))
+		if len(resultSet) == 0 {
+			return nil, fmt.Errorf("bundle with image %q for package %q not found in available catalogs but is currently installed via BundleDeployment %q", bundleImage, operator.Spec.PackageName, bundleDeployment.Name)
+		}
+
+		sort.SliceStable(resultSet, func(i, j int) bool {
+			return catalogsort.ByVersion(resultSet[i], resultSet[j])
+		})
+		installedBundle := resultSet[0]
+
+		upgradeEdges, err := successors(allBundles, installedBundle)
+		if err != nil {
+			return nil, err
+		}
+
+		// you can always upgrade to yourself, i.e. not upgrade
+		upgradeEdges = append(upgradeEdges, installedBundle)
+		result = append(result, olmvariables.NewInstalledPackageVariable(installedBundle.Package, upgradeEdges))
+	}
+
+	return result, nil
 }
 
 // successorsFunc must return successors of a currently installed bundle
@@ -120,4 +137,16 @@ func semverSuccessors(allBundles []*catalogmetadata.Bundle, installedBundle *cat
 	})
 
 	return upgradeEdges, nil
+}
+
+func mapOwnerIDToBundleDeployment(bundleDeployments []rukpakv1alpha1.BundleDeployment) map[types.UID]*rukpakv1alpha1.BundleDeployment {
+	result := map[types.UID]*rukpakv1alpha1.BundleDeployment{}
+
+	for idx := range bundleDeployments {
+		for _, ref := range bundleDeployments[idx].OwnerReferences {
+			result[ref.UID] = &bundleDeployments[idx]
+		}
+	}
+
+	return result
 }

@@ -18,14 +18,10 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/go-logr/logr"
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
-	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/solver"
 	rukpakv1alpha1 "github.com/operator-framework/rukpak/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	operatorsv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
@@ -139,19 +134,12 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 		return ctrl.Result{}, err
 	}
 
-	// TODO: Checking for unsat is awkward using the current version of deppy.
-	//    This awkwardness has been fixed in an unreleased version of deppy.
-	//    When there is a new minor release of deppy, we can revisit this and
-	//    simplify this to a normal error check.
-	//    See https://github.com/operator-framework/deppy/issues/139.
-	unsat := deppy.NotSatisfiable{}
-	if ok := errors.As(solution.Error(), &unsat); ok && len(unsat) > 0 {
+	if err := solution.Error(); err != nil {
 		op.Status.InstalledBundleResource = ""
 		setInstalledStatusConditionUnknown(&op.Status.Conditions, "installation has not been attempted as resolution is unsatisfiable", op.GetGeneration())
 		op.Status.ResolvedBundleResource = ""
-		msg := prettyUnsatMessage(unsat)
-		setResolvedStatusConditionFailed(&op.Status.Conditions, msg, op.GetGeneration())
-		return ctrl.Result{}, unsat
+		setResolvedStatusConditionFailed(&op.Status.Conditions, err.Error(), op.GetGeneration())
+		return ctrl.Result{}, err
 	}
 
 	// lookup the bundle in the solution that corresponds to the
@@ -311,8 +299,8 @@ func (r *OperatorReconciler) generateExpectedBundleDeployment(o operatorsv1alpha
 func (r *OperatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&operatorsv1alpha1.Operator{}).
-		Watches(source.NewKindWithCache(&catalogd.Catalog{}, mgr.GetCache()),
-			handler.EnqueueRequestsFromMapFunc(operatorRequestsForCatalog(context.TODO(), mgr.GetClient(), mgr.GetLogger()))).
+		Watches(&catalogd.Catalog{},
+			handler.EnqueueRequestsFromMapFunc(operatorRequestsForCatalog(mgr.GetClient(), mgr.GetLogger()))).
 		Owns(&rukpakv1alpha1.BundleDeployment{}).
 		Complete(r)
 
@@ -442,8 +430,8 @@ func setInstalledStatusConditionUnknown(conditions *[]metav1.Condition, message 
 }
 
 // Generate reconcile requests for all operators affected by a catalog change
-func operatorRequestsForCatalog(ctx context.Context, c client.Reader, logger logr.Logger) handler.MapFunc {
-	return func(object client.Object) []reconcile.Request {
+func operatorRequestsForCatalog(c client.Reader, logger logr.Logger) handler.MapFunc {
+	return func(ctx context.Context, _ client.Object) []reconcile.Request {
 		// no way of associating an operator to a catalog so create reconcile requests for everything
 		operators := operatorsv1alpha1.OperatorList{}
 		err := c.List(ctx, &operators)
@@ -462,24 +450,4 @@ func operatorRequestsForCatalog(ctx context.Context, c client.Reader, logger log
 		}
 		return requests
 	}
-}
-
-// TODO: This can be removed when operator controller bumps to a
-//    version of deppy that contains a fix for this issue:
-//    https://github.com/operator-framework/deppy/issues/142
-
-// prettyUnsatMessage ensures that the unsat message is deterministic and
-// human-readable. It sorts the individual constraint strings lexicographically
-// and joins them with a semicolon (rather than a comma, which the unsat.Error()
-// function does). This function also has the side effect of sorting the items
-// in the unsat slice.
-func prettyUnsatMessage(unsat deppy.NotSatisfiable) string {
-	sort.Slice(unsat, func(i, j int) bool {
-		return unsat[i].String() < unsat[j].String()
-	})
-	msgs := make([]string, 0, len(unsat))
-	for _, c := range unsat {
-		msgs = append(msgs, c.String())
-	}
-	return fmt.Sprintf("constraints not satisfiable: %s", strings.Join(msgs, "; "))
 }
