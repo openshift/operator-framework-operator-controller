@@ -141,3 +141,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231127125315-3b5569e8633a
+
+replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231128134914-3fc5f414256c
