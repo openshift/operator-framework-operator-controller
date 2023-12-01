@@ -10,7 +10,7 @@ require (
 	github.com/operator-framework/catalogd v0.10.0
 	github.com/operator-framework/deppy v0.1.0
 	github.com/operator-framework/operator-registry v1.32.0
-	github.com/operator-framework/rukpak v0.15.0
+	github.com/operator-framework/rukpak v0.16.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
@@ -141,7 +141,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231127125315-3b5569e8633a
 
 replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231128134914-3fc5f414256c
