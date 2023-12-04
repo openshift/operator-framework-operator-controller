@@ -15,7 +15,7 @@ import (
 var ErrIncomplete = errors.New("cancelled before a solution could be found")
 
 type Solver interface {
-	Solve(context.Context) ([]deppy.Variable, error)
+	Solve() ([]deppy.Variable, error)
 }
 
 type solver struct {
@@ -35,7 +35,7 @@ const (
 // containing only those Variables that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(_ context.Context) ([]deppy.Variable, error) {
+func (s *solver) Solve() ([]deppy.Variable, error) {
 	result, err := s.solve()
 
 	// This likely indicates a bug, so discard whatever
@@ -54,7 +54,7 @@ func (s *solver) solve() ([]deppy.Variable, error) {
 	// collect literals of all mandatory variables to assume as a baseline
 	anchors := s.litMap.AnchorIdentifiers()
 	assumptions := make([]z.Lit, len(anchors))
-	for i := range s.litMap.AnchorIdentifiers() {
+	for i := range anchors {
 		assumptions[i] = s.litMap.LitOf(anchors[i])
 	}
 

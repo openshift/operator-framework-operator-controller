@@ -1,15 +1,18 @@
 package declcfg
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"runtime"
+	"sync"
 
 	"github.com/joelanford/ignore"
 	"github.com/operator-framework/api/pkg/operators"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
@@ -105,47 +108,143 @@ func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) er
 	})
 }
 
+type LoadOptions struct {
+	concurrency int
+}
+
+type LoadOption func(*LoadOptions)
+
+func WithConcurrency(concurrency int) LoadOption {
+	return func(opts *LoadOptions) {
+		opts.concurrency = concurrency
+	}
+}
+
 // LoadFS loads a declarative config from the provided root FS. LoadFS walks the
 // filesystem from root and uses a gitignore-style filename matcher to skip files
 // that match patterns found in .indexignore files found throughout the filesystem.
 // If LoadFS encounters an error loading or parsing any file, the error will be
 // immediately returned.
-func LoadFS(root fs.FS) (*DeclarativeConfig, error) {
-	cfg := &DeclarativeConfig{}
-	if err := WalkFS(root, func(path string, fcfg *DeclarativeConfig, err error) error {
+func LoadFS(ctx context.Context, root fs.FS, opts ...LoadOption) (*DeclarativeConfig, error) {
+	if root == nil {
+		return nil, fmt.Errorf("no declarative config filesystem provided")
+	}
+
+	options := LoadOptions{
+		concurrency: runtime.NumCPU(),
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	var (
+		fcfg     = &DeclarativeConfig{}
+		pathChan = make(chan string, options.concurrency)
+		cfgChan  = make(chan *DeclarativeConfig, options.concurrency)
+	)
+
+	// Create an errgroup to manage goroutines. The context is closed when any
+	// goroutine returns an error. Goroutines should check the context
+	// to see if they should return early (in the case of another goroutine
+	// returning an error).
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// Walk the FS and send paths to a channel for parsing.
+	eg.Go(func() error {
+		return sendPaths(ctx, root, pathChan)
+	})
+
+	// Parse paths concurrently. The waitgroup ensures that all paths are parsed
+	// before the cfgChan is closed.
+	var wg sync.WaitGroup
+	for i := 0; i < options.concurrency; i++ {
+		wg.Add(1)
+		eg.Go(func() error {
+			defer wg.Done()
+			return parsePaths(ctx, root, pathChan, cfgChan)
+		})
+	}
+
+	// Merge parsed configs into a single config.
+	eg.Go(func() error {
+		return mergeCfgs(ctx, cfgChan, fcfg)
+	})
+
+	// Wait for all path parsing goroutines to finish before closing cfgChan.
+	wg.Wait()
+	close(cfgChan)
+
+	// Wait for all goroutines to finish.
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return fcfg, nil
+}
+
+func sendPaths(ctx context.Context, root fs.FS, pathChan chan<- string) error {
+	defer close(pathChan)
+	return walkFiles(root, func(_ fs.FS, path string, err error) error {
 		if err != nil {
 			return err
 		}
-		cfg.Packages = append(cfg.Packages, fcfg.Packages...)
-		cfg.Channels = append(cfg.Channels, fcfg.Channels...)
-		cfg.Bundles = append(cfg.Bundles, fcfg.Bundles...)
-		cfg.Others = append(cfg.Others, fcfg.Others...)
+		select {
+		case pathChan <- path:
+		case <-ctx.Done(): // don't block on sending to pathChan
+			return ctx.Err()
+		}
 		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return cfg, nil
+	})
 }
 
-func readBundleObjects(bundles []Bundle, root fs.FS, path string) error {
-	for bi, b := range bundles {
-		props, err := property.Parse(b.Properties)
-		if err != nil {
-			return fmt.Errorf("package %q, bundle %q: parse properties: %v", b.Package, b.Name, err)
+func parsePaths(ctx context.Context, root fs.FS, pathChan <-chan string, cfgChan chan<- *DeclarativeConfig) error {
+	for {
+		select {
+		case <-ctx.Done(): // don't block on receiving from pathChan
+			return ctx.Err()
+		case path, ok := <-pathChan:
+			if !ok {
+				return nil
+			}
+			cfg, err := LoadFile(root, path)
+			if err != nil {
+				return err
+			}
+			select {
+			case cfgChan <- cfg:
+			case <-ctx.Done(): // don't block on sending to cfgChan
+				return ctx.Err()
+			}
 		}
-		for oi, obj := range props.BundleObjects {
-			objID := fmt.Sprintf(" %q", obj.GetRef())
-			if !obj.IsRef() {
-				objID = fmt.Sprintf("[%d]", oi)
-			}
+	}
+}
 
-			d, err := obj.GetData(root, filepath.Dir(path))
-			if err != nil {
-				return fmt.Errorf("package %q, bundle %q: get data for bundle object%s: %v", b.Package, b.Name, objID, err)
+func mergeCfgs(ctx context.Context, cfgChan <-chan *DeclarativeConfig, fcfg *DeclarativeConfig) error {
+	for {
+		select {
+		case <-ctx.Done(): // don't block on receiving from cfgChan
+			return ctx.Err()
+		case cfg, ok := <-cfgChan:
+			if !ok {
+				return nil
 			}
-			objJson, err := yaml.ToJSON(d)
+			fcfg.Merge(cfg)
+		}
+	}
+}
+
+func readBundleObjects(bundles []Bundle) error {
+	for bi, b := range bundles {
+		var obj property.BundleObject
+		for i, props := range b.Properties {
+			if props.Type != property.TypeBundleObject {
+				continue
+			}
+			if err := json.Unmarshal(props.Value, &obj); err != nil {
+				return fmt.Errorf("package %q, bundle %q: parse property at index %d as bundle object: %v", b.Package, b.Name, i, err)
+			}
+			objJson, err := yaml.ToJSON(obj.Data)
 			if err != nil {
-				return fmt.Errorf("package %q, bundle %q: convert object%s to JSON: %v", b.Package, b.Name, objID, err)
+				return fmt.Errorf("package %q, bundle %q: convert bundle object property at index %d to JSON: %v", b.Package, b.Name, i, err)
 			}
 			bundles[bi].Objects = append(bundles[bi].Objects, string(objJson))
 		}
@@ -168,7 +267,6 @@ func extractCSV(objs []string) string {
 }
 
 // LoadReader reads yaml or json from the passed in io.Reader and unmarshals it into a DeclarativeConfig struct.
-// Path references will not be de-referenced so callers are responsible for de-referencing if necessary.
 func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	cfg := &DeclarativeConfig{}
 
@@ -195,6 +293,12 @@ func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 				return fmt.Errorf("parse bundle: %v", err)
 			}
 			cfg.Bundles = append(cfg.Bundles, b)
+		case SchemaDeprecation:
+			var d Deprecation
+			if err := json.Unmarshal(in.Blob, &d); err != nil {
+				return fmt.Errorf("parse deprecation: %w", err)
+			}
+			cfg.Deprecations = append(cfg.Deprecations, d)
 		case "":
 			return fmt.Errorf("object '%s' is missing root schema field", string(in.Blob))
 		default:
@@ -204,6 +308,11 @@ func LoadReader(r io.Reader) (*DeclarativeConfig, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	if err := readBundleObjects(cfg.Bundles); err != nil {
+		return nil, fmt.Errorf("read bundle objects: %v", err)
+	}
+
 	return cfg, nil
 }
 
@@ -219,10 +328,6 @@ func LoadFile(root fs.FS, path string) (*DeclarativeConfig, error) {
 	cfg, err := LoadReader(file)
 	if err != nil {
 		return nil, err
-	}
-
-	if err := readBundleObjects(cfg.Bundles, root, path); err != nil {
-		return nil, fmt.Errorf("read bundle objects: %v", err)
 	}
 
 	return cfg, nil
