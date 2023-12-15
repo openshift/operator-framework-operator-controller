@@ -269,8 +269,8 @@ github.com/opencontainers/runc v1.1.9 h1:XR0VIHTGce5eWPkaPesqTBrhW2yAcaraWfsEalN
 github.com/opencontainers/runc v1.1.9/go.mod h1:CbUumNnWCuTGFukNXahoo/RFBZvDAgRh/smNYNOhA50=
 github.com/opencontainers/runtime-spec v1.1.0 h1:HHUyrt9mwHUjtasSbXSMvs4cyFxh+Bll4AjJ9odEGpg=
 github.com/opencontainers/runtime-spec v1.1.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
-github.com/openshift/operator-framework-catalogd v0.0.0-20231211163346-3b4f512d12f9 h1:lwt6mSxJX66bZYVqOph96RGsE7YvKwdxP+DwIxmHTQ8=
-github.com/openshift/operator-framework-catalogd v0.0.0-20231211163346-3b4f512d12f9/go.mod h1:xIeR5f/Spr5rHnLp0yOi0AYetWcHvBAx9n+K3S/va2A=
+github.com/openshift/operator-framework-catalogd v0.0.0-20231214161614-a423a5c59f73 h1:5zxnXCENDVQ0TR1kFHxRxEq3i1v6eA3l/fuem4AbaKU=
+github.com/openshift/operator-framework-catalogd v0.0.0-20231214161614-a423a5c59f73/go.mod h1:xIeR5f/Spr5rHnLp0yOi0AYetWcHvBAx9n+K3S/va2A=
 github.com/openshift/operator-framework-rukpak v0.0.0-20231211151425-f3d88a61bc0c h1:PtGfRpaT2p5UhMoIqhg/komsukjFpZKVfGie0BXaBLI=
 github.com/openshift/operator-framework-rukpak v0.0.0-20231211151425-f3d88a61bc0c/go.mod h1:k3Nbp5eGqTI+QvXgPuOWOSV24AJ6waPDPzD+AH5OyDA=
 github.com/operator-framework/api v0.19.0 h1:QU1CTJU+CufoeneA5rsNlP/uP96s8vDHWUYDFZTauzA=

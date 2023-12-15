@@ -455,7 +455,7 @@ github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/operator-framework/catalogd v0.10.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20231211163346-3b4f512d12f9
+# github.com/operator-framework/catalogd v0.10.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20231214161614-a423a5c59f73
 ## explicit; go 1.20
 github.com/operator-framework/catalogd/api/core/v1alpha1
 # github.com/operator-framework/deppy v0.3.0
@@ -1248,4 +1248,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 # github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231211151425-f3d88a61bc0c
-# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231211163346-3b4f512d12f9
+# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231214161614-a423a5c59f73
