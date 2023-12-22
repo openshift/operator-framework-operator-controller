@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/blang/semver/v4 v4.0.0
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.0
 	github.com/google/go-cmp v0.6.0
 	github.com/operator-framework/catalogd v0.10.0
 	github.com/operator-framework/deppy v0.3.0
@@ -36,8 +36,9 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/cgroups/v3 v3.0.2 // indirect
-	github.com/containerd/containerd v1.7.6 // indirect
+	github.com/containerd/containerd v1.7.11 // indirect
 	github.com/containerd/continuity v0.4.2 // indirect
+	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/ttrpc v1.2.2 // indirect
 	github.com/containerd/typeurl/v2 v2.1.1 // indirect
 	github.com/containers/common v0.56.0 // indirect
@@ -119,7 +120,7 @@ require (
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0 // indirect
 	go.opentelemetry.io/otel v1.20.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.20.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.20.0 // indirect
@@ -157,6 +158,6 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231211151425-f3d88a61bc0c
+replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231220154906-664e875ec38d
 
-replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231214161614-a423a5c59f73
+replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231220155151-533df47cebe1
