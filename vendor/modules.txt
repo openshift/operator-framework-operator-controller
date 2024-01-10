@@ -233,9 +233,6 @@ github.com/felixge/httpsnoop
 # github.com/fsnotify/fsnotify v1.6.0
 ## explicit; go 1.16
 github.com/fsnotify/fsnotify
-# github.com/ghodss/yaml v1.0.0
-## explicit
-github.com/ghodss/yaml
 # github.com/go-air/gini v1.0.4
 ## explicit; go 1.16
 github.com/go-air/gini
@@ -441,7 +438,7 @@ github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.1.0
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/operator-framework/api v0.19.0
+# github.com/operator-framework/api v0.20.0
 ## explicit; go 1.19
 github.com/operator-framework/api/pkg/constraints
 github.com/operator-framework/api/pkg/encoding
@@ -464,7 +461,7 @@ github.com/operator-framework/deppy/pkg/deppy
 github.com/operator-framework/deppy/pkg/deppy/constraint
 github.com/operator-framework/deppy/pkg/deppy/input
 github.com/operator-framework/deppy/pkg/deppy/solver
-# github.com/operator-framework/operator-registry v1.33.0
+# github.com/operator-framework/operator-registry v1.34.0
 ## explicit; go 1.20
 github.com/operator-framework/operator-registry/alpha/action
 github.com/operator-framework/operator-registry/alpha/declcfg
@@ -1245,5 +1242,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231220154906-664e875ec38d
 # github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20231220155151-533df47cebe1
+# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20231220154906-664e875ec38d
