@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,40 +47,34 @@ const (
 	ReasonUpgradeFailed             = "UpgradeFailed"
 )
 
+// Add limit to the number of watchNamespaces allowed, as the estimated cost of this rule is linear per BD.
+//+kubebuilder:validation:XValidation:rule="!has(self.watchNamespaces) || size(self.watchNamespaces) <= 1 || (size(self.watchNamespaces) > 1 && !self.watchNamespaces.exists(e, e == ''))",message="Empty string not accepted if length of watchNamespaces is more than 1."
+
 // BundleDeploymentSpec defines the desired state of BundleDeployment
 type BundleDeploymentSpec struct {
 	//+kubebuilder:validation:Pattern:=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	// ProvisionerClassName sets the name of the provisioner that should reconcile this BundleDeployment.
 	ProvisionerClassName string `json:"provisionerClassName"`
-	// Template describes the generated Bundle that this deployment will manage.
-	Template BundleTemplate `json:"template"`
+	// Source defines the configuration for the underlying Bundle content.
+	Source BundleSource `json:"source"`
 	// Config is provisioner specific configurations
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Config runtime.RawExtension `json:"config,omitempty"`
-}
-
-// BundleTemplate defines the desired state of a Bundle resource
-type BundleTemplate struct {
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// Specification of the desired behavior of the Bundle.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	Spec BundleSpec `json:"spec"`
+	// watchNamespaces indicates which namespaces the operator should watch.
+	WatchNamespaces []string `json:"watchNamespaces,omitempty"`
 }
 
 // BundleDeploymentStatus defines the observed state of BundleDeployment
 type BundleDeploymentStatus struct {
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	ActiveBundle       string             `json:"activeBundle,omitempty"`
+	ResolvedSource     *BundleSource      `json:"resolvedSource,omitempty"`
+	ContentURL         string             `json:"contentURL,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster,shortName={"bd","bds"}
-//+kubebuilder:printcolumn:name="Active Bundle",type=string,JSONPath=`.status.activeBundle`
 //+kubebuilder:printcolumn:name="Install State",type=string,JSONPath=`.status.conditions[?(.type=="Installed")].reason`
 //+kubebuilder:printcolumn:name=Age,type=date,JSONPath=`.metadata.creationTimestamp`
 //+kubebuilder:printcolumn:name=Provisioner,type=string,JSONPath=`.spec.provisionerClassName`,priority=1
@@ -92,6 +86,10 @@ type BundleDeployment struct {
 
 	Spec   BundleDeploymentSpec   `json:"spec"`
 	Status BundleDeploymentStatus `json:"status,omitempty"`
+}
+
+func (b *BundleDeployment) ProvisionerClassName() string {
+	return b.Spec.ProvisionerClassName
 }
 
 //+kubebuilder:object:root=true
