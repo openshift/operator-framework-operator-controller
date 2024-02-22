@@ -452,7 +452,7 @@ github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/operator-framework/catalogd v0.11.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20240207195544-e27ae2deb2bc
+# github.com/operator-framework/catalogd v0.11.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
 ## explicit; go 1.20
 github.com/operator-framework/catalogd/api/core/v1alpha1
 # github.com/operator-framework/deppy v0.3.0
@@ -604,7 +604,7 @@ go.opentelemetry.io/proto/otlp/trace/v1
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# go.uber.org/zap v1.26.0
+# go.uber.org/zap v1.27.0
 ## explicit; go 1.19
 go.uber.org/zap
 go.uber.org/zap/buffer
@@ -1254,4 +1254,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 # github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240207200115-7837a777bc21
-# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240207195544-e27ae2deb2bc
+# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2

@@ -255,8 +255,8 @@ github.com/opencontainers/runc v1.1.12 h1:BOIssBaW1La0/qbNZHXOOa71dZfZEQOzW7dqQf
 github.com/opencontainers/runc v1.1.12/go.mod h1:S+lQwSfncpBha7XTy/5lBwWgm5+y5Ma/O44Ekby9FK8=
 github.com/opencontainers/runtime-spec v1.1.0 h1:HHUyrt9mwHUjtasSbXSMvs4cyFxh+Bll4AjJ9odEGpg=
 github.com/opencontainers/runtime-spec v1.1.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
-github.com/openshift/operator-framework-catalogd v0.0.0-20240207195544-e27ae2deb2bc h1:EnIsiy4nAiLfU27mWMTvEZ4/padIn+k4TEwZdNDreeE=
-github.com/openshift/operator-framework-catalogd v0.0.0-20240207195544-e27ae2deb2bc/go.mod h1:AHz6B7NxC7cywF6P3XclmCim1bs0y0g2+LdycdIGAmE=
+github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2 h1:yyT13hKySvcpcduEA6ZFN6po4CQGE8aSk2nkp9Zy9PY=
+github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2/go.mod h1:AHz6B7NxC7cywF6P3XclmCim1bs0y0g2+LdycdIGAmE=
 github.com/openshift/operator-framework-rukpak v0.0.0-20240207200115-7837a777bc21 h1:1N5iKFtrjqAZrKntvIXbMqKgfRo0IhiM4mi7Q/M3odo=
 github.com/openshift/operator-framework-rukpak v0.0.0-20240207200115-7837a777bc21/go.mod h1:t4KwwnewnHeyLhZlk4Dl3eudQQ3GlDftoio1F7QQuiA=
 github.com/operator-framework/api v0.21.0 h1:89LhqGTLskxpPR4siEaorkF9PY3KLI51S5mFxP6q1G8=
@@ -353,8 +353,8 @@ go.uber.org/multierr v1.6.0/go.mod h1:cdWPpRnG4AhwMwsgIHip0KRBQjJy5kYEpYjJxpXp9i
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
 go.uber.org/zap v1.24.0/go.mod h1:2kMP+WWQ8aoFoedH3T2sq6iJ2yDWpHbP0f6MQbS9Gkg=
-go.uber.org/zap v1.26.0 h1:sI7k6L95XOKS281NhVKOFCUNIvv9e0w4BF8N3u+tCRo=
-go.uber.org/zap v1.26.0/go.mod h1:dtElttAiwGvoJ/vj4IwHBS/gXsEu/pZ50mUIRWuG0so=
+go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=
+go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
 golang.org/x/crypto v0.0.0-20190219172222-a4c6cb3142f2/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=

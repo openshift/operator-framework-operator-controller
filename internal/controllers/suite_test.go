@@ -22,15 +22,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/operator-framework/deppy/pkg/deppy/solver"
+	rukpakv1alpha2 "github.com/operator-framework/rukpak/api/v1alpha2"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-
-	"github.com/operator-framework/deppy/pkg/deppy/solver"
-	rukpakv1alpha2 "github.com/operator-framework/rukpak/api/v1alpha2"
-	"github.com/stretchr/testify/require"
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/controllers"
@@ -59,6 +59,14 @@ func newClientAndReconciler(t *testing.T) (client.Client, *controllers.ClusterEx
 	return cl, reconciler
 }
 
+func newClientAndExtensionReconciler(t *testing.T) (client.Client, *controllers.ExtensionReconciler) {
+	cl := newClient(t)
+	reconciler := &controllers.ExtensionReconciler{
+		Client: cl,
+	}
+	return cl, reconciler
+}
+
 var (
 	sch *runtime.Scheme
 	cfg *rest.Config
@@ -82,6 +90,7 @@ func TestMain(m *testing.M) {
 	sch = runtime.NewScheme()
 	utilruntime.Must(ocv1alpha1.AddToScheme(sch))
 	utilruntime.Must(rukpakv1alpha2.AddToScheme(sch))
+	utilruntime.Must(corev1.AddToScheme(sch))
 
 	code := m.Run()
 	utilruntime.Must(testEnv.Stop())

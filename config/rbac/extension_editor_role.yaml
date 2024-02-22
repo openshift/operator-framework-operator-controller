@@ -1,13 +1,13 @@
-# permissions for end users to edit cluster extensions.
+# permissions for end users to edit extensions.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: clusterextension-editor-role
+  name: extension-editor-role
 rules:
 - apiGroups:
   - olm.operatorframework.io
   resources:
-  - clusterextensions
+  - extensions
   verbs:
   - create
   - delete

@@ -43,15 +43,8 @@ import (
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
-	"github.com/operator-framework/operator-controller/internal/controllers/validators"
 	olmvariables "github.com/operator-framework/operator-controller/internal/resolution/variables"
 )
-
-// BundleProvider provides the way to retrieve a list of Bundles from a source,
-// generally from a catalog client of some kind.
-type BundleProvider interface {
-	Bundles(ctx context.Context) ([]*catalogmetadata.Bundle, error)
-}
 
 // ClusterExtensionReconciler reconciles a ClusterExtension object
 type ClusterExtensionReconciler struct {
@@ -62,7 +55,7 @@ type ClusterExtensionReconciler struct {
 }
 
 //+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;list;watch
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/status,verbs=update;patch
 //+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/finalizers,verbs=update
 
 //+kubebuilder:rbac:groups=core.rukpak.io,resources=bundledeployments,verbs=get;list;watch;create;update;patch
@@ -122,21 +115,6 @@ func checkForUnexpectedFieldChange(a, b ocv1alpha1.ClusterExtension) bool {
 //
 //nolint:unparam
 func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alpha1.ClusterExtension) (ctrl.Result, error) {
-	// validate spec
-	if err := validators.ValidateClusterExtensionSpec(ext); err != nil {
-		// Set the TypeInstalled condition to Unknown to indicate that the resolution
-		// hasn't been attempted yet, due to the spec being invalid.
-		ext.Status.InstalledBundleResource = ""
-		setInstalledStatusConditionUnknown(&ext.Status.Conditions, "installation has not been attempted as spec is invalid", ext.GetGeneration())
-		// Set the TypeResolved condition to Unknown to indicate that the resolution
-		// hasn't been attempted yet, due to the spec being invalid.
-		ext.Status.ResolvedBundleResource = ""
-		setResolvedStatusConditionUnknown(&ext.Status.Conditions, "validation has not been attempted as spec is invalid", ext.GetGeneration())
-
-		setDeprecationStatusesUnknown(&ext.Status.Conditions, "deprecation checks have not been attempted as spec is invalid", ext.GetGeneration())
-		return ctrl.Result{}, nil
-	}
-
 	// gather vars for resolution
 	vars, err := r.variables(ctx)
 	if err != nil {
@@ -489,91 +467,6 @@ func mapBundleMediaTypeToBundleProvisioner(mediaType string) (string, error) {
 		return "core-rukpak-io-registry", nil
 	default:
 		return "", fmt.Errorf("unknown bundle mediatype: %s", mediaType)
-	}
-}
-
-// setResolvedStatusConditionSuccess sets the resolved status condition to success.
-func setResolvedStatusConditionSuccess(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeResolved,
-		Status:             metav1.ConditionTrue,
-		Reason:             ocv1alpha1.ReasonSuccess,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-// setResolvedStatusConditionFailed sets the resolved status condition to failed.
-func setResolvedStatusConditionFailed(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeResolved,
-		Status:             metav1.ConditionFalse,
-		Reason:             ocv1alpha1.ReasonResolutionFailed,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-// setResolvedStatusConditionUnknown sets the resolved status condition to unknown.
-func setResolvedStatusConditionUnknown(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeResolved,
-		Status:             metav1.ConditionUnknown,
-		Reason:             ocv1alpha1.ReasonResolutionUnknown,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-// setInstalledStatusConditionSuccess sets the installed status condition to success.
-func setInstalledStatusConditionSuccess(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeInstalled,
-		Status:             metav1.ConditionTrue,
-		Reason:             ocv1alpha1.ReasonSuccess,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-// setInstalledStatusConditionFailed sets the installed status condition to failed.
-func setInstalledStatusConditionFailed(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeInstalled,
-		Status:             metav1.ConditionFalse,
-		Reason:             ocv1alpha1.ReasonInstallationFailed,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-// setInstalledStatusConditionUnknown sets the installed status condition to unknown.
-func setInstalledStatusConditionUnknown(conditions *[]metav1.Condition, message string, generation int64) {
-	apimeta.SetStatusCondition(conditions, metav1.Condition{
-		Type:               ocv1alpha1.TypeInstalled,
-		Status:             metav1.ConditionUnknown,
-		Reason:             ocv1alpha1.ReasonInstallationStatusUnknown,
-		Message:            message,
-		ObservedGeneration: generation,
-	})
-}
-
-func setDeprecationStatusesUnknown(conditions *[]metav1.Condition, message string, generation int64) {
-	conditionTypes := []string{
-		ocv1alpha1.TypeDeprecated,
-		ocv1alpha1.TypePackageDeprecated,
-		ocv1alpha1.TypeChannelDeprecated,
-		ocv1alpha1.TypeBundleDeprecated,
-	}
-
-	for _, conditionType := range conditionTypes {
-		apimeta.SetStatusCondition(conditions, metav1.Condition{
-			Type:               conditionType,
-			Reason:             ocv1alpha1.ReasonDeprecated,
-			Status:             metav1.ConditionUnknown,
-			Message:            message,
-			ObservedGeneration: generation,
-		})
 	}
 }
 
