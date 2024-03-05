@@ -458,7 +458,7 @@ github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/operator-framework/catalogd v0.11.0
+# github.com/operator-framework/catalogd v0.11.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
 ## explicit; go 1.20
 github.com/operator-framework/catalogd/api/core/v1alpha1
 # github.com/operator-framework/deppy v0.3.0
@@ -485,8 +485,8 @@ github.com/operator-framework/operator-registry/pkg/prettyunmarshaler
 github.com/operator-framework/operator-registry/pkg/registry
 github.com/operator-framework/operator-registry/pkg/sqlite
 github.com/operator-framework/operator-registry/pkg/sqlite/migrations
-# github.com/operator-framework/rukpak v0.18.0
-## explicit; go 1.20
+# github.com/operator-framework/rukpak v0.18.0 => github.com/openshift/operator-framework-rukpak v0.0.0-20240226172442-58fcac88d95d
+## explicit; go 1.21
 github.com/operator-framework/rukpak/api/v1alpha2
 # github.com/otiai10/copy v1.14.0
 ## explicit; go 1.18
@@ -1267,3 +1267,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240226172442-58fcac88d95d
+# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
