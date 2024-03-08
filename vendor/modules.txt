@@ -444,8 +444,8 @@ github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.1.0
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/operator-framework/api v0.21.0
-## explicit; go 1.20
+# github.com/operator-framework/api v0.22.0
+## explicit; go 1.21
 github.com/operator-framework/api/pkg/constraints
 github.com/operator-framework/api/pkg/encoding
 github.com/operator-framework/api/pkg/lib/version
@@ -485,7 +485,7 @@ github.com/operator-framework/operator-registry/pkg/prettyunmarshaler
 github.com/operator-framework/operator-registry/pkg/registry
 github.com/operator-framework/operator-registry/pkg/sqlite
 github.com/operator-framework/operator-registry/pkg/sqlite/migrations
-# github.com/operator-framework/rukpak v0.18.0 => github.com/openshift/operator-framework-rukpak v0.0.0-20240226172442-58fcac88d95d
+# github.com/operator-framework/rukpak v0.18.1
 ## explicit; go 1.21
 github.com/operator-framework/rukpak/api/v1alpha2
 # github.com/otiai10/copy v1.14.0
@@ -653,14 +653,14 @@ golang.org/x/oauth2/internal
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.17.0
+# golang.org/x/sys v0.18.0
 ## explicit; go 1.18
 golang.org/x/sys/execabs
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.17.0
+# golang.org/x/term v0.18.0
 ## explicit; go 1.18
 golang.org/x/term
 # golang.org/x/text v0.14.0
@@ -1267,5 +1267,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
-# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240226172442-58fcac88d95d
 # github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
