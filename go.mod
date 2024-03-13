@@ -161,6 +161,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
-
 replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240308020514-7589a1f04ea1
+
+replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
