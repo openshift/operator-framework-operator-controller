@@ -8,9 +8,6 @@ set -o pipefail
 # Modify these as needed
 ##################################################
 
-# This is the namespace where all namespace-scoped resources live
-NAMESPACE=openshift-operator-controller
-
 # This is a mapping of deployment container names to image placeholder values. For example, given a deployment with
 # 2 containers named kube-rbac-proxy and manager, their images will be set to ${KUBE_RBAC_PROXY_IMAGE} and
 # ${OPERATOR_CONTROLLER_IMAGE}, respectively. The cluster-olm-operator will replace these placeholders will real image values.
@@ -39,16 +36,13 @@ trap 'rm -rf $TMP_ROOT' EXIT
 TMP_CONFIG="${TMP_ROOT}/config"
 cp -a "${REPO_ROOT}/config" "$TMP_CONFIG"
 
-# Override namespace to openshift-operator-controller
-$YQ -i ".namespace = \"${NAMESPACE}\"" "${TMP_CONFIG}/default/kustomization.yaml"
-
 # Create a temp dir for manifests
 TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"
 mkdir -p "$TMP_MANIFEST_DIR"
 
 # Run kustomize, which emits a single yaml file
 TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${TMP_CONFIG}/default" -o "$TMP_KUSTOMIZE_OUTPUT"
+$KUSTOMIZE build "${REPO_ROOT}"/openshift/kustomize/openshift -o "$TMP_KUSTOMIZE_OUTPUT"
 
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"
@@ -101,4 +95,3 @@ cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
     fi
   done
 )
-

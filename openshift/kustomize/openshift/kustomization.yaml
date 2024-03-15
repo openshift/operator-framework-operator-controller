@@ -1,0 +1,4 @@
+resources:
+- ../../../config/default
+
+namespace: openshift-operator-controller
