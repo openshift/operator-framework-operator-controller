@@ -9,9 +9,9 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
-	github.com/operator-framework/catalogd v0.11.0
+	github.com/operator-framework/catalogd v0.12.0
 	github.com/operator-framework/deppy v0.3.0
-	github.com/operator-framework/operator-registry v1.37.0
+	github.com/operator-framework/operator-registry v1.38.0
 	github.com/operator-framework/rukpak v0.18.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
@@ -162,5 +162,3 @@ require (
 )
 
 replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240326115409-bf49b7249b21
-
-replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
