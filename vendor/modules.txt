@@ -192,7 +192,7 @@ github.com/davecgh/go-spew/spew
 # github.com/distribution/reference v0.5.0
 ## explicit; go 1.20
 github.com/distribution/reference
-# github.com/docker/cli v24.0.7+incompatible
+# github.com/docker/cli v25.0.5+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
@@ -203,7 +203,7 @@ github.com/docker/cli/cli/config/types
 github.com/docker/distribution/registry/api/errcode
 github.com/docker/distribution/registry/api/v2
 github.com/docker/distribution/registry/client/auth/challenge
-# github.com/docker/docker v24.0.7+incompatible
+# github.com/docker/docker v25.0.5+incompatible
 ## explicit
 github.com/docker/docker/api/types/versions
 github.com/docker/docker/pkg/homedir
@@ -434,7 +434,7 @@ github.com/onsi/gomega/types
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.1.0-rc5
+# github.com/opencontainers/image-spec v1.1.0-rc6
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
@@ -467,8 +467,8 @@ github.com/operator-framework/deppy/pkg/deppy
 github.com/operator-framework/deppy/pkg/deppy/constraint
 github.com/operator-framework/deppy/pkg/deppy/input
 github.com/operator-framework/deppy/pkg/deppy/solver
-# github.com/operator-framework/operator-registry v1.36.0
-## explicit; go 1.20
+# github.com/operator-framework/operator-registry v1.37.0
+## explicit; go 1.21
 github.com/operator-framework/operator-registry/alpha/action
 github.com/operator-framework/operator-registry/alpha/declcfg
 github.com/operator-framework/operator-registry/alpha/model
@@ -485,7 +485,7 @@ github.com/operator-framework/operator-registry/pkg/prettyunmarshaler
 github.com/operator-framework/operator-registry/pkg/registry
 github.com/operator-framework/operator-registry/pkg/sqlite
 github.com/operator-framework/operator-registry/pkg/sqlite/migrations
-# github.com/operator-framework/rukpak v0.18.1 => github.com/openshift/operator-framework-rukpak v0.0.0-20240308020514-7589a1f04ea1
+# github.com/operator-framework/rukpak v0.18.1 => github.com/openshift/operator-framework-rukpak v0.0.0-20240326115409-bf49b7249b21
 ## explicit; go 1.21
 github.com/operator-framework/rukpak/api/v1alpha2
 # github.com/otiai10/copy v1.14.0
@@ -546,7 +546,7 @@ github.com/ulikunitz/xz/lzma
 github.com/vbatts/tar-split/archive/tar
 github.com/vbatts/tar-split/tar/asm
 github.com/vbatts/tar-split/tar/storage
-# github.com/vmware-tanzu/carvel-kapp-controller v0.50.0
+# github.com/vmware-tanzu/carvel-kapp-controller v0.50.2
 ## explicit; go 1.21
 github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1
 # github.com/vmware-tanzu/carvel-vendir v0.36.0
@@ -1269,5 +1269,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
-# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240308020514-7589a1f04ea1
+# github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240326115409-bf49b7249b21
 # github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2

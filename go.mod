@@ -2,7 +2,7 @@ module github.com/operator-framework/operator-controller
 
 go 1.21
 
-toolchain go1.21.7
+toolchain go1.21.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -11,11 +11,11 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/operator-framework/catalogd v0.11.0
 	github.com/operator-framework/deppy v0.3.0
-	github.com/operator-framework/operator-registry v1.36.0
+	github.com/operator-framework/operator-registry v1.37.0
 	github.com/operator-framework/rukpak v0.18.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/vmware-tanzu/carvel-kapp-controller v0.50.0
+	github.com/vmware-tanzu/carvel-kapp-controller v0.50.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gopkg.in/yaml.v2 v2.4.0
@@ -50,9 +50,9 @@ require (
 	github.com/containers/storage v1.51.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
-	github.com/docker/cli v24.0.7+incompatible // indirect
+	github.com/docker/cli v25.0.5+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v24.0.7+incompatible // indirect
+	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -103,7 +103,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/gomega v1.31.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc6 // indirect
 	github.com/opencontainers/runc v1.1.12 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/operator-framework/api v0.22.0 // indirect
@@ -161,6 +161,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240308020514-7589a1f04ea1
+replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240326115409-bf49b7249b21
 
 replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240221182512-9666df2685f2
