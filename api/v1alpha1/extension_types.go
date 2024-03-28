@@ -82,6 +82,11 @@ type ExtensionSpec struct {
 
 	// source of Extension to be installed
 	Source ExtensionSource `json:"source"`
+
+	//+kubebuilder:Optional
+	//
+	// skipCRDUpgradeSafetyCheck specifies whether or not the CRD upgrade safety checks should be skipped when attempting to install the extension
+	SkipCRDUpgradeSafetyCheck bool `json:"skipCRDUpgradeSafetyCheck,omitempty"`
 }
 
 // ExtensionStatus defines the observed state of Extension
@@ -90,15 +95,20 @@ type ExtensionStatus struct {
 	Paused bool `json:"paused"`
 
 	// +optional
-	InstalledBundleResource string `json:"installedBundleResource,omitempty"`
+	InstalledBundle *BundleMetadata `json:"installedBundle,omitempty"`
 	// +optional
-	ResolvedBundleResource string `json:"resolvedBundleResource,omitempty"`
+	ResolvedBundle *BundleMetadata `json:"resolvedBundle,omitempty"`
 
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
+
+type BundleMetadata struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 //+kubebuilder:object:root=true
