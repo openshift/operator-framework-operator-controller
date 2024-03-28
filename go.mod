@@ -2,7 +2,7 @@ module github.com/operator-framework/operator-controller
 
 go 1.21
 
-toolchain go1.21.7
+toolchain go1.21.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -160,5 +160,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240328021731-38965a71a463
 
 replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240327175104-ff172fea9c38
