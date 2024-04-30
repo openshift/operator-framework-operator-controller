@@ -5,9 +5,10 @@ import (
 	"sort"
 
 	mmsemver "github.com/Masterminds/semver/v3"
-	rukpakv1alpha2 "github.com/operator-framework/rukpak/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	rukpakv1alpha2 "github.com/operator-framework/rukpak/api/v1alpha2"
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
@@ -94,11 +95,10 @@ type successorsFunc func(allBundles []*catalogmetadata.Bundle, installedBundle *
 // legacySemanticsSuccessors returns successors based on legacy OLMv0 semantics
 // which rely on Replaces, Skips and skipRange.
 func legacySemanticsSuccessors(allBundles []*catalogmetadata.Bundle, installedBundle *catalogmetadata.Bundle) ([]*catalogmetadata.Bundle, error) {
-	// find the bundles that replace the bundle provided
-	// TODO: this algorithm does not yet consider skips and skipRange
+	// find the bundles that replace, skip, or skipRange the bundle provided
 	upgradeEdges := catalogfilter.Filter(allBundles, catalogfilter.And(
 		catalogfilter.WithPackageName(installedBundle.Package),
-		catalogfilter.Replaces(installedBundle.Name),
+		catalogfilter.LegacySuccessor(installedBundle),
 	))
 	sort.SliceStable(upgradeEdges, func(i, j int) bool {
 		return catalogsort.ByVersion(upgradeEdges[i], upgradeEdges[j])

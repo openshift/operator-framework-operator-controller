@@ -12,10 +12,13 @@ export WAIT_TIMEOUT ?= 60s
 IMG?=$(IMAGE_REPO):$(IMAGE_TAG)
 TESTDATA_DIR := testdata
 
-# setup-envtest on *nix uses XDG_DATA_HOME, falling back to HOME, as the default storage directory. Some CI setups
-# don't have XDG_DATA_HOME set; in those cases, we set it here so setup-envtest functions correctly. This shouldn't
-# affect developers.
-export XDG_DATA_HOME ?= /tmp/.local/share
+# By default setup-envtest will write to $XDG_DATA_HOME, or $HOME/.local/share if that is not defined.
+# If $HOME is not set, we need to specify a binary directory to prevent an error in setup-envtest.
+# Useful for some CI/CD environments that set neither $XDG_DATA_HOME nor $HOME.
+SETUP_ENVTEST_BIN_DIR_OVERRIDE=
+ifeq ($(shell [[ $$HOME == "" || $$HOME == "/" ]] && [[ $$XDG_DATA_HOME == "" ]] && echo true ), true)
+	SETUP_ENVTEST_BIN_DIR_OVERRIDE += --bin-dir /tmp/envtest-binaries
+endif
 
 # bingo manages consistent tooling versions for things like kind, kustomize, etc.
 include .bingo/Variables.mk
@@ -110,10 +113,8 @@ vet: #EXHELP Run go vet against code.
 test: manifests generate fmt vet test-unit test-e2e #HELP Run all tests.
 
 .PHONY: e2e
-FOCUS := $(if $(TEST),-v -focus "$(TEST)")
-E2E_FLAGS ?= ""
 e2e: $(SETUP_ENVTEST) #EXHELP Run the e2e tests.
-	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION)) && go test -tags $(GO_BUILD_TAGS) -v ./test/e2e/...
+	go test -tags $(GO_BUILD_TAGS) -v ./test/e2e/...
 
 export REG_PKG_NAME=registry-operator
 export PLAIN_PKG_NAME=plain-operator
@@ -121,13 +122,13 @@ export CATALOG_IMG=${E2E_REGISTRY_NAME}.${E2E_REGISTRY_NAMESPACE}.svc:5000/test-
 .PHONY: test-ext-dev-e2e
 test-ext-dev-e2e: $(SETUP_ENVTEST) $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension create, upgrade and delete tests.
 	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) $(KIND) $(KIND_CLUSTER_NAME) ${E2E_REGISTRY_NAMESPACE}
-	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION)) && go test -tags $(GO_BUILD_TAGS) -v ./test/extension-developer-e2e/...
+	go test -tags $(GO_BUILD_TAGS) -v ./test/extension-developer-e2e/...
 
 .PHONY: test-unit
 ENVTEST_VERSION = $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.x/')
 UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 test-unit: $(SETUP_ENVTEST) #HELP Run the unit tests
-	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION)) && go test -tags $(GO_BUILD_TAGS) -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
+	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE)) && go test -tags $(GO_BUILD_TAGS) -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
 
 E2E_REGISTRY_NAME=docker-registry
 E2E_REGISTRY_NAMESPACE=operator-controller-e2e
@@ -153,7 +154,15 @@ e2e-coverage:
 
 .PHONY: kind-load
 kind-load: $(KIND) #EXHELP Loads the currently constructed image onto the cluster.
+ifeq ($(CONTAINER_RUNTIME),podman)
+	@echo "Using Podman"
+	podman save $(IMG) -o $(IMG).tar
+	$(KIND) load image-archive $(IMG).tar --name $(KIND_CLUSTER_NAME)
+	rm $(IMG).tar
+else
+	@echo "Using Docker"
 	$(KIND) load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+endif
 
 kind-deploy: export MANIFEST="./operator-controller.yaml"
 kind-deploy: manifests $(KUSTOMIZE) #EXHELP Install controller and dependencies onto the kind cluster.
@@ -163,7 +172,8 @@ kind-deploy: manifests $(KUSTOMIZE) #EXHELP Install controller and dependencies 
 .PHONY: kind-cluster
 kind-cluster: $(KIND) #EXHELP Standup a kind cluster.
 	-$(KIND) delete cluster --name ${KIND_CLUSTER_NAME}
-	$(KIND) create cluster --name ${KIND_CLUSTER_NAME} --image ${KIND_CLUSTER_IMAGE}
+	# kind-config.yaml can be deleted after upgrading to Kubernetes 1.30
+	$(KIND) create cluster --name ${KIND_CLUSTER_NAME} --image ${KIND_CLUSTER_IMAGE} --config ./kind-config.yaml
 	$(KIND) export kubeconfig --name ${KIND_CLUSTER_NAME}
 
 .PHONY: kind-clean
@@ -216,7 +226,7 @@ run: docker-build kind-cluster kind-load kind-deploy #HELP Build the operator-co
 
 .PHONY: docker-build
 docker-build: build-linux #EXHELP Build docker image for operator-controller with GOOS=linux and local GOARCH.
-	docker build -t ${IMG} -f Dockerfile ./bin/linux
+	$(CONTAINER_RUNTIME) build -t ${IMG} -f Dockerfile ./bin/linux
 
 #SECTION Release
 
