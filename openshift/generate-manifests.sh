@@ -58,12 +58,6 @@ for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   $YQ -i 'select(.kind == "Namespace").metadata.annotations += {"workload.openshift.io/allowed": "management"}' "$TMP_KUSTOMIZE_OUTPUT"
 done
 
-# Exclude ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
-# APIs from downstream build as these API are currently not enabled by default.
-# In the OCP 4.17 (K8s 1.30) they will be become available
-# and we will be able to remove this to enforce admission policies
-$YQ -i 'del(select((.kind|downcase) == "validatingadmissionpolicy" or (.kind|downcase) == "validatingadmissionpolicybinding"))' "$TMP_KUSTOMIZE_OUTPUT"
-
 # Use yq to split the single yaml file into 1 per document.
 # Naming convention: $index-$kind-$namespace-$name. If $namespace is empty, just use the empty string.
 (
@@ -107,3 +101,4 @@ cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
     fi
   done
 )
+
