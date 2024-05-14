@@ -69,6 +69,7 @@ spec:
             capabilities:
               drop:
                 - ALL
+          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /var/cache
               name: cache
@@ -92,6 +93,7 @@ spec:
             capabilities:
               drop:
                 - ALL
+          terminationMessagePolicy: FallbackToLogsOnError
       securityContext:
         runAsNonRoot: true
         seccompProfile:

@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -30,11 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/operator-framework/deppy/pkg/deppy/solver"
-
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata/cache"
 	catalogclient "github.com/operator-framework/operator-controller/internal/catalogmetadata/client"
 	"github.com/operator-framework/operator-controller/internal/controllers"
+	"github.com/operator-framework/operator-controller/internal/version"
 	"github.com/operator-framework/operator-controller/pkg/features"
 	"github.com/operator-framework/operator-controller/pkg/scheme"
 )
@@ -45,10 +45,11 @@ var (
 
 func main() {
 	var (
-		metricsAddr          string
-		enableLeaderElection bool
-		probeAddr            string
-		cachePath            string
+		metricsAddr               string
+		enableLeaderElection      bool
+		probeAddr                 string
+		cachePath                 string
+		operatorControllerVersion bool
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -56,6 +57,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&cachePath, "cache-path", "/var/cache", "The local directory path used for filesystem based caching")
+	flag.BoolVar(&operatorControllerVersion, "version", false, "Prints operator-controller version information")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -65,7 +67,13 @@ func main() {
 	features.OperatorControllerFeatureGate.AddFlag(pflag.CommandLine)
 	pflag.Parse()
 
+	if operatorControllerVersion {
+		fmt.Println(version.String())
+		os.Exit(0)
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts), zap.StacktraceLevel(zapcore.DPanicLevel)))
+	setupLog.Info("starting up the controller", "version info", version.String())
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme.Scheme,
@@ -93,17 +101,9 @@ func main() {
 	cl := mgr.GetClient()
 	catalogClient := catalogclient.New(cl, cache.NewFilesystemCache(cachePath, &http.Client{Timeout: 10 * time.Second}))
 
-	resolver, err := solver.New()
-	if err != nil {
-		setupLog.Error(err, "unable to create a solver")
-		os.Exit(1)
-	}
-
 	if err = (&controllers.ClusterExtensionReconciler{
 		Client:         cl,
 		BundleProvider: catalogClient,
-		Scheme:         mgr.GetScheme(),
-		Resolver:       resolver,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterExtension")
 		os.Exit(1)
