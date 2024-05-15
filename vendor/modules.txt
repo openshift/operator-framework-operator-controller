@@ -1,6 +1,3 @@
-# carvel.dev/vendir v0.40.0
-## explicit; go 1.21
-carvel.dev/vendir/pkg/vendir/versions/v1alpha1
 # github.com/Masterminds/semver/v3 v3.2.1
 ## explicit; go 1.18
 github.com/Masterminds/semver/v3
@@ -188,9 +185,6 @@ github.com/spf13/pflag
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/vmware-tanzu/carvel-kapp-controller v0.51.0
-## explicit; go 1.21
-github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1
 # go.uber.org/multierr v1.11.0
 ## explicit; go 1.19
 go.uber.org/multierr
@@ -683,5 +677,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
-# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240508143227-79975a511e1d
 # github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240513180215-282cc84cf92d
+# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240508143227-79975a511e1d
