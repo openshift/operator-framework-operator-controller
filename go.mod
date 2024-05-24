@@ -7,7 +7,7 @@ toolchain go1.21.7
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/blang/semver/v4 v4.0.0
-	github.com/go-logr/logr v1.4.1
+	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/operator-framework/catalogd v0.12.0
 	github.com/operator-framework/operator-registry v1.40.0
@@ -87,6 +87,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240513180215-282cc84cf92d
-
 replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240508143227-79975a511e1d
+
+replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240513180215-282cc84cf92d
