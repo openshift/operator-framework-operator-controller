@@ -40,6 +40,7 @@ spec:
                       - linux
       containers:
         - args:
+            - --unpack-image=quay.io/operator-framework/operator-controller:devel
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
@@ -73,6 +74,8 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
+            - mountPath: /var/cache/bundles
+              name: bundle-cache
         - args:
             - --secure-listen-address=0.0.0.0:8443
             - --upstream=http://127.0.0.1:8080/
@@ -103,4 +106,6 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - emptyDir: {}
+          name: bundle-cache
       priorityClassName: system-cluster-critical
