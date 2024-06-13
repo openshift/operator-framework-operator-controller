@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
-	rukpakv1alpha2 "github.com/operator-framework/rukpak/api/v1alpha2"
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 )
@@ -46,6 +45,9 @@ func testInit(t *testing.T) (*ocv1alpha1.ClusterExtension, *catalogd.Catalog) {
 	clusterExtension := &ocv1alpha1.ClusterExtension{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterExtensionName,
+			Annotations: map[string]string{
+				"bundle.connection.config/insecureSkipTLSVerify": "true",
+			},
 		},
 	}
 	return clusterExtension, extensionCatalog
@@ -97,13 +99,13 @@ func TestClusterExtensionInstallRegistry(t *testing.T) {
 	t.Log("By eventually reporting a successful unpacked")
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		assert.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: clusterExtension.Name}, clusterExtension))
-		cond := apimeta.FindStatusCondition(clusterExtension.Status.Conditions, rukpakv1alpha2.TypeUnpacked)
+		cond := apimeta.FindStatusCondition(clusterExtension.Status.Conditions, ocv1alpha1.TypeUnpacked)
 		if !assert.NotNil(ct, cond) {
 			return
 		}
 		assert.Equal(ct, metav1.ConditionTrue, cond.Status)
-		assert.Equal(ct, rukpakv1alpha2.ReasonUnpackSuccessful, cond.Reason)
-		assert.Contains(ct, cond.Message, "Successfully unpacked")
+		assert.Equal(ct, ocv1alpha1.ReasonUnpackSuccess, cond.Reason)
+		assert.Contains(ct, cond.Message, "unpack successful")
 	}, pollDuration, pollInterval)
 
 	t.Log("By eventually installing the package successfully")
