@@ -39,8 +39,17 @@ trap 'rm -rf $TMP_ROOT' EXIT
 TMP_CONFIG="${TMP_ROOT}/config"
 cp -a "${REPO_ROOT}/config" "$TMP_CONFIG"
 
+if [ -d "${TMP_CONFIG}/base" ]; then
+    BASE=base
+elif [ -d "${TMP_CONFIG}/default" ]; then
+    BASE=default
+else
+    echo "BASE directory (default|base) not found."
+    exit 1
+fi
+
 # Override namespace to openshift-operator-controller
-$YQ -i ".namespace = \"${NAMESPACE}\"" "${TMP_CONFIG}/default/kustomization.yaml"
+$YQ -i ".namespace = \"${NAMESPACE}\"" "${TMP_CONFIG}/${BASE}/kustomization.yaml"
 
 # Create a temp dir for manifests
 TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"
@@ -48,7 +57,7 @@ mkdir -p "$TMP_MANIFEST_DIR"
 
 # Run kustomize, which emits a single yaml file
 TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${TMP_CONFIG}/default" -o "$TMP_KUSTOMIZE_OUTPUT"
+$KUSTOMIZE build "${TMP_CONFIG}/${BASE}" -o "$TMP_KUSTOMIZE_OUTPUT"
 
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"
