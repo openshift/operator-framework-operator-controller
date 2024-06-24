@@ -8,6 +8,7 @@ aliases:
    - oceanc80
    - perdasilva
    - m1kola
+   - everettraven
 
    # contributors who can review/lgtm any PRs in the repo
    operator-runtime-reviewers:
@@ -21,3 +22,4 @@ aliases:
    - oceanc80
    - perdasilva
    - tmshort
+   - everettraven
