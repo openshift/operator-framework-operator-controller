@@ -17,17 +17,16 @@ limitations under the License.
 package main
 
 import (
-	"crypto/x509"
+	"context"
 	"flag"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
+	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -39,16 +38,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
-	"github.com/operator-framework/rukpak/pkg/finalizer"
+	registryv1handler "github.com/operator-framework/rukpak/pkg/handler"
+	crdupgradesafety "github.com/operator-framework/rukpak/pkg/preflights/crdupgradesafety"
+	"github.com/operator-framework/rukpak/pkg/provisioner/registry"
 	"github.com/operator-framework/rukpak/pkg/source"
 	"github.com/operator-framework/rukpak/pkg/storage"
 
-	"github.com/operator-framework/operator-controller/api/v1alpha1"
+	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata/cache"
 	catalogclient "github.com/operator-framework/operator-controller/internal/catalogmetadata/client"
 	"github.com/operator-framework/operator-controller/internal/controllers"
-	"github.com/operator-framework/operator-controller/internal/handler"
+	"github.com/operator-framework/operator-controller/internal/httputil"
 	"github.com/operator-framework/operator-controller/internal/labels"
 	"github.com/operator-framework/operator-controller/internal/version"
 	"github.com/operator-framework/operator-controller/pkg/features"
@@ -57,7 +59,7 @@ import (
 
 var (
 	setupLog               = ctrl.Log.WithName("setup")
-	defaultSystemNamespace = "operator-controller-system"
+	defaultSystemNamespace = "olmv1-system"
 )
 
 // podNamespace checks whether the controller is running in a Pod vs.
@@ -74,23 +76,23 @@ func podNamespace() string {
 
 func main() {
 	var (
-		metricsAddr                 string
-		enableLeaderElection        bool
-		probeAddr                   string
-		cachePath                   string
-		operatorControllerVersion   bool
-		systemNamespace             string
-		provisionerStorageDirectory string
+		metricsAddr               string
+		enableLeaderElection      bool
+		probeAddr                 string
+		cachePath                 string
+		operatorControllerVersion bool
+		systemNamespace           string
+		caCertDir                 string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&caCertDir, "ca-certs-dir", "", "The directory of TLS certificate to use for verifying HTTPS connections to the Catalogd and docker-registry web servers.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&cachePath, "cache-path", "/var/cache", "The local directory path used for filesystem based caching")
 	flag.BoolVar(&operatorControllerVersion, "version", false, "Prints operator-controller version information")
 	flag.StringVar(&systemNamespace, "system-namespace", "", "Configures the namespace that gets used to deploy system resources.")
-	flag.StringVar(&provisionerStorageDirectory, "provisioner-storage-dir", storage.DefaultBundleCacheDir, "The directory that is used to store bundle contents.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -112,7 +114,7 @@ func main() {
 		systemNamespace = podNamespace()
 	}
 
-	dependentRequirement, err := k8slabels.NewRequirement(labels.OwnerKindKey, selection.In, []string{v1alpha1.ClusterExtensionKind})
+	dependentRequirement, err := k8slabels.NewRequirement(labels.OwnerKindKey, selection.In, []string{ocv1alpha1.ClusterExtensionKind})
 	if err != nil {
 		setupLog.Error(err, "unable to create dependent label selector for cache")
 		os.Exit(1)
@@ -128,12 +130,13 @@ func main() {
 		LeaderElectionID:       "9c4404e7.operatorframework.io",
 		Cache: crcache.Options{
 			ByObject: map[client.Object]crcache.ByObject{
-				&v1alpha1.ClusterExtension{}: {},
+				&ocv1alpha1.ClusterExtension{}: {Label: k8slabels.Everything()},
+				&catalogd.ClusterCatalog{}:     {Label: k8slabels.Everything()},
 			},
 			DefaultNamespaces: map[string]crcache.Config{
-				systemNamespace:       {},
-				crcache.AllNamespaces: {LabelSelector: dependentSelector},
+				systemNamespace: {LabelSelector: k8slabels.Everything()},
 			},
+			DefaultLabelSelector: dependentSelector,
 		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -152,12 +155,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	cl := mgr.GetClient()
-	catalogClient := catalogclient.New(cl, cache.NewFilesystemCache(cachePath, &http.Client{Timeout: 10 * time.Second}))
+	httpClient, err := httputil.BuildHTTPClient(caCertDir)
+	if err != nil {
+		setupLog.Error(err, "unable to create catalogd http client")
+	}
 
-	cfgGetter, err := helmclient.NewActionConfigGetter(mgr.GetConfig(), mgr.GetRESTMapper(), helmclient.StorageNamespaceMapper(func(o client.Object) (string, error) {
-		return systemNamespace, nil
-	}))
+	cl := mgr.GetClient()
+	catalogClient := catalogclient.New(cl, cache.NewFilesystemCache(cachePath, httpClient))
+
+	installNamespaceMapper := helmclient.ObjectToStringMapper(func(obj client.Object) (string, error) {
+		ext := obj.(*ocv1alpha1.ClusterExtension)
+		return ext.Spec.InstallNamespace, nil
+	})
+	cfgGetter, err := helmclient.NewActionConfigGetter(mgr.GetConfig(), mgr.GetRESTMapper(),
+		helmclient.StorageNamespaceMapper(installNamespaceMapper),
+		helmclient.ClientNamespaceMapper(installNamespaceMapper),
+	)
 	if err != nil {
 		setupLog.Error(err, "unable to config for creating helm client")
 		os.Exit(1)
@@ -169,37 +182,62 @@ func main() {
 		os.Exit(1)
 	}
 
-	bundleFinalizers := crfinalizer.NewFinalizers()
-	unpacker, err := source.NewDefaultUnpacker(mgr, systemNamespace, filepath.Join(cachePath, "unpack"), (*x509.CertPool)(nil))
-	if err != nil {
-		setupLog.Error(err, "unable to create unpacker")
+	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
+	unpacker := &source.ImageRegistry{
+		BaseCachePath: filepath.Join(cachePath, "unpack"),
+		// TODO: This needs to be derived per extension via ext.Spec.InstallNamespace
+		AuthNamespace: systemNamespace,
+	}
+
+	domain := ocv1alpha1.GroupVersion.Group
+	cleanupUnpackCacheKey := fmt.Sprintf("%s/cleanup-unpack-cache", domain)
+	deleteCachedBundleKey := fmt.Sprintf("%s/delete-cached-bundle", domain)
+	if err := clusterExtensionFinalizers.Register(cleanupUnpackCacheKey, finalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
+		ext := obj.(*ocv1alpha1.ClusterExtension)
+		return crfinalizer.Result{}, os.RemoveAll(filepath.Join(unpacker.BaseCachePath, ext.GetName()))
+	})); err != nil {
+		setupLog.Error(err, "unable to register finalizer", "finalizerKey", cleanupUnpackCacheKey)
 		os.Exit(1)
 	}
 
-	if err := bundleFinalizers.Register(finalizer.CleanupUnpackCacheKey, &finalizer.CleanupUnpackCache{Unpacker: unpacker}); err != nil {
-		setupLog.Error(err, "unable to register finalizer", "finalizerKey", finalizer.CleanupUnpackCacheKey)
+	localStorageRoot := filepath.Join(cachePath, "bundles")
+	if err := os.MkdirAll(localStorageRoot, 0755); err != nil {
+		setupLog.Error(err, "unable to create local storage root directory", "root", localStorageRoot)
 		os.Exit(1)
 	}
-
 	localStorage := &storage.LocalDirectory{
-		RootDirectory: provisionerStorageDirectory,
+		RootDirectory: localStorageRoot,
 		URL:           url.URL{},
 	}
-
-	if err := bundleFinalizers.Register(finalizer.DeleteCachedBundleKey, &finalizer.DeleteCachedBundle{Storage: localStorage}); err != nil {
-		setupLog.Error(err, "unable to register finalizer", "finalizerKey", finalizer.DeleteCachedBundleKey)
+	if err := clusterExtensionFinalizers.Register(deleteCachedBundleKey, finalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
+		ext := obj.(*ocv1alpha1.ClusterExtension)
+		return crfinalizer.Result{}, localStorage.Delete(ctx, ext)
+	})); err != nil {
+		setupLog.Error(err, "unable to register finalizer", "finalizerKey", deleteCachedBundleKey)
 		os.Exit(1)
+	}
+
+	aeClient, err := apiextensionsv1client.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create apiextensions client")
+		os.Exit(1)
+	}
+
+	preflights := []controllers.Preflight{
+		crdupgradesafety.NewPreflight(aeClient.CustomResourceDefinitions()),
 	}
 
 	if err = (&controllers.ClusterExtensionReconciler{
 		Client:                cl,
-		ReleaseNamespace:      systemNamespace,
 		BundleProvider:        catalogClient,
 		ActionClientGetter:    acg,
 		Unpacker:              unpacker,
 		Storage:               localStorage,
-		Handler:               handler.HandlerFunc(handler.HandleClusterExtension),
 		InstalledBundleGetter: &controllers.DefaultInstalledBundleGetter{ActionClientGetter: acg},
+		Handler:               registryv1handler.HandlerFunc(registry.HandleBundleDeployment),
+		Finalizers:            clusterExtensionFinalizers,
+		CaCertDir:             caCertDir,
+		Preflights:            preflights,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterExtension")
 		os.Exit(1)
@@ -221,4 +259,10 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+type finalizerFunc func(ctx context.Context, obj client.Object) (crfinalizer.Result, error)
+
+func (f finalizerFunc) Finalize(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
+	return f(ctx, obj)
 }

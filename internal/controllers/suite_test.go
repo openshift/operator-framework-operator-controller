@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	crfinalizer "sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 	"github.com/operator-framework/rukpak/api/v1alpha2"
@@ -40,8 +41,8 @@ import (
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/controllers"
+	"github.com/operator-framework/operator-controller/internal/testutil"
 	"github.com/operator-framework/operator-controller/pkg/scheme"
-	testutil "github.com/operator-framework/operator-controller/test/util"
 )
 
 // MockUnpacker is a mock of Unpacker interface
@@ -126,6 +127,7 @@ func newClientAndReconciler(t *testing.T, bundle *ocv1alpha1.BundleMetadata) (cl
 		Unpacker:              unpacker,
 		Storage:               store,
 		InstalledBundleGetter: mockInstalledBundleGetter,
+		Finalizers:            crfinalizer.NewFinalizers(),
 	}
 	return cl, reconciler
 }
@@ -140,7 +142,7 @@ var (
 func TestMain(m *testing.M) {
 	testEnv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases")},
+			filepath.Join("..", "..", "config", "base", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 	}
 

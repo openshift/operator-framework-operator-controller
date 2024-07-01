@@ -27,6 +27,7 @@ import (
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
+	"github.com/operator-framework/operator-controller/internal/conditionsets"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 var pollDuration = time.Minute
 var pollInterval = time.Second
 
-func testInit(t *testing.T) (*ocv1alpha1.ClusterExtension, *catalogd.Catalog) {
+func testInit(t *testing.T) (*ocv1alpha1.ClusterExtension, *catalogd.ClusterCatalog) {
 	var err error
 	extensionCatalog, err := createTestCatalog(context.Background(), testCatalogName, os.Getenv(testCatalogRefEnvVar))
 	require.NoError(t, err)
@@ -45,18 +46,15 @@ func testInit(t *testing.T) (*ocv1alpha1.ClusterExtension, *catalogd.Catalog) {
 	clusterExtension := &ocv1alpha1.ClusterExtension{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterExtensionName,
-			Annotations: map[string]string{
-				"bundle.connection.config/insecureSkipTLSVerify": "true",
-			},
 		},
 	}
 	return clusterExtension, extensionCatalog
 }
 
-func testCleanup(t *testing.T, cat *catalogd.Catalog, clusterExtension *ocv1alpha1.ClusterExtension) {
+func testCleanup(t *testing.T, cat *catalogd.ClusterCatalog, clusterExtension *ocv1alpha1.ClusterExtension) {
 	require.NoError(t, c.Delete(context.Background(), cat))
 	require.Eventually(t, func() bool {
-		err := c.Get(context.Background(), types.NamespacedName{Name: cat.Name}, &catalogd.Catalog{})
+		err := c.Get(context.Background(), types.NamespacedName{Name: cat.Name}, &catalogd.ClusterCatalog{})
 		return errors.IsNotFound(err)
 	}, pollDuration, pollInterval)
 	require.NoError(t, c.Delete(context.Background(), clusterExtension))
@@ -85,7 +83,7 @@ func TestClusterExtensionInstallRegistry(t *testing.T) {
 	t.Log("By eventually reporting a successful resolution and bundle path")
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		assert.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: clusterExtension.Name}, clusterExtension))
-		assert.Len(ct, clusterExtension.Status.Conditions, 8)
+		assert.Len(ct, clusterExtension.Status.Conditions, len(conditionsets.ConditionTypes))
 		cond := apimeta.FindStatusCondition(clusterExtension.Status.Conditions, ocv1alpha1.TypeResolved)
 		if !assert.NotNil(ct, cond) {
 			return
@@ -139,13 +137,17 @@ func TestClusterExtensionInstallReResolvesWhenNewCatalog(t *testing.T) {
 	t.Log("By deleting the catalog first")
 	require.NoError(t, c.Delete(context.Background(), extensionCatalog))
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		err := c.Get(context.Background(), types.NamespacedName{Name: extensionCatalog.Name}, &catalogd.Catalog{})
+		err := c.Get(context.Background(), types.NamespacedName{Name: extensionCatalog.Name}, &catalogd.ClusterCatalog{})
 		assert.True(ct, errors.IsNotFound(err))
 	}, pollDuration, pollInterval)
 
 	t.Log("By creating the ClusterExtension resource")
 	require.NoError(t, c.Create(context.Background(), clusterExtension))
 
+	// TODO: this isn't a good precondition because a missing package results in
+	//  exponential backoff retries. So we can't be sure that the re-reconcile is a result of
+	//  the catalog becoming available because it could also be a retry of the initial failed
+	//  resolution.
 	t.Log("By failing to find ClusterExtension during resolution")
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		assert.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: clusterExtension.Name}, clusterExtension))
@@ -257,13 +259,13 @@ func TestClusterExtensionForceInstallNonSuccessorVersion(t *testing.T) {
 		assert.Equal(ct, &ocv1alpha1.BundleMetadata{Name: "prometheus-operator.1.0.0", Version: "1.0.0"}, clusterExtension.Status.ResolvedBundle)
 	}, pollDuration, pollInterval)
 
-	t.Log("It does not allow to upgrade the ClusterExtension to a non-successor version")
+	t.Log("It allows to upgrade the ClusterExtension to a non-successor version")
 	t.Log("By updating the ClusterExtension resource to a non-successor version")
 	// 1.2.0 does not replace/skip/skipRange 1.0.0.
 	clusterExtension.Spec.Version = "1.2.0"
 	clusterExtension.Spec.UpgradeConstraintPolicy = ocv1alpha1.UpgradeConstraintPolicyIgnore
 	require.NoError(t, c.Update(context.Background(), clusterExtension))
-	t.Log("By eventually reporting an unsatisfiable resolution")
+	t.Log("By eventually reporting a satisfiable resolution")
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		assert.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: clusterExtension.Name}, clusterExtension))
 		cond := apimeta.FindStatusCondition(clusterExtension.Status.Conditions, ocv1alpha1.TypeResolved)
@@ -368,7 +370,7 @@ func getArtifactsOutput(t *testing.T) {
 	}
 
 	// get all catalogsources save them to the artifact path.
-	catalogsources := catalogd.CatalogList{}
+	catalogsources := catalogd.ClusterCatalogList{}
 	if err := c.List(context.Background(), &catalogsources, client.InNamespace("")); err != nil {
 		fmt.Printf("Failed to list catalogsources: %v", err)
 	}

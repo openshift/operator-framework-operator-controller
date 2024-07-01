@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crfinalizer "sigs.k8s.io/controller-runtime/pkg/finalizer"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"github.com/operator-framework/operator-registry/alpha/property"
@@ -22,7 +23,7 @@ import (
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata"
 	"github.com/operator-framework/operator-controller/internal/controllers"
-	testutil "github.com/operator-framework/operator-controller/test/util"
+	"github.com/operator-framework/operator-controller/internal/testutil"
 )
 
 func TestClusterExtensionRegistryV1DisallowDependencies(t *testing.T) {
@@ -116,6 +117,7 @@ func TestClusterExtensionRegistryV1DisallowDependencies(t *testing.T) {
 				ActionClientGetter:    helmClientGetter,
 				Unpacker:              unpacker,
 				InstalledBundleGetter: mockInstalledBundleGetter,
+				Finalizers:            crfinalizer.NewFinalizers(),
 			}
 
 			installNamespace := fmt.Sprintf("test-ns-%s", rand.String(8))
