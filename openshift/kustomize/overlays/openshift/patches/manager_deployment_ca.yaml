@@ -1,0 +1,9 @@
+- op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"olmv1-certificate", "configMap":{"name":"operator-controller-openshift-ca", "optional": false, "items": [{"key": "service-ca.crt", "path": "olm-ca.crt"}]}}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"olmv1-certificate", "readOnly": true, "mountPath":"/var/certs/olm-ca.crt", "subPath":"olm-ca.crt"}
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--ca-certs-dir=/var/certs"
