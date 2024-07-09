@@ -20,32 +20,22 @@ rules:
   - apiGroups:
       - catalogd.operatorframework.io
     resources:
-      - catalogs
+      - clustercatalogs
     verbs:
       - list
       - watch
   - apiGroups:
       - ""
     resources:
-      - configmaps
-    verbs:
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - pods
+      - secrets
     verbs:
       - create
       - delete
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - pods/log
-    verbs:
       - get
+      - list
+      - patch
+      - update
+      - watch
   - apiGroups:
       - olm.operatorframework.io
     resources:

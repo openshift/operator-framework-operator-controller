@@ -73,18 +73,36 @@ type ClusterExtensionSpec struct {
 
 	//+kubebuilder:validation:Pattern:=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
 	//+kubebuilder:validation:MaxLength:=63
+	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="installNamespace is immutable"
 	//
 	// installNamespace is the namespace where the bundle should be installed. However, note that
 	// the bundle may contain resources that are cluster-scoped or that are
 	// installed in a different namespace. This namespace is expected to exist.
 	InstallNamespace string `json:"installNamespace"`
+
+	//+kubebuilder:Optional
+	// Preflight defines the configuration of preflight checks.
+	Preflight *PreflightConfig `json:"preflight,omitempty"`
+}
+
+// PreflightConfig holds the configuration for the preflight checks.
+type PreflightConfig struct {
+	//+kubebuilder:Required
+	// CRDUpgradeSafety holds necessary configuration for the CRD Upgrade Safety preflight checks.
+	CRDUpgradeSafety *CRDUpgradeSafetyPreflightConfig `json:"crdUpgradeSafety,omitempty"`
+}
+
+// CRDUpgradeSafetyPreflightConfig is the configuration for CRD upgrade safety preflight check.
+type CRDUpgradeSafetyPreflightConfig struct {
+	//+kubebuilder:Required
+	// Disabled represents the state of the CRD upgrade safety preflight check being disabled/enabled.
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 const (
 	// TODO(user): add more Types, here and into init()
-	TypeInstalled      = "Installed"
-	TypeResolved       = "Resolved"
-	TypeHasValidBundle = "HasValidBundle"
+	TypeInstalled = "Installed"
+	TypeResolved  = "Resolved"
 
 	// TypeDeprecated is a rollup condition that is present when
 	// any of the deprecated conditions are present.
@@ -102,15 +120,13 @@ const (
 	ReasonInstallationSucceeded     = "InstallationSucceeded"
 	ReasonResolutionFailed          = "ResolutionFailed"
 
-	ReasonSuccess               = "Success"
-	ReasonDeprecated            = "Deprecated"
-	ReasonUpgradeFailed         = "UpgradeFailed"
-	ReasonHasValidBundleUnknown = "HasValidBundleUnknown"
+	ReasonSuccess       = "Success"
+	ReasonDeprecated    = "Deprecated"
+	ReasonUpgradeFailed = "UpgradeFailed"
 
 	ReasonUnpackPending = "UnpackPending"
 	ReasonUnpackSuccess = "UnpackSuccess"
 	ReasonUnpackFailed  = "UnpackFailed"
-	ReasonUnpacking     = "Unpacking"
 
 	ReasonErrorGettingReleaseState = "ErrorGettingReleaseState"
 	ReasonCreateDynamicWatchFailed = "CreateDynamicWatchFailed"
@@ -121,7 +137,6 @@ func init() {
 	conditionsets.ConditionTypes = append(conditionsets.ConditionTypes,
 		TypeInstalled,
 		TypeResolved,
-		TypeHasValidBundle,
 		TypeDeprecated,
 		TypePackageDeprecated,
 		TypeChannelDeprecated,
@@ -139,10 +154,8 @@ func init() {
 		ReasonBundleLoadFailed,
 		ReasonErrorGettingClient,
 		ReasonInstallationStatusUnknown,
-		ReasonHasValidBundleUnknown,
 		ReasonUnpackPending,
 		ReasonUnpackSuccess,
-		ReasonUnpacking,
 		ReasonUnpackFailed,
 		ReasonErrorGettingReleaseState,
 		ReasonCreateDynamicWatchFailed,

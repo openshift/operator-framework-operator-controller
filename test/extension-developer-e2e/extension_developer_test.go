@@ -35,9 +35,6 @@ func TestExtensionDeveloper(t *testing.T) {
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "registryv1",
-				Annotations: map[string]string{
-					"bundle.connection.config/insecureSkipTLSVerify": "true",
-				},
 			},
 			Spec: ocv1alpha1.ClusterExtensionSpec{
 				PackageName:      os.Getenv("REG_PKG_NAME"),
@@ -50,11 +47,11 @@ func TestExtensionDeveloper(t *testing.T) {
 		clusterExtension := ce
 		t.Run(clusterExtension.ObjectMeta.Name, func(t *testing.T) {
 			t.Parallel()
-			catalog := &catalogd.Catalog{
+			catalog := &catalogd.ClusterCatalog{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "catalog",
 				},
-				Spec: catalogd.CatalogSpec{
+				Spec: catalogd.ClusterCatalogSpec{
 					Source: catalogd.CatalogSource{
 						Type: catalogd.SourceTypeImage,
 						Image: &catalogd.ImageSource{

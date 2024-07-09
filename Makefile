@@ -51,10 +51,10 @@ CONTAINER_RUNTIME := docker
 else ifneq (, $(shell command -v podman 2>/dev/null))
 CONTAINER_RUNTIME := podman
 else
-$(warning Could not find docker or podman in path! This may result in targets requiring a container runtime failing!) 
+$(warning Could not find docker or podman in path! This may result in targets requiring a container runtime failing!)
 endif
 
-KUSTOMIZE_BUILD_DIR := config/default
+KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
 
 # Disable -j flag for make
 .NOTPARALLEL:
@@ -95,7 +95,7 @@ tidy: #HELP Update dependencies.
 
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN) #EXHELP Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/base/crd/bases output:rbac:artifacts:config=config/base/rbac
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -118,24 +118,24 @@ test: manifests generate fmt vet test-unit test-e2e #HELP Run all tests.
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
-	go test -v ./test/e2e/...
+	go test -count=1 -v ./test/e2e/...
 
 E2E_REGISTRY_NAME := docker-registry
-E2E_REGISTRY_NAMESPACE := operator-controller-system
+E2E_REGISTRY_NAMESPACE := operator-controller-e2e
 
 export REG_PKG_NAME := registry-operator
 export REGISTRY_ROOT := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
-export CATALOG_IMG := $(REGISTRY_ROOT)/test-catalog:e2e
+export CATALOG_IMG := $(REGISTRY_ROOT)/e2e/test-catalog:e2e
 .PHONY: test-ext-dev-e2e
 test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension create, upgrade and delete tests.
 	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) $(KIND) $(KIND_CLUSTER_NAME) $(E2E_REGISTRY_NAMESPACE)
-	go test -v ./test/extension-developer-e2e/...
+	go test -count=1 -v ./test/extension-developer-e2e/...
 
 .PHONY: test-unit
 ENVTEST_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.x/')
 UNIT_TEST_DIRS := $(shell go list ./... | grep -v /test/)
 test-unit: $(SETUP_ENVTEST) #HELP Run the unit tests
-	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE)) && go test -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
+	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE)) && CGO_ENABLED=1 go test -count=1 -race -short $(UNIT_TEST_DIRS) -coverprofile cover.out
 
 image-registry: ## Setup in-cluster image registry
 	./test/tools/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
@@ -150,11 +150,12 @@ build-push-e2e-catalog: ## Build the testdata catalog used for e2e tests and pus
 # for example: ARTIFACT_PATH=/tmp/artifacts make test-e2e
 .PHONY: test-e2e
 test-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
-test-e2e: KUSTOMIZE_BUILD_DIR := config/e2e
+test-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/e2e
 test-e2e: GO_BUILD_FLAGS := -cover
 test-e2e: run image-registry build-push-e2e-catalog registry-load-bundles e2e e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
 
 .PHONY: extension-developer-e2e
+extension-developer-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
 extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e  #EXHELP Run extension-developer e2e on local kind cluster
 extension-developer-e2e: run image-registry test-ext-dev-e2e kind-clean
 
@@ -180,7 +181,6 @@ kind-redeploy: generate docker-build kind-load kind-deploy #EXHELP Redeploy newl
 .PHONY: kind-cluster
 kind-cluster: $(KIND) #EXHELP Standup a kind cluster.
 	-$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
-	# kind-config.yaml can be deleted after upgrading to Kubernetes 1.30
 	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --image $(KIND_CLUSTER_IMAGE) --config ./kind-config.yaml
 	$(KIND) export kubeconfig --name $(KIND_CLUSTER_NAME)
 
@@ -193,7 +193,6 @@ registry-load-bundles: ## Load selected e2e testdata container images created in
 	testdata/bundles/registry-v1/build-push-e2e-bundle.sh ${E2E_REGISTRY_NAMESPACE} $(REGISTRY_ROOT)/bundles/registry-v1/prometheus-operator:v1.0.1 prometheus-operator.v1.0.1 prometheus-operator.v1.0.0
 	testdata/bundles/registry-v1/build-push-e2e-bundle.sh ${E2E_REGISTRY_NAMESPACE} $(REGISTRY_ROOT)/bundles/registry-v1/prometheus-operator:v1.2.0 prometheus-operator.v1.2.0 prometheus-operator.v1.0.0
 	testdata/bundles/registry-v1/build-push-e2e-bundle.sh ${E2E_REGISTRY_NAMESPACE} $(REGISTRY_ROOT)/bundles/registry-v1/prometheus-operator:v2.0.0 prometheus-operator.v2.0.0 prometheus-operator.v1.0.0
-	testdata/bundles/registry-v1/build-push-e2e-bundle.sh ${E2E_REGISTRY_NAMESPACE} $(REGISTRY_ROOT)/bundles/registry-v1/package-with-webhooks:v1.0.0 package-with-webhooks.v1.0.0 package-with-webhooks.v1.0.0
 
 #SECTION Build
 

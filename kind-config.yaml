@@ -1,8 +1,10 @@
-# Can be deleted after upgrading to Kubernetes 1.30
-kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-featureGates:
-  ValidatingAdmissionPolicy: true
-runtimeConfig:
-  admissionregistration.k8s.io/v1beta1: true
-
+kind: Cluster
+nodes:
+  - role: control-plane
+    extraPortMappings:
+    # e2e image registry service's NodePort
+      - containerPort: 30000
+        hostPort: 30000
+        listenAddress: "127.0.0.1"
+        protocol: tcp

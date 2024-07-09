@@ -30,14 +30,6 @@ metadata:
   name: ${namespace}
 ---
 apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: ${namespace}
-spec:
-  selfSigned: {}
----
-apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ${namespace}-registry
@@ -52,8 +44,8 @@ spec:
     algorithm: ECDSA
     size: 256
   issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
+    name: olmv1-ca
+    kind: ClusterIssuer
     group: cert-manager.io
 ---
 apiVersion: apps/v1
@@ -98,8 +90,11 @@ spec:
   selector:
     app: registry
   ports:
-  - port: 5000
+  - name: http
+    port: 5000
     targetPort: 5000
+    nodePort: 30000
+  type: NodePort
 EOF
 
 kubectl wait --for=condition=Available -n "${namespace}" "deploy/${name}" --timeout=60s
