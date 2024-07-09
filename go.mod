@@ -263,4 +263,4 @@ require (
 
 replace github.com/operator-framework/rukpak => github.com/openshift/operator-framework-rukpak v0.0.0-20240624183109-7063b842e0c4
 
-replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240709032110-aaedbf05e6cb
+replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240709041850-b4f5a62a1876
