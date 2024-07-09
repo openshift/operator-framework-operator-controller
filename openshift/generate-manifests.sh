@@ -48,7 +48,7 @@ mkdir -p "$TMP_MANIFEST_DIR"
 
 # Run kustomize, which emits a single yaml file
 TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${TMP_CONFIG}/base/operator-controller" -o "$TMP_KUSTOMIZE_OUTPUT"
+$KUSTOMIZE build "${REPO_ROOT}"/openshift/kustomize/overlays/openshift -o "$TMP_KUSTOMIZE_OUTPUT"
 
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"

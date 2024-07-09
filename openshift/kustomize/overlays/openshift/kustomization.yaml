@@ -1,0 +1,17 @@
+# Adds namespace to all resources.
+namespace: openshift-operator-controller
+
+namePrefix: operator-controller-
+
+resources:
+  - resources/ca_configmap.yaml
+  - ../../../../config/base/operator-controller/crd
+  - ../../../../config/base/operator-controller/rbac
+  - ../../../../config/base/operator-controller/manager
+  - ../../../../config/base/common
+
+patches:
+  - target:
+      kind: Deployment
+      name: controller-manager
+    path: patches/manager_deployment_ca.yaml
