@@ -43,6 +43,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
+            - --ca-certs-dir=/var/certs
           command:
             - /manager
           image: ${OPERATOR_CONTROLLER_IMAGE}
@@ -73,6 +74,10 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
+            - mountPath: /var/certs/olm-ca.crt
+              name: olmv1-certificate
+              readOnly: true
+              subPath: olm-ca.crt
         - args:
             - --secure-listen-address=0.0.0.0:8443
             - --upstream=http://127.0.0.1:8080/
@@ -103,4 +108,11 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - configMap:
+            items:
+              - key: service-ca.crt
+                path: olm-ca.crt
+            name: operator-controller-openshift-ca
+            optional: false
+          name: olmv1-certificate
       priorityClassName: system-cluster-critical
