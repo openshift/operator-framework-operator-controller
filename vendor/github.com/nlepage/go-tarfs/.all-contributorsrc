@@ -1,0 +1,70 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "gitmoji",
+  "contributors": [
+    {
+      "login": "nlepage",
+      "name": "Nicolas Lepage",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19571875?v=4",
+      "profile": "https://github.com/nlepage",
+      "contributions": [
+        "code",
+        "test",
+        "example",
+        "maintenance",
+        "review"
+      ]
+    },
+    {
+      "login": "cugu",
+      "name": "Jonas Plum",
+      "avatar_url": "https://avatars.githubusercontent.com/u/653777?v=4",
+      "profile": "https://blog.cugu.eu/",
+      "contributions": [
+        "test",
+        "code"
+      ]
+    },
+    {
+      "login": "ix64",
+      "name": "MengYX",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13902388?v=4",
+      "profile": "https://github.com/ix64",
+      "contributions": [
+        "bug",
+        "code"
+      ]
+    },
+    {
+      "login": "adyatlov",
+      "name": "Andrey Dyatlov",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1386270?v=4",
+      "profile": "https://github.com/adyatlov",
+      "contributions": [
+        "bug",
+        "code",
+        "test"
+      ]
+    },
+    {
+      "login": "joelanford",
+      "name": "Joe Lanford",
+      "avatar_url": "https://avatars.githubusercontent.com/u/580047?v=4",
+      "profile": "https://github.com/joelanford",
+      "contributions": [
+        "code",
+        "review"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "go-tarfs",
+  "projectOwner": "nlepage",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true
+}
