@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -24,6 +25,7 @@ var (
 const (
 	testCatalogRefEnvVar = "CATALOG_IMG"
 	testCatalogName      = "test-catalog"
+	latestImageTag       = "latest"
 )
 
 func TestMain(m *testing.M) {
@@ -50,6 +52,7 @@ func createTestCatalog(ctx context.Context, name string, imageRef string) (*cata
 				Image: &catalogd.ImageSource{
 					Ref:                   imageRef,
 					InsecureSkipTLSVerify: true,
+					PollInterval:          &metav1.Duration{Duration: time.Second},
 				},
 			},
 		},
@@ -57,4 +60,27 @@ func createTestCatalog(ctx context.Context, name string, imageRef string) (*cata
 
 	err := c.Create(ctx, catalog)
 	return catalog, err
+}
+
+// patchTestCatalog will patch the existing clusterCatalog on the test cluster, provided
+// the context, catalog name, and the image reference. It returns an error
+// if any errors occurred while updating the catalog.
+func patchTestCatalog(ctx context.Context, name string, newImageRef string) error {
+	// Fetch the existing ClusterCatalog
+	catalog := &catalogd.ClusterCatalog{}
+	err := c.Get(ctx, client.ObjectKey{Name: name}, catalog)
+	if err != nil {
+		return err
+	}
+
+	// Update the ImageRef
+	catalog.Spec.Source.Image.Ref = newImageRef
+
+	// Patch the ClusterCatalog
+	err = c.Update(ctx, catalog)
+	if err != nil {
+		return err
+	}
+
+	return err
 }

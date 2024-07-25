@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -40,18 +39,17 @@ import (
 
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
-	registryv1handler "github.com/operator-framework/rukpak/pkg/handler"
-	crdupgradesafety "github.com/operator-framework/rukpak/pkg/preflights/crdupgradesafety"
-	"github.com/operator-framework/rukpak/pkg/provisioner/registry"
-	"github.com/operator-framework/rukpak/pkg/source"
-	"github.com/operator-framework/rukpak/pkg/storage"
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
+	"github.com/operator-framework/operator-controller/internal/action"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata/cache"
 	catalogclient "github.com/operator-framework/operator-controller/internal/catalogmetadata/client"
 	"github.com/operator-framework/operator-controller/internal/controllers"
 	"github.com/operator-framework/operator-controller/internal/httputil"
 	"github.com/operator-framework/operator-controller/internal/labels"
+	"github.com/operator-framework/operator-controller/internal/resolve"
+	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
+	"github.com/operator-framework/operator-controller/internal/rukpak/source"
 	"github.com/operator-framework/operator-controller/internal/version"
 	"github.com/operator-framework/operator-controller/pkg/features"
 	"github.com/operator-framework/operator-controller/pkg/scheme"
@@ -95,6 +93,7 @@ func main() {
 	flag.StringVar(&systemNamespace, "system-namespace", "", "Configures the namespace that gets used to deploy system resources.")
 	opts := zap.Options{
 		Development: true,
+		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
 	}
 	opts.BindFlags(flag.CommandLine)
 
@@ -155,14 +154,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	httpClient, err := httputil.BuildHTTPClient(caCertDir)
-	if err != nil {
-		setupLog.Error(err, "unable to create catalogd http client")
-	}
-
-	cl := mgr.GetClient()
-	catalogClient := catalogclient.New(cl, cache.NewFilesystemCache(cachePath, httpClient))
-
 	installNamespaceMapper := helmclient.ObjectToStringMapper(func(obj client.Object) (string, error) {
 		ext := obj.(*ocv1alpha1.ClusterExtension)
 		return ext.Spec.InstallNamespace, nil
@@ -176,46 +167,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	acg, err := helmclient.NewActionClientGetter(cfgGetter,
+	acg, err := action.NewWrappedActionClientGetter(cfgGetter,
 		helmclient.WithFailureRollbacks(false),
 	)
+
 	if err != nil {
 		setupLog.Error(err, "unable to create helm client")
 		os.Exit(1)
 	}
 
-	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
+	certPool, err := httputil.NewCertPool(caCertDir)
+	if err != nil {
+		setupLog.Error(err, "unable to create CA certificate pool")
+		os.Exit(1)
+	}
 	unpacker := &source.ImageRegistry{
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		// TODO: This needs to be derived per extension via ext.Spec.InstallNamespace
 		AuthNamespace: systemNamespace,
+		CaCertPool:    certPool,
 	}
 
+	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
 	domain := ocv1alpha1.GroupVersion.Group
 	cleanupUnpackCacheKey := fmt.Sprintf("%s/cleanup-unpack-cache", domain)
-	deleteCachedBundleKey := fmt.Sprintf("%s/delete-cached-bundle", domain)
 	if err := clusterExtensionFinalizers.Register(cleanupUnpackCacheKey, finalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
 		ext := obj.(*ocv1alpha1.ClusterExtension)
 		return crfinalizer.Result{}, os.RemoveAll(filepath.Join(unpacker.BaseCachePath, ext.GetName()))
 	})); err != nil {
 		setupLog.Error(err, "unable to register finalizer", "finalizerKey", cleanupUnpackCacheKey)
-		os.Exit(1)
-	}
-
-	localStorageRoot := filepath.Join(cachePath, "bundles")
-	if err := os.MkdirAll(localStorageRoot, 0755); err != nil {
-		setupLog.Error(err, "unable to create local storage root directory", "root", localStorageRoot)
-		os.Exit(1)
-	}
-	localStorage := &storage.LocalDirectory{
-		RootDirectory: localStorageRoot,
-		URL:           url.URL{},
-	}
-	if err := clusterExtensionFinalizers.Register(deleteCachedBundleKey, finalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
-		ext := obj.(*ocv1alpha1.ClusterExtension)
-		return crfinalizer.Result{}, localStorage.Delete(ctx, ext)
-	})); err != nil {
-		setupLog.Error(err, "unable to register finalizer", "finalizerKey", deleteCachedBundleKey)
 		os.Exit(1)
 	}
 
@@ -229,16 +209,41 @@ func main() {
 		crdupgradesafety.NewPreflight(aeClient.CustomResourceDefinitions()),
 	}
 
+	cl := mgr.GetClient()
+	httpClient, err := httputil.BuildHTTPClient(certPool)
+	if err != nil {
+		setupLog.Error(err, "unable to create catalogd http client")
+		os.Exit(1)
+	}
+
+	catalogsCachePath := filepath.Join(cachePath, "catalogs")
+	if err := os.MkdirAll(catalogsCachePath, 0700); err != nil {
+		setupLog.Error(err, "unable to create catalogs cache directory")
+		os.Exit(1)
+	}
+	catalogClient := catalogclient.New(cache.NewFilesystemCache(catalogsCachePath, httpClient))
+
+	resolver := &resolve.CatalogResolver{
+		WalkCatalogsFunc: resolve.CatalogWalker(
+			func(ctx context.Context, option ...client.ListOption) ([]catalogd.ClusterCatalog, error) {
+				var catalogs catalogd.ClusterCatalogList
+				if err := cl.List(ctx, &catalogs, option...); err != nil {
+					return nil, err
+				}
+				return catalogs.Items, nil
+			},
+			catalogClient.GetPackage,
+		),
+	}
+
 	if err = (&controllers.ClusterExtensionReconciler{
 		Client:                cl,
-		BundleProvider:        catalogClient,
+		Resolver:              resolver,
 		ActionClientGetter:    acg,
 		Unpacker:              unpacker,
-		Storage:               localStorage,
 		InstalledBundleGetter: &controllers.DefaultInstalledBundleGetter{ActionClientGetter: acg},
-		Handler:               registryv1handler.HandlerFunc(registry.HandleBundleDeployment),
 		Finalizers:            clusterExtensionFinalizers,
-		CaCertDir:             caCertDir,
+		CaCertPool:            certPool,
 		Preflights:            preflights,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterExtension")
