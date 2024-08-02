@@ -25,6 +25,9 @@ export CERT_MGR_VERSION := v1.9.0
 export CATALOGD_VERSION := $(shell go list -mod=mod -m -f "{{.Version}}" github.com/operator-framework/catalogd)
 export WAIT_TIMEOUT := 60s
 
+# Install default ClusterCatalogs
+export INSTALL_DEFAULT_CATALOGS := true
+
 # By default setup-envtest will write to $XDG_DATA_HOME, or $HOME/.local/share if that is not defined.
 # If $HOME is not set, we need to specify a binary directory to prevent an error in setup-envtest.
 # Useful for some CI/CD environments that set neither $XDG_DATA_HOME nor $HOME.
@@ -148,11 +151,11 @@ test-unit: $(SETUP_ENVTEST) #HELP Run the unit tests
 	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE)) && CGO_ENABLED=1 go test -count=1 -race -short $(UNIT_TEST_DIRS) -cover -coverprofile ${ROOT_DIR}/coverage/unit.out -test.gocoverdir=$(ROOT_DIR)/coverage/unit
 
 image-registry: ## Setup in-cluster image registry
-	./test/tools/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
+	./hack/test/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
 
 build-push-e2e-catalog: ## Build the testdata catalog used for e2e tests and push it to the image registry
-	./test/tools/build-push-e2e-catalog.sh $(E2E_REGISTRY_NAMESPACE) $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
-	./test/tools/build-push-e2e-catalog.sh $(E2E_REGISTRY_NAMESPACE) $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V2)
+	./hack/test/build-push-e2e-catalog.sh $(E2E_REGISTRY_NAMESPACE) $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
+	./hack/test/build-push-e2e-catalog.sh $(E2E_REGISTRY_NAMESPACE) $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V2)
 
 # When running the e2e suite, you can set the ARTIFACT_PATH variable to the absolute path
 # of the directory for the operator-controller e2e tests to store the artifacts, which
@@ -168,6 +171,7 @@ test-e2e: run image-registry build-push-e2e-catalog registry-load-bundles e2e e2
 .PHONY: extension-developer-e2e
 extension-developer-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
 extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e  #EXHELP Run extension-developer e2e on local kind cluster
+extension-developer-e2e: export INSTALL_DEFAULT_CATALOGS := false  #EXHELP Run extension-developer e2e on local kind cluster
 extension-developer-e2e: run image-registry test-ext-dev-e2e kind-clean
 
 .PHONY: run-latest-release
@@ -176,7 +180,7 @@ run-latest-release:
 
 .PHONY: pre-upgrade-setup
 pre-upgrade-setup:
-	./hack/pre-upgrade-setup.sh $(CATALOG_IMG) $(TEST_CLUSTER_CATALOG_NAME) $(TEST_CLUSTER_EXTENSION_NAME)
+	./hack/test/pre-upgrade-setup.sh $(CATALOG_IMG) $(TEST_CLUSTER_CATALOG_NAME) $(TEST_CLUSTER_EXTENSION_NAME)
 
 .PHONY: post-upgrade-checks
 post-upgrade-checks:
@@ -190,7 +194,7 @@ test-upgrade-e2e: kind-cluster run-latest-release image-registry build-push-e2e-
 
 .PHONY: e2e-coverage
 e2e-coverage:
-	COVERAGE_OUTPUT=./coverage/e2e.out ./hack/e2e-coverage.sh
+	COVERAGE_OUTPUT=./coverage/e2e.out ./hack/test/e2e-coverage.sh
 
 .PHONY: kind-load
 kind-load: $(KIND) #EXHELP Loads the currently constructed image onto the cluster.
@@ -200,7 +204,7 @@ kind-load: $(KIND) #EXHELP Loads the currently constructed image onto the cluste
 kind-deploy: export MANIFEST="./operator-controller.yaml"
 kind-deploy: manifests $(KUSTOMIZE) #EXHELP Install controller and dependencies onto the kind cluster.
 	$(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) > operator-controller.yaml
-	envsubst '$$CATALOGD_VERSION,$$CERT_MGR_VERSION,$$MANIFEST' < scripts/install.tpl.sh | bash -s
+	envsubst '$$CATALOGD_VERSION,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh | bash -s
 
 .PHONY: kind-cluster
 kind-cluster: $(KIND) #EXHELP Standup a kind cluster.
@@ -284,7 +288,7 @@ release: $(GORELEASER) #EXHELP Runs goreleaser for the operator-controller. By d
 quickstart: export MANIFEST := https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/operator-controller.yaml
 quickstart: $(KUSTOMIZE) manifests #EXHELP Generate the installation release manifests and scripts.
 	$(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) | sed "s/:devel/:$(VERSION)/g" > operator-controller.yaml
-	envsubst '$$CATALOGD_VERSION,$$CERT_MGR_VERSION,$$MANIFEST' < scripts/install.tpl.sh > install.sh
+	envsubst '$$CATALOGD_VERSION,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > install.sh
 
 ##@ Docs
 

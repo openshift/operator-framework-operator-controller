@@ -89,7 +89,7 @@ func TestClusterExtensionResolutionSucceeds(t *testing.T) {
 	cl, reconciler := newClientAndReconciler(t, nil)
 	mockUnpacker := unpacker.(*MockUnpacker)
 	// Set up the Unpack method to return a result with StateUnpacked
-	mockUnpacker.On("Unpack", mock.Anything, mock.AnythingOfType("*bundledeployment.BundleDeployment")).Return(&source.Result{
+	mockUnpacker.On("Unpack", mock.Anything, mock.AnythingOfType("*source.BundleSource")).Return(&source.Result{
 		State: source.StatePending,
 	}, nil)
 
@@ -151,7 +151,7 @@ func TestClusterExtensionResolutionSucceeds(t *testing.T) {
 	unpackedCond := apimeta.FindStatusCondition(clusterExtension.Status.Conditions, ocv1alpha1.TypeUnpacked)
 	require.NotNil(t, unpackedCond)
 	require.Equal(t, metav1.ConditionFalse, unpackedCond.Status)
-	require.Equal(t, ocv1alpha1.ReasonUnpackPending, unpackedCond.Reason)
+	require.Equal(t, ocv1alpha1.ReasonUnpackFailed, unpackedCond.Reason)
 
 	require.NoError(t, cl.DeleteAllOf(ctx, &ocv1alpha1.ClusterExtension{}))
 }

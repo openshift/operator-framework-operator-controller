@@ -19,12 +19,10 @@ package controllers
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,7 +37,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	apimachyaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -54,7 +51,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
@@ -65,9 +61,9 @@ import (
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/bundleutil"
 	"github.com/operator-framework/operator-controller/internal/conditionsets"
+	"github.com/operator-framework/operator-controller/internal/contentmanager"
 	"github.com/operator-framework/operator-controller/internal/labels"
 	"github.com/operator-framework/operator-controller/internal/resolve"
-	"github.com/operator-framework/operator-controller/internal/rukpak/bundledeployment"
 	"github.com/operator-framework/operator-controller/internal/rukpak/convert"
 	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
 	rukpaksource "github.com/operator-framework/operator-controller/internal/rukpak/source"
@@ -84,13 +80,11 @@ type ClusterExtensionReconciler struct {
 	Resolver              resolve.Resolver
 	Unpacker              rukpaksource.Unpacker
 	ActionClientGetter    helmclient.ActionClientGetter
-	dynamicWatchMutex     sync.RWMutex
-	dynamicWatchGVKs      sets.Set[schema.GroupVersionKind]
+	Watcher               contentmanager.Watcher
 	controller            crcontroller.Controller
 	cache                 cache.Cache
 	InstalledBundleGetter InstalledBundleGetter
 	Finalizers            crfinalizer.Finalizers
-	CaCertPool            *x509.CertPool
 	Preflights            []Preflight
 }
 
@@ -113,11 +107,12 @@ type Preflight interface {
 	Upgrade(context.Context, *release.Release) error
 }
 
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;list;watch
+//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/status,verbs=update;patch
 //+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=create;update;patch;delete;get;list;watch
-//+kubebuilder:rbac:groups=*,resources=*,verbs=*
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts/token,verbs=create
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get
 
 //+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=clustercatalogs,verbs=list;watch
 //+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=catalogmetadata,verbs=list;watch
@@ -131,7 +126,7 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	l.V(1).Info("reconcile starting")
 	defer l.V(1).Info("reconcile ending")
 
-	var existingExt = &ocv1alpha1.ClusterExtension{}
+	existingExt := &ocv1alpha1.ClusterExtension{}
 	if err := r.Client.Get(ctx, req.NamespacedName, existingExt); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -278,12 +273,14 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 	ext.Status.ResolvedBundle = bundleutil.MetadataFor(resolvedBundle.Name, *resolvedBundleVersion)
 	setResolvedStatusConditionSuccess(ext, fmt.Sprintf("resolved to %q", resolvedBundle.Image))
 
-	// Generate a BundleDeployment from the ClusterExtension to Unpack.
-	// Note: The BundleDeployment here is not a k8s API, its a simple Go struct which
-	// necessary embedded values.
-	bd := r.generateBundleDeploymentForUnpack(resolvedBundle.Image, ext)
+	bundleSource := &rukpaksource.BundleSource{
+		Type: rukpaksource.SourceTypeImage,
+		Image: &rukpaksource.ImageSource{
+			Ref: resolvedBundle.Image,
+		},
+	}
 	l.V(1).Info("unpacking resolved bundle")
-	unpackResult, err := r.Unpacker.Unpack(ctx, bd)
+	unpackResult, err := r.Unpacker.Unpack(ctx, bundleSource)
 	if err != nil {
 		setStatusUnpackFailed(ext, err.Error())
 		return ctrl.Result{}, err
@@ -291,9 +288,8 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 
 	switch unpackResult.State {
 	case rukpaksource.StatePending:
-		setStatusUnpackPending(ext, unpackResult.Message)
-		setInstalledStatusConditionUnknown(ext, "installation has not been attempted as unpack is pending")
-
+		setStatusUnpackFailed(ext, unpackResult.Message)
+		ensureAllConditionsWithReason(ext, ocv1alpha1.ReasonUnpackFailed, "unpack pending")
 		return ctrl.Result{}, nil
 	case rukpaksource.StateUnpacked:
 		setStatusUnpacked(ext, fmt.Sprintf("unpack successful: %v", unpackResult.Message))
@@ -395,40 +391,21 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 	l.V(1).Info("configuring watches for release objects")
 	relObjects, err := util.ManifestObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
 	if err != nil {
-		setInstalledStatusConditionFailed(ext, fmt.Sprintf("%s:%v", ocv1alpha1.ReasonCreateDynamicWatchFailed, err))
+		setInstalledStatusConditionFailed(ext, fmt.Sprintf("%s:%v", ocv1alpha1.ReasonInstallationFailed, err))
 		return ctrl.Result{}, err
 	}
 
-	for _, obj := range relObjects {
-		if err := func() error {
-			r.dynamicWatchMutex.Lock()
-			defer r.dynamicWatchMutex.Unlock()
-
-			_, isWatched := r.dynamicWatchGVKs[obj.GetObjectKind().GroupVersionKind()]
-			if !isWatched {
-				if err := r.controller.Watch(
-					source.Kind(r.cache,
-						obj,
-						crhandler.EnqueueRequestForOwner(r.Scheme(), r.RESTMapper(), ext, crhandler.OnlyControllerOwner()),
-						predicate.Funcs{
-							CreateFunc:  func(ce event.CreateEvent) bool { return false },
-							UpdateFunc:  func(ue event.UpdateEvent) bool { return true },
-							DeleteFunc:  func(de event.DeleteEvent) bool { return true },
-							GenericFunc: func(ge event.GenericEvent) bool { return true },
-						},
-					),
-				); err != nil {
-					return err
-				}
-				r.dynamicWatchGVKs[obj.GetObjectKind().GroupVersionKind()] = sets.Empty{}
-			}
-			return nil
-		}(); err != nil {
+	// Only attempt to watch resources if we are
+	// installing / upgrading. Otherwise we may restart
+	// watches that have already been established
+	if state != stateUnchanged {
+		if err := r.Watcher.Watch(ctx, r.controller, ext, relObjects); err != nil {
 			ext.Status.InstalledBundle = nil
-			setInstalledStatusConditionFailed(ext, fmt.Sprintf("%s:%v", ocv1alpha1.ReasonCreateDynamicWatchFailed, err))
+			setInstalledStatusConditionFailed(ext, fmt.Sprintf("%s:%v", ocv1alpha1.ReasonInstallationFailed, err))
 			return ctrl.Result{}, err
 		}
 	}
+
 	ext.Status.InstalledBundle = bundleutil.MetadataFor(resolvedBundle.Name, *resolvedBundleVersion)
 	setInstalledStatusConditionSuccess(ext, fmt.Sprintf("Installed bundle %s successfully", resolvedBundle.Image))
 
@@ -505,21 +482,6 @@ func SetDeprecationStatus(ext *ocv1alpha1.ClusterExtension, bundleName string, d
 	}
 }
 
-func (r *ClusterExtensionReconciler) generateBundleDeploymentForUnpack(bundlePath string, ce *ocv1alpha1.ClusterExtension) *bundledeployment.BundleDeployment {
-	return &bundledeployment.BundleDeployment{
-		Name: ce.Name,
-		Spec: bundledeployment.BundleDeploymentSpec{
-			InstallNamespace: ce.Spec.InstallNamespace,
-			Source: bundledeployment.BundleSource{
-				Type: bundledeployment.SourceTypeImage,
-				Image: &bundledeployment.ImageSource{
-					Ref: bundlePath,
-				},
-			},
-		},
-	}
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterExtensionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controller, err := ctrl.NewControllerManagedBy(mgr).
@@ -544,13 +506,11 @@ func (r *ClusterExtensionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			})).
 		Build(r)
-
 	if err != nil {
 		return err
 	}
 	r.controller = controller
 	r.cache = mgr.GetCache()
-	r.dynamicWatchGVKs = sets.New[schema.GroupVersionKind]()
 
 	return nil
 }
@@ -592,9 +552,6 @@ func (r *ClusterExtensionReconciler) getReleaseState(cl helmclient.ActionInterfa
 	currentRelease, err := cl.Get(ext.GetName())
 	if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
 		return nil, nil, stateError, err
-	}
-	if errors.Is(err, driver.ErrReleaseNotFound) {
-		return nil, nil, stateNeedsInstall, nil
 	}
 
 	if errors.Is(err, driver.ErrReleaseNotFound) {

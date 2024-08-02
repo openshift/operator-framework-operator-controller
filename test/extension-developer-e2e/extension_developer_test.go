@@ -2,15 +2,20 @@ package extensione2e
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,11 +32,131 @@ func TestExtensionDeveloper(t *testing.T) {
 
 	require.NoError(t, catalogd.AddToScheme(scheme))
 	require.NoError(t, ocv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, rbacv1.AddToScheme(scheme))
 
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
 	require.NoError(t, err)
 
-	var clusterExtensions = []*ocv1alpha1.ClusterExtension{
+	ctx := context.Background()
+	saName := fmt.Sprintf("serviceaccounts-%s", rand.String(8))
+	name := types.NamespacedName{
+		Name:      saName,
+		Namespace: "default",
+	}
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name.Name,
+			Namespace: name.Namespace,
+		},
+	}
+	require.NoError(t, c.Create(ctx, sa))
+
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name.Name,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"secrets", // for helm
+					"services",
+					"serviceaccounts",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"delete",
+					"patch",
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apiextensions.k8s.io",
+				},
+				Resources: []string{
+					"customresourcedefinitions",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"delete",
+					"patch",
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
+					"deployments",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"delete",
+					"patch",
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"rbac.authorization.k8s.io",
+				},
+				Resources: []string{
+					"clusterroles",
+					"roles",
+					"clusterrolebindings",
+					"rolebindings",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"delete",
+					"patch",
+					"get",
+					"list",
+					"watch",
+					"bind",
+					"escalate",
+				},
+			},
+		},
+	}
+	require.NoError(t, c.Create(ctx, cr))
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name.Name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     name.Name,
+		},
+	}
+	require.NoError(t, c.Create(ctx, crb))
+
+	clusterExtensions := []*ocv1alpha1.ClusterExtension{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "registryv1",
@@ -40,7 +165,7 @@ func TestExtensionDeveloper(t *testing.T) {
 				PackageName:      os.Getenv("REG_PKG_NAME"),
 				InstallNamespace: "default",
 				ServiceAccount: ocv1alpha1.ServiceAccountReference{
-					Name: "default",
+					Name: saName,
 				},
 			},
 		},

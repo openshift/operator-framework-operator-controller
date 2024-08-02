@@ -20,15 +20,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,8 +47,10 @@ import (
 
 	ocv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/action"
+	"github.com/operator-framework/operator-controller/internal/authentication"
 	"github.com/operator-framework/operator-controller/internal/catalogmetadata/cache"
 	catalogclient "github.com/operator-framework/operator-controller/internal/catalogmetadata/client"
+	"github.com/operator-framework/operator-controller/internal/contentmanager"
 	"github.com/operator-framework/operator-controller/internal/controllers"
 	"github.com/operator-framework/operator-controller/internal/httputil"
 	"github.com/operator-framework/operator-controller/internal/labels"
@@ -158,9 +165,36 @@ func main() {
 		ext := obj.(*ocv1alpha1.ClusterExtension)
 		return ext.Spec.InstallNamespace, nil
 	})
+	coreClient, err := corev1client.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create core client")
+		os.Exit(1)
+	}
+	tokenGetter := authentication.NewTokenGetter(coreClient, authentication.WithExpirationDuration(1*time.Hour))
+
+	restConfigMapper := func(ctx context.Context, o client.Object, c *rest.Config) (*rest.Config, error) {
+		cExt, ok := o.(*ocv1alpha1.ClusterExtension)
+		if !ok {
+			return c, nil
+		}
+		namespacedName := types.NamespacedName{
+			Name:      cExt.Spec.ServiceAccount.Name,
+			Namespace: cExt.Spec.InstallNamespace,
+		}
+		tempConfig := rest.AnonymousClientConfig(c)
+		tempConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return &authentication.TokenInjectingRoundTripper{
+				Tripper:     rt,
+				TokenGetter: tokenGetter,
+				Key:         namespacedName,
+			}
+		}
+		return tempConfig, nil
+	}
 	cfgGetter, err := helmclient.NewActionConfigGetter(mgr.GetConfig(), mgr.GetRESTMapper(),
 		helmclient.StorageNamespaceMapper(installNamespaceMapper),
 		helmclient.ClientNamespaceMapper(installNamespaceMapper),
+		helmclient.RestConfigMapper(restConfigMapper),
 	)
 	if err != nil {
 		setupLog.Error(err, "unable to config for creating helm client")
@@ -170,13 +204,12 @@ func main() {
 	acg, err := action.NewWrappedActionClientGetter(cfgGetter,
 		helmclient.WithFailureRollbacks(false),
 	)
-
 	if err != nil {
 		setupLog.Error(err, "unable to create helm client")
 		os.Exit(1)
 	}
 
-	certPool, err := httputil.NewCertPool(caCertDir)
+	certPoolWatcher, err := httputil.NewCertPoolWatcher(caCertDir, ctrl.Log.WithName("cert-pool"))
 	if err != nil {
 		setupLog.Error(err, "unable to create CA certificate pool")
 		os.Exit(1)
@@ -184,8 +217,8 @@ func main() {
 	unpacker := &source.ImageRegistry{
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		// TODO: This needs to be derived per extension via ext.Spec.InstallNamespace
-		AuthNamespace: systemNamespace,
-		CaCertPool:    certPool,
+		AuthNamespace:   systemNamespace,
+		CertPoolWatcher: certPoolWatcher,
 	}
 
 	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
@@ -210,18 +243,15 @@ func main() {
 	}
 
 	cl := mgr.GetClient()
-	httpClient, err := httputil.BuildHTTPClient(certPool)
-	if err != nil {
-		setupLog.Error(err, "unable to create catalogd http client")
-		os.Exit(1)
-	}
 
 	catalogsCachePath := filepath.Join(cachePath, "catalogs")
 	if err := os.MkdirAll(catalogsCachePath, 0700); err != nil {
 		setupLog.Error(err, "unable to create catalogs cache directory")
 		os.Exit(1)
 	}
-	catalogClient := catalogclient.New(cache.NewFilesystemCache(catalogsCachePath, httpClient))
+	catalogClient := catalogclient.New(cache.NewFilesystemCache(catalogsCachePath, func() (*http.Client, error) {
+		return httputil.BuildHTTPClient(certPoolWatcher)
+	}))
 
 	resolver := &resolve.CatalogResolver{
 		WalkCatalogsFunc: resolve.CatalogWalker(
@@ -243,8 +273,8 @@ func main() {
 		Unpacker:              unpacker,
 		InstalledBundleGetter: &controllers.DefaultInstalledBundleGetter{ActionClientGetter: acg},
 		Finalizers:            clusterExtensionFinalizers,
-		CaCertPool:            certPool,
 		Preflights:            preflights,
+		Watcher:               contentmanager.New(restConfigMapper, mgr.GetConfig(), mgr.GetRESTMapper()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterExtension")
 		os.Exit(1)
