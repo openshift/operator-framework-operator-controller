@@ -5,14 +5,14 @@ metadata:
   annotations:
     kubectl.kubernetes.io/default-logs-container: manager
   labels:
-    control-plane: controller-manager
+    control-plane: operator-controller-controller-manager
   name: operator-controller-controller-manager
   namespace: openshift-operator-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: operator-controller-controller-manager
   template:
     metadata:
       annotations:
@@ -20,7 +20,7 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
         openshift.io/required-scc: restricted-v2
       labels:
-        control-plane: controller-manager
+        control-plane: operator-controller-controller-manager
     spec:
       affinity:
         nodeAffinity:
