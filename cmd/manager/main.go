@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/containers/image/v5/types"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -194,11 +195,13 @@ func main() {
 		setupLog.Error(err, "unable to create CA certificate pool")
 		os.Exit(1)
 	}
-	unpacker := &source.ImageRegistry{
+
+	unpacker := &source.ContainersImageRegistry{
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
-		// TODO: This needs to be derived per extension via ext.Spec.InstallNamespace
-		AuthNamespace:   systemNamespace,
-		CertPoolWatcher: certPoolWatcher,
+		SourceContext: &types.SystemContext{
+			DockerCertPath: caCertDir,
+			OCICertPath:    caCertDir,
+		},
 	}
 
 	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
