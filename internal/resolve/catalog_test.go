@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/util/sets"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -236,84 +236,116 @@ func TestAcceptDeprecated(t *testing.T) {
 
 func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 	pkgName := randPkg()
-	genImgRef := func(catalog, name string) string {
-		return fmt.Sprintf("%s/%s", catalog, name)
-	}
 	w := staticCatalogWalker{
 		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
 		"b": func() (*declcfg.DeclarativeConfig, error) {
-			fbc := genPackage(pkgName)
-			fbc.Bundles = append(fbc.Bundles, genBundle(pkgName, "1.0.3"))
-			for i := range fbc.Bundles {
-				fbc.Bundles[i].Image = genImgRef("catalog-b", fbc.Bundles[i].Name)
+			fbc := &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.0")},
+				Deprecations: []declcfg.Deprecation{{
+					Package: pkgName,
+					Entries: []declcfg.DeprecationEntry{
+						{
+							Reference: declcfg.PackageScopedReference{Schema: declcfg.SchemaBundle, Name: bundleName(pkgName, "1.0.0")},
+							Message:   fmt.Sprintf("bundle %s is deprecated", bundleName(pkgName, "1.0.0")),
+						},
+					},
+				}},
 			}
 			return fbc, nil
 		},
 		"c": func() (*declcfg.DeclarativeConfig, error) {
-			fbc := genPackage(pkgName)
-			fbc.Bundles = append(fbc.Bundles, genBundle(pkgName, "0.1.1"))
-			fbc.Deprecations = nil
-			for i := range fbc.Bundles {
-				fbc.Bundles[i].Image = genImgRef("catalog-c", fbc.Bundles[i].Name)
+			fbc := &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.1")},
+				Deprecations: []declcfg.Deprecation{{
+					Package: pkgName,
+					Entries: []declcfg.DeprecationEntry{
+						{
+							Reference: declcfg.PackageScopedReference{Schema: declcfg.SchemaBundle, Name: bundleName(pkgName, "1.0.1")},
+							Message:   fmt.Sprintf("bundle %s is deprecated", bundleName(pkgName, "1.0.1")),
+						},
+					},
+				}},
+			}
+			return fbc, nil
+		},
+		"d": func() (*declcfg.DeclarativeConfig, error) {
+			fbc := &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.2")},
+			}
+			return fbc, nil
+		},
+		"e": func() (*declcfg.DeclarativeConfig, error) {
+			fbc := &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.3")},
+				Deprecations: []declcfg.Deprecation{{
+					Package: pkgName,
+					Entries: []declcfg.DeprecationEntry{
+						{
+							Reference: declcfg.PackageScopedReference{Schema: declcfg.SchemaBundle, Name: bundleName(pkgName, "1.0.3")},
+							Message:   fmt.Sprintf("bundle %s is deprecated", bundleName(pkgName, "1.0.3")),
+						},
+					},
+				}},
+			}
+			return fbc, nil
+		},
+		"f": func() (*declcfg.DeclarativeConfig, error) {
+			fbc := &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Bundles: []declcfg.Bundle{
+					genBundle(pkgName, "1.0.4"),
+					genBundle(pkgName, "1.0.5"),
+				},
 			}
 			return fbc, nil
 		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 
-	t.Run("always prefer non-deprecated when versions match", func(t *testing.T) {
-		for i := 0; i < 100; i++ {
-			// When the same version exists in both catalogs, we prefer the non-deprecated one.
-			ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.1", ocv1alpha1.UpgradeConstraintPolicyEnforce)
-			gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
-			require.NoError(t, err)
-			assert.Equal(t, genBundle(pkgName, "1.0.1").Name, gotBundle.Name)
-			assert.Equal(t, bsemver.MustParse("1.0.1"), *gotVersion)
-			assert.Nil(t, gotDeprecation)
-		}
-	})
-
-	t.Run("when catalog b has a newer version that matches the range", func(t *testing.T) {
-		// When one version exists in one catalog but not the other, we prefer the one that exists.
+	t.Run("when bundle candidates for a package are deprecated in all but one catalog", func(t *testing.T) {
 		ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.3", ocv1alpha1.UpgradeConstraintPolicyEnforce)
 		gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
 		require.NoError(t, err)
-		assert.Equal(t, genBundle(pkgName, "1.0.3").Name, gotBundle.Name)
-		assert.Equal(t, genImgRef("catalog-b", gotBundle.Name), gotBundle.Image)
-		assert.Equal(t, bsemver.MustParse("1.0.3"), *gotVersion)
-		assert.Equal(t, ptr.To(packageDeprecation(pkgName)), gotDeprecation)
+		// We choose the only non-deprecated package
+		assert.Equal(t, genBundle(pkgName, "1.0.2").Name, gotBundle.Name)
+		assert.Equal(t, bsemver.MustParse("1.0.2"), *gotVersion)
+		assert.Equal(t, (*declcfg.Deprecation)(nil), gotDeprecation)
 	})
 
-	t.Run("when catalog c has a newer version that matches the range", func(t *testing.T) {
-		ce := buildFooClusterExtension(pkgName, "", ">=0.1.0 <1.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+	t.Run("when bundle candidates are found and deprecated in multiple catalogs", func(t *testing.T) {
+		ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.1", ocv1alpha1.UpgradeConstraintPolicyEnforce)
 		gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
-		require.NoError(t, err)
-		assert.Equal(t, genBundle(pkgName, "0.1.1").Name, gotBundle.Name)
-		assert.Equal(t, genImgRef("catalog-c", gotBundle.Name), gotBundle.Image)
-		assert.Equal(t, bsemver.MustParse("0.1.1"), *gotVersion)
+		require.Error(t, err)
+		// We will not make a decision on which catalog to use
+		assert.ErrorContains(t, err, "found in multiple catalogs: [b c]")
+		assert.Nil(t, gotBundle)
+		assert.Nil(t, gotVersion)
 		assert.Nil(t, gotDeprecation)
 	})
 
-	t.Run("when there is ambiguity between catalogs", func(t *testing.T) {
-		// When there is no way to disambiguate between two versions, the choice is undefined.
-		foundImages := sets.New[string]()
-		foundDeprecations := sets.New[*declcfg.Deprecation]()
-		for i := 0; i < 100; i++ {
-			ce := buildFooClusterExtension(pkgName, "", "0.1.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
-			gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
-			require.NoError(t, err)
-			assert.Equal(t, genBundle(pkgName, "0.1.0").Name, gotBundle.Name)
-			assert.Equal(t, bsemver.MustParse("0.1.0"), *gotVersion)
-			foundImages.Insert(gotBundle.Image)
-			foundDeprecations.Insert(gotDeprecation)
-		}
-		assert.ElementsMatch(t, []string{
-			genImgRef("catalog-b", bundleName(pkgName, "0.1.0")),
-			genImgRef("catalog-c", bundleName(pkgName, "0.1.0")),
-		}, foundImages.UnsortedList())
+	t.Run("when bundle candidates are found and not deprecated in multiple catalogs", func(t *testing.T) {
+		ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.4", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+		gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
+		require.Error(t, err)
+		// We will not make a decision on which catalog to use
+		assert.ErrorContains(t, err, "found in multiple catalogs: [d f]")
+		assert.Nil(t, gotBundle)
+		assert.Nil(t, gotVersion)
+		assert.Nil(t, gotDeprecation)
+	})
 
-		assert.Contains(t, foundDeprecations, (*declcfg.Deprecation)(nil))
-		assert.Contains(t, foundDeprecations, ptr.To(packageDeprecation(pkgName)))
+	t.Run("highest semver bundle is chosen when candidates are all from the same catalog", func(t *testing.T) {
+		ce := buildFooClusterExtension(pkgName, "", ">=1.0.4 <=1.0.5", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+		gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
+		require.NoError(t, err)
+		// Bundles within one catalog for a package will be sorted by semver and deprecation and the best is returned
+		assert.Equal(t, genBundle(pkgName, "1.0.5").Name, gotBundle.Name)
+		assert.Equal(t, bsemver.MustParse("1.0.5"), *gotVersion)
+		assert.Equal(t, (*declcfg.Deprecation)(nil), gotDeprecation)
 	})
 }
 
@@ -516,10 +548,22 @@ type getPackageFunc func() (*declcfg.DeclarativeConfig, error)
 
 type staticCatalogWalker map[string]getPackageFunc
 
-func (w staticCatalogWalker) WalkCatalogs(ctx context.Context, _ string, f CatalogWalkFunc, _ ...client.ListOption) error {
+func (w staticCatalogWalker) WalkCatalogs(ctx context.Context, _ string, f CatalogWalkFunc, opts ...client.ListOption) error {
 	for k, v := range w {
 		cat := &catalogd.ClusterCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: k},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: k,
+				Labels: map[string]string{
+					"olm.operatorframework.io/name": k,
+				},
+			},
+		}
+		options := client.ListOptions{}
+		for _, opt := range opts {
+			opt.ApplyToList(&options)
+		}
+		if !options.LabelSelector.Matches(labels.Set(cat.ObjectMeta.Labels)) {
+			continue
 		}
 		fbc, fbcErr := v()
 		if err := f(ctx, cat, fbc, fbcErr); err != nil {
@@ -588,4 +632,98 @@ func genPackage(pkg string) *declcfg.DeclarativeConfig {
 		},
 		Deprecations: []declcfg.Deprecation{packageDeprecation(pkg)},
 	}
+}
+
+func TestInvalidClusterExtensionCatalogMatchExpressions(t *testing.T) {
+	r := CatalogResolver{}
+	ce := &ocv1alpha1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: ocv1alpha1.ClusterExtensionSpec{
+			PackageName: "foo",
+			CatalogSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "name",
+						Operator: metav1.LabelSelectorOperator("bad"),
+						Values:   []string{"value"},
+					},
+				},
+			},
+		},
+	}
+	_, _, _, err := r.Resolve(context.Background(), ce, nil)
+	assert.EqualError(t, err, "desired catalog selector is invalid: \"bad\" is not a valid label selector operator")
+}
+
+func TestInvalidClusterExtensionCatalogMatchLabelsName(t *testing.T) {
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, error) { return genPackage("foo"), nil },
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+	ce := &ocv1alpha1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: ocv1alpha1.ClusterExtensionSpec{
+			PackageName: "foo",
+			CatalogSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"": "value"},
+			},
+		},
+	}
+	_, _, _, err := r.Resolve(context.Background(), ce, nil)
+	assert.ErrorContains(t, err, "desired catalog selector is invalid: key: Invalid value:")
+}
+
+func TestInvalidClusterExtensionCatalogMatchLabelsValue(t *testing.T) {
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, error) { return genPackage("foo"), nil },
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+	ce := &ocv1alpha1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "foo",
+		},
+		Spec: ocv1alpha1.ClusterExtensionSpec{
+			PackageName: "foo",
+			CatalogSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"name": "&value"},
+			},
+		},
+	}
+	_, _, _, err := r.Resolve(context.Background(), ce, nil)
+	assert.ErrorContains(t, err, "desired catalog selector is invalid: values[0][name]: Invalid value:")
+}
+
+func TestClusterExtensionMatchLabel(t *testing.T) {
+	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	pkgName := randPkg()
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
+		"b": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+	ce.Spec.CatalogSelector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "b"}
+
+	_, _, _, err := r.Resolve(context.Background(), ce, nil)
+	require.NoError(t, err)
+}
+
+func TestClusterExtensionNoMatchLabel(t *testing.T) {
+	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	pkgName := randPkg()
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
+		"b": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+	ce.Spec.CatalogSelector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "a"}
+
+	_, _, _, err := r.Resolve(context.Background(), ce, nil)
+	require.Error(t, err)
+	require.ErrorContains(t, err, fmt.Sprintf("no package %q found", pkgName))
 }
