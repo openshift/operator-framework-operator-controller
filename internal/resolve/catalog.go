@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 
 	mmsemver "github.com/Masterminds/semver/v3"
 	bsemver "github.com/blang/semver/v4"
@@ -29,11 +30,11 @@ type CatalogResolver struct {
 
 // Resolve returns a Bundle from a catalog that needs to get installed on the cluster.
 func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterExtension, installedBundle *ocv1alpha1.BundleMetadata) (*declcfg.Bundle, *bsemver.Version, *declcfg.Deprecation, error) {
-	packageName := ext.Spec.PackageName
-	versionRange := ext.Spec.Version
-	channelName := ext.Spec.Channel
+	packageName := ext.Spec.Source.Catalog.PackageName
+	versionRange := ext.Spec.Source.Catalog.Version
+	channelName := ext.Spec.Source.Catalog.Channel
 
-	selector, err := metav1.LabelSelectorAsSelector(&ext.Spec.CatalogSelector)
+	selector, err := metav1.LabelSelectorAsSelector(&ext.Spec.Source.Catalog.Selector)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("desired catalog selector is invalid: %w", err)
 	}
@@ -50,9 +51,14 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterEx
 		}
 	}
 
+	type foundBundle struct {
+		bundle   *declcfg.Bundle
+		catalog  string
+		priority int32
+	}
+
+	resolvedBundles := []foundBundle{}
 	var (
-		resolvedBundles  []*declcfg.Bundle
-		matchedCatalogs  []string
 		priorDeprecation *declcfg.Deprecation
 	)
 
@@ -76,7 +82,7 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterEx
 			predicates = append(predicates, filter.InMastermindsSemverRange(versionRangeConstraints))
 		}
 
-		if ext.Spec.UpgradeConstraintPolicy != ocv1alpha1.UpgradeConstraintPolicyIgnore && installedBundle != nil {
+		if ext.Spec.Source.Catalog.UpgradeConstraintPolicy != ocv1alpha1.UpgradeConstraintPolicyIgnore && installedBundle != nil {
 			successorPredicate, err := filter.SuccessorsOf(installedBundle, packageFBC.Channels...)
 			if err != nil {
 				return fmt.Errorf("error finding upgrade edges: %w", err)
@@ -114,26 +120,36 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterEx
 		if len(resolvedBundles) != 0 {
 			// We've already found one or more package candidates
 			currentIsDeprecated := isDeprecated(thisBundle, thisDeprecation)
-			priorIsDeprecated := isDeprecated(*resolvedBundles[len(resolvedBundles)-1], priorDeprecation)
+			priorIsDeprecated := isDeprecated(*resolvedBundles[len(resolvedBundles)-1].bundle, priorDeprecation)
 			if currentIsDeprecated && !priorIsDeprecated {
 				// Skip this deprecated package and retain the non-deprecated package(s)
 				return nil
 			} else if !currentIsDeprecated && priorIsDeprecated {
 				// Our package candidates so far were deprecated and this one is not; clear the lists
-				resolvedBundles = []*declcfg.Bundle{}
-				matchedCatalogs = []string{}
+				resolvedBundles = []foundBundle{}
 			}
 		}
 		// The current bundle shares deprecation status with prior bundles or
 		// there are no prior bundles. Add it to the list.
-		resolvedBundles = append(resolvedBundles, &thisBundle)
-		matchedCatalogs = append(matchedCatalogs, cat.GetName())
+		resolvedBundles = append(resolvedBundles, foundBundle{&thisBundle, cat.GetName(), cat.Spec.Priority})
 		priorDeprecation = thisDeprecation
 		return nil
 	}, listOptions...); err != nil {
 		return nil, nil, nil, fmt.Errorf("error walking catalogs: %w", err)
 	}
 
+	// Resolve for priority
+	if len(resolvedBundles) > 1 {
+		// Want highest first (reverse sort)
+		sort.Slice(resolvedBundles, func(i, j int) bool { return resolvedBundles[i].priority > resolvedBundles[j].priority })
+		// If the top two bundles do not have the same priority, then priority breaks the tie
+		// Reduce resolvedBundles to just the first item (highest priority)
+		if resolvedBundles[0].priority != resolvedBundles[1].priority {
+			resolvedBundles = []foundBundle{resolvedBundles[0]}
+		}
+	}
+
+	// Check for ambiguity
 	if len(resolvedBundles) != 1 {
 		errPrefix := ""
 		if installedBundle != nil {
@@ -141,6 +157,10 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterEx
 		}
 		switch {
 		case len(resolvedBundles) > 1:
+			matchedCatalogs := []string{}
+			for _, r := range resolvedBundles {
+				matchedCatalogs = append(matchedCatalogs, r.catalog)
+			}
 			slices.Sort(matchedCatalogs) // sort for consistent error message
 			return nil, nil, nil, fmt.Errorf("%smatching packages found in multiple catalogs: %v", errPrefix, matchedCatalogs)
 		case versionRange != "" && channelName != "":
@@ -153,7 +173,7 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1alpha1.ClusterEx
 			return nil, nil, nil, fmt.Errorf("%sno package %q found", errPrefix, packageName)
 		}
 	}
-	resolvedBundle := resolvedBundles[0]
+	resolvedBundle := resolvedBundles[0].bundle
 	resolvedBundleVersion, err := bundleutil.GetVersion(*resolvedBundle)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error getting resolved bundle version for bundle %q: %w", resolvedBundle.Name, err)

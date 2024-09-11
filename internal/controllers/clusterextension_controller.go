@@ -85,8 +85,8 @@ type InstalledBundleGetter interface {
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts/token,verbs=create
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get
 
-//+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=clustercatalogs,verbs=list;watch
-//+kubebuilder:rbac:groups=catalogd.operatorframework.io,resources=catalogmetadata,verbs=list;watch
+//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=list;watch
+//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=catalogmetadata,verbs=list;watch
 
 // The operator controller needs to watch all the bundle objects and reconcile accordingly. Though not ideal, but these permissions are required.
 // This has been taken from rukpak, and an issue was created before to discuss it: https://github.com/operator-framework/rukpak/issues/800.
@@ -314,7 +314,7 @@ func SetDeprecationStatus(ext *ocv1alpha1.ClusterExtension, bundleName string, d
 			case declcfg.SchemaPackage:
 				deprecations[ocv1alpha1.TypePackageDeprecated] = entry
 			case declcfg.SchemaChannel:
-				if ext.Spec.Channel != entry.Reference.Name {
+				if ext.Spec.Source.Catalog.Channel != entry.Reference.Name {
 					continue
 				}
 				deprecations[ocv1alpha1.TypeChannelDeprecated] = entry

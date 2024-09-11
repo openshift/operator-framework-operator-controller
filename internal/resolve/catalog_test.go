@@ -44,7 +44,9 @@ func TestErrorWalkingCatalogs(t *testing.T) {
 
 func TestErrorGettingPackage(t *testing.T) {
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return nil, fmt.Errorf("fake error") },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return nil, nil, fmt.Errorf("fake error")
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	pkgName := randPkg()
@@ -55,9 +57,15 @@ func TestErrorGettingPackage(t *testing.T) {
 
 func TestPackageDoesNotExist(t *testing.T) {
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	pkgName := randPkg()
@@ -69,9 +77,15 @@ func TestPackageDoesNotExist(t *testing.T) {
 func TestPackageExists(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -85,9 +99,15 @@ func TestPackageExists(t *testing.T) {
 func TestValidationFailed(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{
 		WalkCatalogsFunc: w.WalkCatalogs,
@@ -105,9 +125,15 @@ func TestValidationFailed(t *testing.T) {
 func TestVersionDoesNotExist(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "3.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -118,9 +144,15 @@ func TestVersionDoesNotExist(t *testing.T) {
 func TestVersionExists(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <2.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -134,9 +166,15 @@ func TestVersionExists(t *testing.T) {
 func TestChannelDoesNotExist(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "stable", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -147,9 +185,15 @@ func TestChannelDoesNotExist(t *testing.T) {
 func TestChannelExists(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "beta", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -163,9 +207,15 @@ func TestChannelExists(t *testing.T) {
 func TestChannelExistsButNotVersion(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "beta", "3.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -176,9 +226,15 @@ func TestChannelExistsButNotVersion(t *testing.T) {
 func TestVersionExistsButNotChannel(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "stable", "1.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -189,9 +245,15 @@ func TestVersionExistsButNotChannel(t *testing.T) {
 func TestChannelAndVersionExist(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "alpha", "0.1.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -205,9 +267,15 @@ func TestChannelAndVersionExist(t *testing.T) {
 func TestPreferNonDeprecated(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", ">=0.1.0 <=1.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -221,9 +289,15 @@ func TestPreferNonDeprecated(t *testing.T) {
 func TestAcceptDeprecated(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.1", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -237,8 +311,10 @@ func TestAcceptDeprecated(t *testing.T) {
 func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) {
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
 			fbc := &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{{Name: pkgName}},
 				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.0")},
@@ -252,9 +328,9 @@ func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 					},
 				}},
 			}
-			return fbc, nil
+			return fbc, nil, nil
 		},
-		"c": func() (*declcfg.DeclarativeConfig, error) {
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
 			fbc := &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{{Name: pkgName}},
 				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.1")},
@@ -268,16 +344,16 @@ func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 					},
 				}},
 			}
-			return fbc, nil
+			return fbc, nil, nil
 		},
-		"d": func() (*declcfg.DeclarativeConfig, error) {
+		"d": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
 			fbc := &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{{Name: pkgName}},
 				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.2")},
 			}
-			return fbc, nil
+			return fbc, nil, nil
 		},
-		"e": func() (*declcfg.DeclarativeConfig, error) {
+		"e": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
 			fbc := &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{{Name: pkgName}},
 				Bundles:  []declcfg.Bundle{genBundle(pkgName, "1.0.3")},
@@ -291,9 +367,9 @@ func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 					},
 				}},
 			}
-			return fbc, nil
+			return fbc, nil, nil
 		},
-		"f": func() (*declcfg.DeclarativeConfig, error) {
+		"f": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
 			fbc := &declcfg.DeclarativeConfig{
 				Packages: []declcfg.Package{{Name: pkgName}},
 				Bundles: []declcfg.Bundle{
@@ -301,7 +377,7 @@ func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 					genBundle(pkgName, "1.0.5"),
 				},
 			}
-			return fbc, nil
+			return fbc, nil, nil
 		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
@@ -350,12 +426,18 @@ func TestPackageVariationsBetweenCatalogs(t *testing.T) {
 }
 
 func TestUpgradeFoundLegacy(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -372,12 +454,18 @@ func TestUpgradeFoundLegacy(t *testing.T) {
 }
 
 func TestUpgradeNotFoundLegacy(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "<1.0.0 >=2.0.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -391,12 +479,18 @@ func TestUpgradeNotFoundLegacy(t *testing.T) {
 }
 
 func TestUpgradeFoundSemver(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, true)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, true)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -415,12 +509,18 @@ func TestUpgradeFoundSemver(t *testing.T) {
 }
 
 func TestUpgradeNotFoundSemver(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, true)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, true)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "!=0.1.0", ocv1alpha1.UpgradeConstraintPolicyEnforce)
@@ -437,9 +537,15 @@ func TestUpgradeNotFoundSemver(t *testing.T) {
 func TestDowngradeFound(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "<1.0.2", ocv1alpha1.UpgradeConstraintPolicyIgnore)
@@ -459,9 +565,15 @@ func TestDowngradeFound(t *testing.T) {
 func TestDowngradeNotFound(t *testing.T) {
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"c": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", ">0.1.0 <1.0.0", ocv1alpha1.UpgradeConstraintPolicyIgnore)
@@ -534,17 +646,22 @@ func buildFooClusterExtension(pkg, channel, version string, upgradeConstraintPol
 			Name: pkg,
 		},
 		Spec: ocv1alpha1.ClusterExtensionSpec{
-			InstallNamespace:        "default",
-			ServiceAccount:          ocv1alpha1.ServiceAccountReference{Name: "default"},
-			PackageName:             pkg,
-			Channel:                 channel,
-			Version:                 version,
-			UpgradeConstraintPolicy: upgradeConstraintPolicy,
+			InstallNamespace: "default",
+			ServiceAccount:   ocv1alpha1.ServiceAccountReference{Name: "default"},
+			Source: ocv1alpha1.SourceConfig{
+				SourceType: "Catalog",
+				Catalog: &ocv1alpha1.CatalogSource{
+					PackageName:             pkg,
+					Channel:                 channel,
+					Version:                 version,
+					UpgradeConstraintPolicy: upgradeConstraintPolicy,
+				},
+			},
 		},
 	}
 }
 
-type getPackageFunc func() (*declcfg.DeclarativeConfig, error)
+type getPackageFunc func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error)
 
 type staticCatalogWalker map[string]getPackageFunc
 
@@ -565,7 +682,10 @@ func (w staticCatalogWalker) WalkCatalogs(ctx context.Context, _ string, f Catal
 		if !options.LabelSelector.Matches(labels.Set(cat.ObjectMeta.Labels)) {
 			continue
 		}
-		fbc, fbcErr := v()
+		fbc, catCfg, fbcErr := v()
+		if catCfg != nil {
+			catCfg.DeepCopyInto(&cat.Spec)
+		}
 		if err := f(ctx, cat, fbc, fbcErr); err != nil {
 			return err
 		}
@@ -641,13 +761,17 @@ func TestInvalidClusterExtensionCatalogMatchExpressions(t *testing.T) {
 			Name: "foo",
 		},
 		Spec: ocv1alpha1.ClusterExtensionSpec{
-			PackageName: "foo",
-			CatalogSelector: metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      "name",
-						Operator: metav1.LabelSelectorOperator("bad"),
-						Values:   []string{"value"},
+			Source: ocv1alpha1.SourceConfig{
+				Catalog: &ocv1alpha1.CatalogSource{
+					PackageName: "foo",
+					Selector: metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "name",
+								Operator: metav1.LabelSelectorOperator("bad"),
+								Values:   []string{"value"},
+							},
+						},
 					},
 				},
 			},
@@ -659,7 +783,9 @@ func TestInvalidClusterExtensionCatalogMatchExpressions(t *testing.T) {
 
 func TestInvalidClusterExtensionCatalogMatchLabelsName(t *testing.T) {
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return genPackage("foo"), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage("foo"), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := &ocv1alpha1.ClusterExtension{
@@ -667,9 +793,13 @@ func TestInvalidClusterExtensionCatalogMatchLabelsName(t *testing.T) {
 			Name: "foo",
 		},
 		Spec: ocv1alpha1.ClusterExtensionSpec{
-			PackageName: "foo",
-			CatalogSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"": "value"},
+			Source: ocv1alpha1.SourceConfig{
+				Catalog: &ocv1alpha1.CatalogSource{
+					PackageName: "foo",
+					Selector: metav1.LabelSelector{
+						MatchLabels: map[string]string{"": "value"},
+					},
+				},
 			},
 		},
 	}
@@ -679,7 +809,9 @@ func TestInvalidClusterExtensionCatalogMatchLabelsName(t *testing.T) {
 
 func TestInvalidClusterExtensionCatalogMatchLabelsValue(t *testing.T) {
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return genPackage("foo"), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage("foo"), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := &ocv1alpha1.ClusterExtension{
@@ -687,9 +819,13 @@ func TestInvalidClusterExtensionCatalogMatchLabelsValue(t *testing.T) {
 			Name: "foo",
 		},
 		Spec: ocv1alpha1.ClusterExtensionSpec{
-			PackageName: "foo",
-			CatalogSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"name": "&value"},
+			Source: ocv1alpha1.SourceConfig{
+				Catalog: &ocv1alpha1.CatalogSource{
+					PackageName: "foo",
+					Selector: metav1.LabelSelector{
+						MatchLabels: map[string]string{"name": "&value"},
+					},
+				},
 			},
 		},
 	}
@@ -698,32 +834,104 @@ func TestInvalidClusterExtensionCatalogMatchLabelsValue(t *testing.T) {
 }
 
 func TestClusterExtensionMatchLabel(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
-	ce.Spec.CatalogSelector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "b"}
+	ce.Spec.Source.Catalog.Selector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "b"}
 
 	_, _, _, err := r.Resolve(context.Background(), ce, nil)
 	require.NoError(t, err)
 }
 
 func TestClusterExtensionNoMatchLabel(t *testing.T) {
-	defer featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)()
+	featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.ForceSemverUpgradeConstraints, false)
 	pkgName := randPkg()
 	w := staticCatalogWalker{
-		"a": func() (*declcfg.DeclarativeConfig, error) { return &declcfg.DeclarativeConfig{}, nil },
-		"b": func() (*declcfg.DeclarativeConfig, error) { return genPackage(pkgName), nil },
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{}, nil, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), nil, nil
+		},
 	}
 	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
 	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
-	ce.Spec.CatalogSelector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "a"}
+	ce.Spec.Source.Catalog.Selector.MatchLabels = map[string]string{"olm.operatorframework.io/name": "a"}
 
 	_, _, _, err := r.Resolve(context.Background(), ce, nil)
 	require.Error(t, err)
 	require.ErrorContains(t, err, fmt.Sprintf("no package %q found", pkgName))
+}
+
+func TestUnequalPriority(t *testing.T) {
+	pkgName := randPkg()
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Channels: []declcfg.Channel{
+					{Package: pkgName, Name: "alpha", Entries: []declcfg.ChannelEntry{
+						{Name: bundleName(pkgName, "1.0.0")},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
+					genBundle(pkgName, "1.0.0"),
+				},
+				Deprecations: []declcfg.Deprecation{},
+			}, &catalogd.ClusterCatalogSpec{Priority: 1}, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return &declcfg.DeclarativeConfig{
+				Packages: []declcfg.Package{{Name: pkgName}},
+				Channels: []declcfg.Channel{
+					{Package: pkgName, Name: "alpha", Entries: []declcfg.ChannelEntry{
+						{Name: bundleName(pkgName, "1.1.0")},
+					}},
+				},
+				Bundles: []declcfg.Bundle{
+					genBundle(pkgName, "1.1.0"),
+				},
+				Deprecations: []declcfg.Deprecation{},
+			}, &catalogd.ClusterCatalogSpec{Priority: 0}, nil
+		},
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+
+	ce := buildFooClusterExtension(pkgName, "", "", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+	_, gotVersion, _, err := r.Resolve(context.Background(), ce, nil)
+	require.NoError(t, err)
+	require.Equal(t, bsemver.MustParse("1.0.0"), *gotVersion)
+}
+
+func TestMultiplePriority(t *testing.T) {
+	pkgName := randPkg()
+	w := staticCatalogWalker{
+		"a": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), &catalogd.ClusterCatalogSpec{Priority: 1}, nil
+		},
+		"b": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), &catalogd.ClusterCatalogSpec{Priority: 0}, nil
+		},
+		"c": func() (*declcfg.DeclarativeConfig, *catalogd.ClusterCatalogSpec, error) {
+			return genPackage(pkgName), &catalogd.ClusterCatalogSpec{Priority: 1}, nil
+		},
+	}
+	r := CatalogResolver{WalkCatalogsFunc: w.WalkCatalogs}
+
+	ce := buildFooClusterExtension(pkgName, "", ">=1.0.0 <=1.0.1", ocv1alpha1.UpgradeConstraintPolicyEnforce)
+	gotBundle, gotVersion, gotDeprecation, err := r.Resolve(context.Background(), ce, nil)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "found in multiple catalogs: [a b c]")
+	assert.Nil(t, gotBundle)
+	assert.Nil(t, gotVersion)
+	assert.Nil(t, gotDeprecation)
 }
