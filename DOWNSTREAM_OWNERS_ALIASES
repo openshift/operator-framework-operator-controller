@@ -1,7 +1,7 @@
 
 aliases:
    # contributors who can approve any PRs in the repo
-   operator-runtime-approvers:
+   operator-framework-approvers:
    - grokspawn
    - joelanford
    - kevinrizza
@@ -9,9 +9,11 @@ aliases:
    - perdasilva
    - m1kola
    - everettraven
+   - tmshort
+   - LalatenduMohanty
 
    # contributors who can review/lgtm any PRs in the repo
-   operator-runtime-reviewers:
+   operator-framework-reviewers:
    - anik120
    - ankitathomas
    - dtfranz
@@ -23,3 +25,4 @@ aliases:
    - perdasilva
    - tmshort
    - everettraven
+   - LalatenduMohanty
