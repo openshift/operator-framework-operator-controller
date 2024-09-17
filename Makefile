@@ -7,6 +7,7 @@ SHELL := /usr/bin/env bash -o pipefail
 .SHELLFLAGS := -ec
 export ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
+GOLANG_VERSION := $(shell sed -En 's/^go (.*)$$/\1/p' "go.mod")
 # Image URL to use all building/pushing image targets
 ifeq ($(origin IMAGE_REPO), undefined)
 IMAGE_REPO := quay.io/operator-framework/operator-controller
@@ -95,7 +96,8 @@ lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
 
 .PHONY: tidy
 tidy: #HELP Update dependencies.
-	$(Q)go mod tidy
+	# Force tidy to use the version already in go.mod
+	$(Q)go mod tidy -go=$(GOLANG_VERSION)
 
 .PHONY: manifests
 manifests: $(CONTROLLER_GEN) #EXHELP Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -163,9 +165,8 @@ test-unit: $(SETUP_ENVTEST) #HELP Run the unit tests
                 $(UNIT_TEST_DIRS) \
                 -test.gocoverdir=$(ROOT_DIR)/coverage/unit
 
-E2E_REGISTRY_CERT_REF := ClusterIssuer/olmv1-ca # By default, we'll use a trusted CA for the registry.
 image-registry: ## Setup in-cluster image registry
-	./hack/test/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_CERT_REF)
+	./hack/test/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
 
 build-push-e2e-catalog: ## Build the testdata catalog used for e2e tests and push it to the image registry
 	./hack/test/build-push-e2e-catalog.sh $(E2E_REGISTRY_NAMESPACE) $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
@@ -180,7 +181,6 @@ build-push-e2e-catalog: ## Build the testdata catalog used for e2e tests and pus
 test-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/e2e
 test-e2e: GO_BUILD_FLAGS := -cover
-test-e2e: E2E_REGISTRY_CERT_REF := Issuer/selfsigned-issuer
 test-e2e: run image-registry build-push-e2e-catalog registry-load-bundles e2e e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
 
 .PHONY: extension-developer-e2e
