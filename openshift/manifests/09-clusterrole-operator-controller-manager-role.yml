@@ -47,3 +47,11 @@ rules:
     verbs:
       - patch
       - update
+  - apiGroups:
+      - security.openshift.io
+    resourceNames:
+      - privileged
+    resources:
+      - securitycontextconstraints
+    verbs:
+      - use
