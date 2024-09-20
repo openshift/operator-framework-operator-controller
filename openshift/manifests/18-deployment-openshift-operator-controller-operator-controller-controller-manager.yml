@@ -18,7 +18,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
-        openshift.io/required-scc: restricted-v2
+        openshift.io/required-scc: privileged
       labels:
         control-plane: operator-controller-controller-manager
     spec:
@@ -78,6 +78,9 @@ spec:
               name: olmv1-certificate
               readOnly: true
               subPath: olm-ca.crt
+            - mountPath: /etc/containers
+              name: etc-containers
+              readOnly: true
         - args:
             - --secure-listen-address=0.0.0.0:8443
             - --http2-disable
@@ -115,4 +118,8 @@ spec:
             name: operator-controller-openshift-ca
             optional: false
           name: olmv1-certificate
+        - hostPath:
+            path: /etc/containers
+            type: Directory
+          name: etc-containers
       priorityClassName: system-cluster-critical
