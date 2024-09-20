@@ -12,6 +12,15 @@ resources:
 
 patches:
   - target:
+      kind: ClusterRole
+      name: manager-role
+    path: patches/manager_role.yaml
+  - target:
       kind: Deployment
       name: controller-manager
     path: patches/manager_deployment_ca.yaml
+  - target:
+      kind: Deployment
+      name: controller-manager
+    path: patches/manager_deployment_mount_etc_containers.yaml
+  - path: patches/manager_namespace_privileged.yaml
