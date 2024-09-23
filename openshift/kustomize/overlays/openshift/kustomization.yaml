@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: openshift-operator-controller
+namespace: OPENSHIFT-NAMESPACE
 
 namePrefix: operator-controller-
 
