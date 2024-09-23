@@ -7,7 +7,7 @@ metadata:
   labels:
     control-plane: operator-controller-controller-manager
   name: operator-controller-controller-manager
-  namespace: openshift-operator-controller
+  namespace: OPENSHIFT-NAMESPACE
 spec:
   replicas: 1
   selector:

@@ -6,4 +6,4 @@ metadata:
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
   name: operator-controller-openshift-ca
-  namespace: openshift-operator-controller
+  namespace: OPENSHIFT-NAMESPACE
