@@ -14,3 +14,7 @@ patches:
       kind: Deployment
       name: controller-manager
     path: patches/manager_deployment_ca.yaml
+  - target:
+      kind: Deployment
+      name: controller-manager
+    path: patches/manager_deployment_mount_auth_host.yaml
