@@ -81,6 +81,9 @@ spec:
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
+            - mountPath: /etc/operator-controller/auth.json
+              name: global-auth-file
+              readOnly: true
         - args:
             - --secure-listen-address=0.0.0.0:8443
             - --upstream=http://127.0.0.1:8080/
@@ -122,4 +125,8 @@ spec:
             path: /etc/containers
             type: Directory
           name: etc-containers
+        - hostPath:
+            path: /var/lib/kubelet/config.json
+            type: File
+          name: global-auth-file
       priorityClassName: system-cluster-critical
