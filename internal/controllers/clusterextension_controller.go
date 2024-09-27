@@ -200,7 +200,6 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		//  it is properly labeled with its observed generation.
 		setInstallStatus(ext, nil)
 		setResolutionStatus(ext, nil)
-		setResolvedStatusConditionFailed(ext, err.Error())
 		setStatusProgressing(ext, err)
 		ensureAllConditionsWithReason(ext, ocv1alpha1.ReasonFailed, err.Error())
 		return ctrl.Result{}, err
@@ -228,7 +227,6 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		// Note: We don't distinguish between resolution-specific errors and generic errors
 		setInstallStatus(ext, nil)
 		setResolutionStatus(ext, nil)
-		setResolvedStatusConditionFailed(ext, err.Error())
 		setStatusProgressing(ext, err)
 		ensureAllConditionsWithReason(ext, ocv1alpha1.ReasonFailed, err.Error())
 		return ctrl.Result{}, err
@@ -255,7 +253,6 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		Bundle: resolvedBundleMetadata,
 	}
 	setResolutionStatus(ext, resStatus)
-	setResolvedStatusConditionSuccess(ext, fmt.Sprintf("resolved to %q", resolvedBundle.Image))
 
 	bundleSource := &rukpaksource.BundleSource{
 		Name: ext.GetName(),
@@ -267,7 +264,6 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 	l.V(1).Info("unpacking resolved bundle")
 	unpackResult, err := r.Unpacker.Unpack(ctx, bundleSource)
 	if err != nil {
-		setStatusUnpackFailed(ext, err.Error())
 		// Wrap the error passed to this with the resolution information until we have successfully
 		// installed since we intend for the progressing condition to replace the resolved condition
 		// and will be removing the .status.resolution field from the ClusterExtension status API
@@ -275,10 +271,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		return ctrl.Result{}, err
 	}
 
-	switch unpackResult.State {
-	case rukpaksource.StateUnpacked:
-		setStatusUnpacked(ext, unpackResult.Message)
-	default:
+	if unpackResult.State != rukpaksource.StateUnpacked {
 		panic(fmt.Sprintf("unexpected unpack state %q", unpackResult.State))
 	}
 

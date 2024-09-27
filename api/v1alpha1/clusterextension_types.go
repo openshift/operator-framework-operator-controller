@@ -413,7 +413,6 @@ type CRDUpgradeSafetyPreflightConfig struct {
 const (
 	// TODO(user): add more Types, here and into init()
 	TypeInstalled   = "Installed"
-	TypeResolved    = "Resolved"
 	TypeProgressing = "Progressing"
 
 	// TypeDeprecated is a rollup condition that is present when
@@ -422,7 +421,6 @@ const (
 	TypePackageDeprecated = "PackageDeprecated"
 	TypeChannelDeprecated = "ChannelDeprecated"
 	TypeBundleDeprecated  = "BundleDeprecated"
-	TypeUnpacked          = "Unpacked"
 
 	ReasonSuccess    = "Succeeded"
 	ReasonDeprecated = "Deprecated"
@@ -441,12 +439,10 @@ func init() {
 	// TODO(user): add Types from above
 	conditionsets.ConditionTypes = append(conditionsets.ConditionTypes,
 		TypeInstalled,
-		TypeResolved,
 		TypeDeprecated,
 		TypePackageDeprecated,
 		TypeChannelDeprecated,
 		TypeBundleDeprecated,
-		TypeUnpacked,
 		TypeProgressing,
 	)
 	// TODO(user): add Reasons from above
