@@ -199,6 +199,7 @@ func TestClusterExtensionUnpackFails(t *testing.T) {
 			Image:   "quay.io/operatorhubio/prometheus@fake1.0.0",
 		}, &v, nil, nil
 	})
+
 	res, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: extKey})
 	require.Equal(t, ctrl.Result{}, res)
 	require.Error(t, err)

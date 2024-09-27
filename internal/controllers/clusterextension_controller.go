@@ -103,8 +103,7 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	reconciledExt := existingExt.DeepCopy()
-	res, err := r.reconcile(ctx, reconciledExt)
-	updateError := err
+	res, reconcileErr := r.reconcile(ctx, reconciledExt)
 
 	// Do checks before any Update()s, as Update() may modify the resource structure!
 	updateStatus := !equality.Semantic.DeepEqual(existingExt.Status, reconciledExt.Status)
@@ -113,7 +112,7 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if updateStatus {
 		if err := r.Client.Status().Update(ctx, reconciledExt); err != nil {
-			updateError = errors.Join(updateError, fmt.Errorf("error updating status: %v", err))
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("error updating status: %v", err))
 		}
 	}
 
@@ -123,11 +122,11 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if updateFinalizers {
 		if err := r.Client.Update(ctx, reconciledExt); err != nil {
-			updateError = errors.Join(updateError, fmt.Errorf("error updating finalizers: %v", err))
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("error updating finalizers: %v", err))
 		}
 	}
 
-	return res, updateError
+	return res, reconcileErr
 }
 
 // ensureAllConditionsWithReason checks that all defined condition types exist in the given ClusterExtension,
