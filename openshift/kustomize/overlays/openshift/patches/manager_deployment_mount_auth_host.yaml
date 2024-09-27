@@ -1,6 +1,0 @@
-- op: add
-  path: /spec/template/spec/volumes/-
-  value: {"name":"global-auth-file", "hostPath":{"path":"/var/lib/kubelet/config.json", "type": "File"}}
-- op: add
-  path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"global-auth-file", "readOnly": true, "mountPath":"/etc/operator-controller/auth.json"}
