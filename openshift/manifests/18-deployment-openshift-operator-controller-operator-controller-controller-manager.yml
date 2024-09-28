@@ -44,6 +44,7 @@ spec:
             - --metrics-bind-address=:8443
             - --leader-elect
             - --ca-certs-dir=/var/certs
+            - --v=${LOG_VERBOSITY}
           command:
             - /manager
           image: ${OPERATOR_CONTROLLER_IMAGE}
