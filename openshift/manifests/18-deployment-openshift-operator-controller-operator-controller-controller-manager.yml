@@ -44,6 +44,7 @@ spec:
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
             - --ca-certs-dir=/var/certs
+            - --v=${LOG_VERBOSITY}
           command:
             - /manager
           image: ${OPERATOR_CONTROLLER_IMAGE}
@@ -86,6 +87,7 @@ spec:
             - --http2-disable
             - --upstream=http://127.0.0.1:8080/
             - --logtostderr=true
+            - --v=${LOG_VERBOSITY}
           image: ${KUBE_RBAC_PROXY_IMAGE}
           name: kube-rbac-proxy
           ports:
