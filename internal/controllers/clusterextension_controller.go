@@ -101,8 +101,8 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	l := log.FromContext(ctx).WithName("operator-controller")
 	ctx = log.IntoContext(ctx, l)
 
-	l.V(1).Info("reconcile starting")
-	defer l.V(1).Info("reconcile ending")
+	l.Info("reconcile starting")
+	defer l.Info("reconcile ending")
 
 	existingExt := &ocv1alpha1.ClusterExtension{}
 	if err := r.Client.Get(ctx, req.NamespacedName, existingExt); err != nil {
@@ -110,8 +110,7 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	reconciledExt := existingExt.DeepCopy()
-	res, err := r.reconcile(ctx, reconciledExt)
-	updateError := err
+	res, reconcileErr := r.reconcile(ctx, reconciledExt)
 
 	// Do checks before any Update()s, as Update() may modify the resource structure!
 	updateStatus := !equality.Semantic.DeepEqual(existingExt.Status, reconciledExt.Status)
@@ -130,18 +129,18 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	finalizers := reconciledExt.Finalizers
 	if updateStatus {
 		if err := r.Client.Status().Update(ctx, reconciledExt); err != nil {
-			updateError = errors.Join(updateError, fmt.Errorf("error updating status: %v", err))
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("error updating status: %v", err))
 		}
 	}
 	reconciledExt.Finalizers = finalizers
 
 	if updateFinalizers {
 		if err := r.Client.Update(ctx, reconciledExt); err != nil {
-			updateError = errors.Join(updateError, fmt.Errorf("error updating finalizers: %v", err))
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("error updating finalizers: %v", err))
 		}
 	}
 
-	return res, updateError
+	return res, reconcileErr
 }
 
 // ensureAllConditionsWithReason checks that all defined condition types exist in the given ClusterExtension,
@@ -190,7 +189,7 @@ func checkForUnexpectedFieldChange(a, b ocv1alpha1.ClusterExtension) bool {
 func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alpha1.ClusterExtension) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	l.V(1).Info("handling finalizers")
+	l.Info("handling finalizers")
 	finalizeResult, err := r.Finalizers.Finalize(ctx, ext)
 	if err != nil {
 		// TODO: For now, this error handling follows the pattern of other error handling.
@@ -210,7 +209,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		return ctrl.Result{}, nil
 	}
 
-	l.V(1).Info("getting installed bundle")
+	l.Info("getting installed bundle")
 	installedBundle, err := r.InstalledBundleGetter.GetInstalledBundle(ctx, ext)
 	if err != nil {
 		setInstallStatus(ext, nil)
@@ -221,7 +220,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 	}
 
 	// run resolution
-	l.V(1).Info("resolving bundle")
+	l.Info("resolving bundle")
 	resolvedBundle, resolvedBundleVersion, resolvedDeprecation, err := r.Resolver.Resolve(ctx, ext, installedBundle)
 	if err != nil {
 		// Note: We don't distinguish between resolution-specific errors and generic errors
@@ -261,7 +260,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 			Ref: resolvedBundle.Image,
 		},
 	}
-	l.V(1).Info("unpacking resolved bundle")
+	l.Info("unpacking resolved bundle")
 	unpackResult, err := r.Unpacker.Unpack(ctx, bundleSource)
 	if err != nil {
 		// Wrap the error passed to this with the resolution information until we have successfully
@@ -286,7 +285,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 		labels.BundleVersionKey: resolvedBundleVersion.String(),
 	}
 
-	l.V(1).Info("applying bundle contents")
+	l.Info("applying bundle contents")
 	// NOTE: We need to be cautious of eating errors here.
 	// We should always return any error that occurs during an
 	// attempt to apply content to the cluster. Only when there is
@@ -309,7 +308,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1alp
 	setInstallStatus(ext, installStatus)
 	setInstalledStatusConditionSuccess(ext, fmt.Sprintf("Installed bundle %s successfully", resolvedBundle.Image))
 
-	l.V(1).Info("watching managed objects")
+	l.Info("watching managed objects")
 	cache, err := r.Manager.Get(ctx, ext)
 	if err != nil {
 		// No need to wrap error with resolution information here (or beyond) since the

@@ -28,18 +28,18 @@ import (
 	"github.com/containers/image/v5/types"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
-	"go.uber.org/zap/zapcore"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/textlogger"
 	ctrl "sigs.k8s.io/controller-runtime"
 	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfinalizer "sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	catalogd "github.com/operator-framework/catalogd/api/core/v1alpha1"
@@ -101,11 +101,8 @@ func main() {
 	flag.StringVar(&cachePath, "cache-path", "/var/cache", "The local directory path used for filesystem based caching")
 	flag.BoolVar(&operatorControllerVersion, "version", false, "Prints operator-controller version information")
 	flag.StringVar(&systemNamespace, "system-namespace", "", "Configures the namespace that gets used to deploy system resources.")
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
-	}
-	opts.BindFlags(flag.CommandLine)
+
+	klog.InitFlags(flag.CommandLine)
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	features.OperatorControllerFeatureGate.AddFlag(pflag.CommandLine)
@@ -116,7 +113,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts), zap.StacktraceLevel(zapcore.DPanicLevel)))
+	ctrl.SetLogger(textlogger.NewLogger(textlogger.NewConfig()))
+
 	setupLog.Info("starting up the controller", "version info", version.String())
 
 	if systemNamespace == "" {
@@ -319,11 +317,13 @@ func (f finalizerFunc) Finalize(ctx context.Context, obj client.Object) (crfinal
 func authFilePathIfPresent(logger logr.Logger) string {
 	_, err := os.Stat(authFilePath)
 	if os.IsNotExist(err) {
+		logger.Info("auth file not found, skipping configuration of global auth file", "path", authFilePath)
 		return ""
 	}
 	if err != nil {
-		logger.Error(err, "could not stat auth file path", "path", authFilePath)
+		logger.Error(err, "unable to access auth file path", "path", authFilePath)
 		os.Exit(1)
 	}
+	logger.Info("auth file found, configuring globally for image registry interactions", "path", authFilePath)
 	return authFilePath
 }
