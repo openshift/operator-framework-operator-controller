@@ -533,8 +533,8 @@ github.com/opencontainers/runtime-spec v1.2.0 h1:z97+pHb3uELt/yiAWD691HNHQIF07bE
 github.com/opencontainers/runtime-spec v1.2.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11 h1:eTNDkNRNV5lZvUbVM9Nop0lBcljSnA8rZX6yQPZ0ZnU=
 github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11/go.mod h1:EmVJt97N+pfWFsli/ipXTBZqSG5F5KGQhm3c3IsGq1o=
-github.com/openshift/operator-framework-catalogd v0.0.0-20240927172954-3d3e133b0f7f h1:wHoNS1FLnw18eFpXNKBqO52niA57fI4nd9OHeJjxwQw=
-github.com/openshift/operator-framework-catalogd v0.0.0-20240927172954-3d3e133b0f7f/go.mod h1:cikCg3BwFMyMrRhMXN6cxpv03Cm/EMV3rHX5yi2w8vo=
+github.com/openshift/operator-framework-catalogd v0.0.0-20241001102255-611f86f2ac2f h1:0ZcAfocKn8VFQMDhRr4iZChc+HbwV+3x6R8boUvjYoM=
+github.com/openshift/operator-framework-catalogd v0.0.0-20241001102255-611f86f2ac2f/go.mod h1:cikCg3BwFMyMrRhMXN6cxpv03Cm/EMV3rHX5yi2w8vo=
 github.com/operator-framework/api v0.27.0 h1:OrVaGKZJvbZo58HTv2guz7aURkhVKYhFqZ/6VpifiXI=
 github.com/operator-framework/api v0.27.0/go.mod h1:lg2Xx+S8NQWGYlEOvFwQvH46E5EK5IrAIL7HWfAhciM=
 github.com/operator-framework/helm-operator-plugins v0.5.0 h1:qph2OoECcI9mpuUBtOsWOMgvpx52mPTTSvzVxICsT04=

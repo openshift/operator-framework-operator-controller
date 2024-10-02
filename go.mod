@@ -252,4 +252,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20240927172954-3d3e133b0f7f
+replace github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20241001102255-611f86f2ac2f
