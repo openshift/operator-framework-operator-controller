@@ -7,7 +7,7 @@ metadata:
   labels:
     control-plane: controller-manager
   name: operator-controller-controller-manager
-  namespace: OPENSHIFT-NAMESPACE
+  namespace: openshift-operator-controller
 spec:
   replicas: 1
   selector:
@@ -18,7 +18,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
-        openshift.io/required-scc: restricted-v2
+        openshift.io/required-scc: privileged
       labels:
         control-plane: controller-manager
     spec:
@@ -44,7 +44,6 @@ spec:
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
             - --ca-certs-dir=/var/certs
-            - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - /manager
@@ -87,7 +86,6 @@ spec:
             - --secure-listen-address=0.0.0.0:8443
             - --upstream=http://127.0.0.1:8080/
             - --logtostderr=true
-            - --v=0
             - --v=${LOG_VERBOSITY}
           image: ${KUBE_RBAC_PROXY_IMAGE}
           name: kube-rbac-proxy

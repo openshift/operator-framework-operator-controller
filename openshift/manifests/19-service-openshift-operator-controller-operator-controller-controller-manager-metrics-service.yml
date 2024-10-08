@@ -5,7 +5,7 @@ metadata:
   labels:
     control-plane: controller-manager
   name: operator-controller-controller-manager-metrics-service
-  namespace: OPENSHIFT-NAMESPACE
+  namespace: openshift-operator-controller
 spec:
   ports:
     - name: https

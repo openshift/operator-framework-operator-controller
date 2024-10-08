@@ -49,8 +49,9 @@ TMP_ROOT="$(mktemp -p . -d 2>/dev/null || mktemp -d ./tmpdir.XXXXXXX)"
 trap 'rm -rf $TMP_ROOT' EXIT
 
 # Copy all kustomize files into a temp dir
-TMP_CONFIG="${TMP_ROOT}/config"
-cp -a "${REPO_ROOT}/config" "$TMP_CONFIG"
+cp -a "${REPO_ROOT}/config" "${TMP_ROOT}/config"
+mkdir -p "${TMP_ROOT}/openshift"
+cp -a "${REPO_ROOT}/openshift/kustomize" "${TMP_ROOT}/openshift/kustomize"
 
 # Override OPENSHIFT-NAMESPACE to ${NAMESPACE}
 find "${TMP_ROOT}" -name "*.yaml" -exec sed -i.tmp "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
@@ -61,13 +62,13 @@ mkdir -p "$TMP_MANIFEST_DIR"
 
 # Run kustomize, which emits a single yaml file
 TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${REPO_ROOT}"/openshift/kustomize/overlays/openshift -o "$TMP_KUSTOMIZE_OUTPUT"
+$KUSTOMIZE build "${TMP_ROOT}"/openshift/kustomize/overlays/openshift -o "$TMP_KUSTOMIZE_OUTPUT"
 
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"
   $YQ -i "(select(.kind == \"Deployment\")|.spec.template.spec.containers[]|select(.name==\"$container_name\")|.image) = \"$placeholder\"" "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"target.workload.openshift.io/management": "{\"effect\": \"PreferredDuringScheduling\"}"}' "$TMP_KUSTOMIZE_OUTPUT"
-  $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "restricted-v2"}' "$TMP_KUSTOMIZE_OUTPUT"
+  $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "privileged"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Namespace").metadata.annotations += {"workload.openshift.io/allowed": "management"}' "$TMP_KUSTOMIZE_OUTPUT"
 done

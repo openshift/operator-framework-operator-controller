@@ -10,4 +10,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: operator-controller-controller-manager
-    namespace: OPENSHIFT-NAMESPACE
+    namespace: openshift-operator-controller
