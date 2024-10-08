@@ -45,6 +45,7 @@ spec:
             - --leader-elect
             - --ca-certs-dir=/var/certs
             - --v=${LOG_VERBOSITY}
+            - --global-pull-secret=openshift-config/pull-secret
           command:
             - /operator-controller
           image: ${OPERATOR_CONTROLLER_IMAGE}
