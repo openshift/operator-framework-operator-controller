@@ -32,7 +32,7 @@ This catalog is distributed as an image [quay.io/operatorhubio/catalog](https://
       name: operatorhubio
     spec:
       source:
-        type: image
+        type: Image
         image:
           ref: <catalog_image>
           pollInterval: <poll_interval_duration>
@@ -54,10 +54,10 @@ This catalog is distributed as an image [quay.io/operatorhubio/catalog](https://
       name: operatorhub
     spec:
       source:
-        type: image
+        type: Image
         image:
           ref: quay.io/operatorhubio/catalog:latest
-          pollInterval: 1h
+          pollInterval: 10m
     ```
 
 2. Apply the ClusterCatalog CR:
@@ -94,37 +94,44 @@ This catalog is distributed as an image [quay.io/operatorhubio/catalog](https://
         ``` terminal title="Example output"
         Name:         operatorhubio
         Namespace:
-        Labels:       <none>
+        Labels:       olm.operatorframework.io/metadata.name=operatorhubio
         Annotations:  <none>
         API Version:  olm.operatorframework.io/v1alpha1
         Kind:         ClusterCatalog
         Metadata:
-          Creation Timestamp:  2024-03-12T19:34:50Z
-          Finalizers:
+        Creation Timestamp:  2024-10-02T19:51:24Z
+        Finalizers:
             olm.operatorframework.io/delete-server-cache
-          Generation:        2
-          Resource Version:  6469
-          UID:               2e2778cb-dda6-4645-96b7-992e8dd37503
+        Generation:        1
+        Resource Version:  33321
+        UID:               52894532-0646-41a5-8285-c7f48bba49e4
         Spec:
+          Priority:  0
           Source:
             Image:
-              Poll Interval:  15m0s
+              Poll Interval:  10m0s
               Ref:            quay.io/operatorhubio/catalog:latest
-            Type:             image
+            Type:             Image
         Status:
           Conditions:
             Last Transition Time:  2024-03-12T19:35:34Z
-            Message:
-            Reason:                UnpackSuccessful
+            Message:               Successfully unpacked and stored content from resolved source
+            Observed Generation:   2
+            Reason:                Succeeded
+            Status:                False
+            Type:                  Progressing
+            Last Transition Time:  2024-03-12T19:35:34Z
+            Message:               Serving desired content from resolved source
+            Observed Generation:   2
+            Reason:                Available
             Status:                True
-            Type:                  Unpacked
+            Type:                  Serving
           Content URL:             https://catalogd-server.olmv1-system.svc/catalogs/operatorhubio/all.json
-          Observed Generation:     2
+          Last Unpacked:           2024-03-12T19:35:34Z
           Resolved Source:
             Image:
-              Last Poll Attempt:  2024-03-12T19:35:26Z
-              Ref:                quay.io/operatorhubio/catalog:latest
-              Resolved Ref:       quay.io/operatorhubio/catalog@sha256:dee29aaed76fd1c72b654b9bc8bebc4b48b34fd8d41ece880524dc0c3c1c55ec
-            Type:                 image
-        Events:                   <none>
+              Last Successful Poll Attempt:  2024-03-12T19:35:26Z
+              Ref:                           quay.io/operatorhubio/catalog@sha256:dee29aaed76fd1c72b654b9bc8bebc4b48b34fd8d41ece880524dc0c3c1c55ec
+            Type:                            Image
+        Events:                              <none>
         ```

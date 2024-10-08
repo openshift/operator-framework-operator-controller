@@ -63,7 +63,7 @@ func TestClusterExtensionAfterOLMUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 
-	t.Log("Checking that the ClusterCatalog is unpacked")
+	t.Log("Checking that the ClusterCatalog is serving")
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		var clusterCatalog catalogdv1alpha1.ClusterCatalog
 		assert.NoError(ct, c.Get(ctx, types.NamespacedName{Name: testClusterCatalogName}, &clusterCatalog))
@@ -84,9 +84,9 @@ func TestClusterExtensionAfterOLMUpgrade(t *testing.T) {
 			return
 		}
 		assert.Equal(ct, metav1.ConditionTrue, cond.Status)
-		assert.Equal(ct, ocv1alpha1.ReasonSuccess, cond.Reason)
+		assert.Equal(ct, ocv1alpha1.ReasonSucceeded, cond.Reason)
 		assert.Contains(ct, cond.Message, "Installed bundle")
-		if assert.NotEmpty(ct, clusterExtension.Status.Install.Bundle) {
+		if assert.NotNil(ct, clusterExtension.Status.Install) {
 			assert.NotEmpty(ct, clusterExtension.Status.Install.Bundle.Version)
 		}
 	}, time.Minute, time.Second)
@@ -105,7 +105,7 @@ func TestClusterExtensionAfterOLMUpgrade(t *testing.T) {
 		if !assert.NotNil(ct, cond) {
 			return
 		}
-		assert.Equal(ct, ocv1alpha1.ReasonSuccess, cond.Reason)
+		assert.Equal(ct, ocv1alpha1.ReasonSucceeded, cond.Reason)
 		assert.Contains(ct, cond.Message, "Installed bundle")
 		assert.Equal(ct, ocv1alpha1.BundleMetadata{Name: "prometheus-operator.1.0.1", Version: "1.0.1"}, clusterExtension.Status.Install.Bundle)
 		assert.NotEqual(ct, previousVersion, clusterExtension.Status.Install.Bundle.Version)
