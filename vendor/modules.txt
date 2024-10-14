@@ -640,7 +640,7 @@ github.com/k14s/ytt/pkg/yamlmeta/internal/yaml.v2
 github.com/k14s/ytt/pkg/yamltemplate
 github.com/k14s/ytt/pkg/yttlibrary
 github.com/k14s/ytt/pkg/yttlibrary/overlay
-# github.com/klauspost/compress v1.17.10
+# github.com/klauspost/compress v1.17.11
 ## explicit; go 1.21
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
@@ -814,7 +814,7 @@ github.com/operator-framework/api/pkg/validation
 github.com/operator-framework/api/pkg/validation/errors
 github.com/operator-framework/api/pkg/validation/interfaces
 github.com/operator-framework/api/pkg/validation/internal
-# github.com/operator-framework/catalogd v0.31.0 => github.com/openshift/operator-framework-catalogd v0.0.0-20241010195114-c3ccd0380aa9
+# github.com/operator-framework/catalogd v0.32.0
 ## explicit; go 1.22.5
 github.com/operator-framework/catalogd/api/core/v1alpha1
 # github.com/operator-framework/helm-operator-plugins v0.5.0
@@ -2103,4 +2103,3 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
-# github.com/operator-framework/catalogd => github.com/openshift/operator-framework-catalogd v0.0.0-20241010195114-c3ccd0380aa9
