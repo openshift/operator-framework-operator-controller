@@ -3,8 +3,8 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/enforce-version: latest
-  name: openshift-operator-controller
+  name: OPENSHIFT-NAMESPACE
   annotations:
     workload.openshift.io/allowed: management

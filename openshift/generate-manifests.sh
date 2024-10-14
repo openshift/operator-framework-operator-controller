@@ -20,6 +20,19 @@ IMAGE_MAPPINGS[kube-rbac-proxy]='${KUBE_RBAC_PROXY_IMAGE}'
 # shellcheck disable=SC2016
 IMAGE_MAPPINGS[manager]='${OPERATOR_CONTROLLER_IMAGE}'
 
+# This is a mapping of catalogd flag names to values. For example, given a deployment with a container
+# named "manager" and arguments:
+# args:
+#  - --flagname=one
+# and an entry to the FLAG_MAPPINGS of FLAG_MAPPINGS[flagname]='two', the argument will be updated to:
+# args:
+#  - --flagname=two
+#
+# If the flag doesn't already exist - it will be appended to the list.
+declare -A FLAG_MAPPINGS
+# shellcheck disable=SC2016
+FLAG_MAPPINGS[global-pull-secret]="openshift-config/pull-secret"
+
 ##################################################
 # You shouldn't need to change anything below here
 ##################################################
@@ -57,6 +70,17 @@ for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "restricted-v2"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Namespace").metadata.annotations += {"workload.openshift.io/allowed": "management"}' "$TMP_KUSTOMIZE_OUTPUT"
+done
+
+# Loop through any flag updates that need to be made to the manager container
+for flag_name in "${!FLAG_MAPPINGS[@]}"; do
+  flagval="${FLAG_MAPPINGS[$flag_name]}"
+
+  # First, update the flag if it exists
+  $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args[] | select(. | contains(\"--$flag_name=\")) | .) = \"--$flag_name=$flagval\"" "$TMP_KUSTOMIZE_OUTPUT"
+
+  # Then, append the flag if it doesn't exist
+  $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args) |= (select(.[] | contains(\"--$flag_name=\")) | .) // . + [\"--$flag_name=$flagval\"]" "$TMP_KUSTOMIZE_OUTPUT"
 done
 
 # Use yq to split the single yaml file into 1 per document.
@@ -102,4 +126,3 @@ cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
     fi
   done
 )
-
