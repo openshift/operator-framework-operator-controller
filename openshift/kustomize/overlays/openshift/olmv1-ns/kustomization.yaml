@@ -2,7 +2,6 @@
 namespace: OPENSHIFT-NAMESPACE
 
 resources:
-  - resources/ca_configmap.yaml
   - ../../../../../config/base/operator-controller/crd
   - ../../../../../config/base/operator-controller/rbac
   - ../../../../../config/base/operator-controller/manager
