@@ -43,7 +43,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=:8443
             - --leader-elect
-            - --ca-certs-dir=/var/certs
+            - --ca-certs-dir=/run/secrets/kubernetes.io/serviceaccount
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
@@ -76,10 +76,6 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
-            - mountPath: /var/certs/olm-ca.crt
-              name: olmv1-certificate
-              readOnly: true
-              subPath: olm-ca.crt
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -92,13 +88,6 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
-        - configMap:
-            items:
-              - key: service-ca.crt
-                path: olm-ca.crt
-            name: operator-controller-openshift-ca
-            optional: false
-          name: olmv1-certificate
         - hostPath:
             path: /etc/containers
             type: Directory
