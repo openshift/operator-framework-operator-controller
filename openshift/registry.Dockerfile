@@ -11,6 +11,7 @@ USER 1001
 COPY --from=builder /build/registry /registry
 COPY --from=builder /build/push /push
 COPY openshift/manifests /openshift/manifests
+COPY testdata/images /images
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller E2E Registry" \
   io.k8s.description="This is a registry image that is used during E2E testing of Operator Controller"
