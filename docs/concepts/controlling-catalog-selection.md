@@ -18,7 +18,7 @@ To select a specific catalog by name, you can use the `matchLabels` field in you
 #### Example
 
 ```yaml
-apiVersion: olm.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterExtension
 metadata:
   name: my-extension
@@ -39,7 +39,7 @@ If you have catalogs labeled with specific metadata, you can select them using `
 #### Using `matchLabels`
 
 ```yaml
-apiVersion: olm.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterExtension
 metadata:
   name: my-extension
@@ -56,7 +56,7 @@ This selects catalogs labeled with `example.com/support: "true"`.
 #### Using `matchExpressions`
 
 ```yaml
-apiVersion: olm.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterExtension
 metadata:
   name: my-extension
@@ -81,7 +81,7 @@ You can exclude catalogs by using the `NotIn` or `DoesNotExist` operators in `ma
 #### Example: Exclude Specific Catalogs
 
 ```yaml
-apiVersion: olm.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterExtension
 metadata:
   name: my-extension
@@ -101,7 +101,7 @@ This excludes the catalog named `unwanted-catalog` from consideration.
 #### Example: Exclude Catalogs with a Specific Label
 
 ```yaml
-apiVersion: olm.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterExtension
 metadata:
   name: my-extension
@@ -125,7 +125,7 @@ When multiple catalogs provide the same package, you can set priorities to resol
 In your `ClusterCatalog` resource, set the `priority` field:
 
 ```yaml
-apiVersion: catalogd.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterCatalog
 metadata:
   name: high-priority-catalog
@@ -159,70 +159,71 @@ If the system cannot resolve to a single bundle due to ambiguity, it will genera
 
 1. **Create or Update `ClusterCatalogs` with Appropriate Labels and Priority**
 
-   ```yaml
-   apiVersion: catalogd.operatorframework.io/v1alpha1
-   kind: ClusterCatalog
-   metadata:
-     name: catalog-a
-     labels:
-       example.com/support: "true"
-   spec:
-     priority: 1000
-     source:
-       type: Image
-       image:
-         ref: quay.io/example/content-management-a:latest
-   ```
+    ```yaml
+    apiVersion: olm.operatorframework.io/v1
+    kind: ClusterCatalog
+    metadata:
+      name: catalog-a
+      labels:
+        example.com/support: "true"
+    spec:
+      priority: 1000
+      source:
+        type: Image
+        image:
+          ref: quay.io/example/content-management-a:latest
+    ```
 
-   ```yaml
-   apiVersion: catalogd.operatorframework.io/v1alpha1
-   kind: ClusterCatalog
-   metadata:
-     name: catalog-b
-     labels:
-       example.com/support: "false"
-   spec:
-     priority: 500
-     source:
-       type: Image
-       image:
-         ref: quay.io/example/content-management-b:latest
-   ```
-   NB: an `olm.operatorframework.io/metadata.name` label will be added automatically to ClusterCatalogs when applied
+    ```yaml
+    apiVersion: olm.operatorframework.io/v1
+    kind: ClusterCatalog
+    metadata:
+      name: catalog-b
+      labels:
+        example.com/support: "false"
+    spec:
+      priority: 500
+      source:
+        type: Image
+        image:
+          ref: quay.io/example/content-management-b:latest
+    ```
+    !!! note
+        An `olm.operatorframework.io/metadata.name` label will be added automatically to ClusterCatalogs when applied
 
 
 2. **Create a `ClusterExtension` with Catalog Selection**
 
-   ```yaml
-   apiVersion: olm.operatorframework.io/v1alpha1
-   kind: ClusterExtension
-   metadata:
-     name: install-my-operator
-   spec:
-     packageName: my-operator
-     catalog:
-       selector:
-         matchLabels:
-           example.com/support: "true"
-   ```
+    ```yaml
+    apiVersion: olm.operatorframework.io/v1
+    kind: ClusterExtension
+    metadata:
+      name: install-my-operator
+    spec:
+      packageName: my-operator
+      catalog:
+        selector:
+          matchLabels:
+            example.com/support: "true"
+    ```
 
 3. **Apply the Resources**
 
-   ```shell
-   kubectl apply -f content-management-a.yaml
-   kubectl apply -f content-management-b.yaml
-   kubectl apply -f install-my-operator.yaml
-   ```
+    ```shell
+    kubectl apply -f content-management-a.yaml
+    kubectl apply -f content-management-b.yaml
+    kubectl apply -f install-my-operator.yaml
+    ```
 
 4. **Verify the Installation**
 
-   Check the status of the `ClusterExtension`:
+    Check the status of the `ClusterExtension`:
 
-   ```shell
-   kubectl get clusterextension install-my-operator -o yaml
-   ```
+    ```shell
+    kubectl get clusterextension install-my-operator -o yaml
+    ```
 
-   The status should indicate that the bundle was resolved from `catalog-a` due to the higher priority and matching label.
+    The status should indicate that the bundle was resolved from `catalog-a` due to the higher priority and matching label.
 
 ## Important Notes
 

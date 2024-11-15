@@ -2,9 +2,9 @@
 
 The following script will install OLMv1 on a Kubernetes cluster. If you don't have one, you can deploy a Kubernetes cluster with [KIND](https://sigs.k8s.io/kind).
 
-> [!CAUTION]  
-> Operator-Controller depends on [cert-manager](https://cert-manager.io/). Running the following command
-> may affect an existing installation of cert-manager and cause cluster instability.
+!!! warning
+    Operator-Controller depends on [cert-manager](https://cert-manager.io/). Running the following command
+    may affect an existing installation of cert-manager and cause cluster instability.
 
 The latest version of Operator Controller can be installed with the following command:
 
@@ -35,7 +35,7 @@ To create the catalog, run the following command:
 ```bash
 # Create ClusterCatalog
 kubectl apply -f - <<EOF
-apiVersion: catalogd.operatorframework.io/v1alpha1
+apiVersion: olm.operatorframework.io/v1
 kind: ClusterCatalog
 metadata:
   name: operatorhubio
@@ -65,7 +65,7 @@ More information on installing extensions can be found [here](../tutorials/insta
 ```bash
 # Apply the sample ClusterExtension. Manifest already includes
 # namespace and adequately privileged service account
-kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-controller/main/config/samples/olm_v1alpha1_clusterextension.yaml
+kubectl apply -f https://raw.githubusercontent.com/operator-framework/operator-controller/main/config/samples/olm_v1_clusterextension.yaml
 ```
 
 ### Upgrade the Cluster Extension
