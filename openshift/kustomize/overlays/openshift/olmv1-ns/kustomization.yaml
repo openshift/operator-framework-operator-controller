@@ -24,4 +24,8 @@ patches:
       kind: Deployment
       name: controller-manager
     path: patches/manager_deployment_log_verbosity.yaml
+  - target:
+      kind: Deployment
+      name: controller-manager
+    path: patches/manager_deployment_node_selection.yaml
   - path: patches/manager_namespace_privileged.yaml
