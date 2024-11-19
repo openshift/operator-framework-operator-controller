@@ -101,12 +101,27 @@ spec:
               drop:
                 - ALL
           terminationMessagePolicy: FallbackToLogsOnError
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/master: ""
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: operator-controller-controller-manager
       terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 120
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 120
       volumes:
         - emptyDir: {}
           name: cache
