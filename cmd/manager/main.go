@@ -23,13 +23,17 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,7 +56,6 @@ import (
 	"github.com/operator-framework/operator-controller/internal/contentmanager"
 	"github.com/operator-framework/operator-controller/internal/controllers"
 	"github.com/operator-framework/operator-controller/internal/httputil"
-	"github.com/operator-framework/operator-controller/internal/labels"
 	"github.com/operator-framework/operator-controller/internal/resolve"
 	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
 	"github.com/operator-framework/operator-controller/internal/rukpak/source"
@@ -87,6 +90,7 @@ func main() {
 		operatorControllerVersion bool
 		systemNamespace           string
 		caCertDir                 string
+		globalPullSecret          string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -97,6 +101,7 @@ func main() {
 	flag.StringVar(&cachePath, "cache-path", "/var/cache", "The local directory path used for filesystem based caching")
 	flag.BoolVar(&operatorControllerVersion, "version", false, "Prints operator-controller version information")
 	flag.StringVar(&systemNamespace, "system-namespace", "", "Configures the namespace that gets used to deploy system resources.")
+	flag.StringVar(&globalPullSecret, "global-pull-secret", "", "The <namespace>/<name> of the global pull secret that is going to be used to pull bundle images.")
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.RFC3339NanoTimeEncoder,
@@ -115,16 +120,42 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts), zap.StacktraceLevel(zapcore.DPanicLevel)))
 	setupLog.Info("starting up the controller", "version info", version.String())
 
+	var globalPullSecretKey *k8stypes.NamespacedName
+	if globalPullSecret != "" {
+		secretParts := strings.Split(globalPullSecret, "/")
+		if len(secretParts) != 2 {
+			setupLog.Error(fmt.Errorf("incorrect number of components"), "value of global-pull-secret should be of the format <namespace>/<name>")
+			os.Exit(1)
+		}
+		globalPullSecretKey = &k8stypes.NamespacedName{Name: secretParts[1], Namespace: secretParts[0]}
+	}
+
 	if systemNamespace == "" {
 		systemNamespace = podNamespace()
 	}
 
-	dependentRequirement, err := k8slabels.NewRequirement(labels.OwnerKindKey, selection.In, []string{ocv1alpha1.ClusterExtensionKind})
-	if err != nil {
-		setupLog.Error(err, "unable to create dependent label selector for cache")
-		os.Exit(1)
+	cacheOptions := crcache.Options{
+		ByObject: map[client.Object]crcache.ByObject{
+			&ocv1alpha1.ClusterExtension{}: {Label: k8slabels.Everything()},
+			&catalogd.ClusterCatalog{}:     {Label: k8slabels.Everything()},
+		},
+		DefaultNamespaces: map[string]crcache.Config{
+			systemNamespace: {LabelSelector: k8slabels.Everything()},
+		},
+		DefaultLabelSelector: k8slabels.Nothing(),
 	}
-	dependentSelector := k8slabels.NewSelector().Add(*dependentRequirement)
+	if globalPullSecretKey != nil {
+		cacheOptions.ByObject[&corev1.Secret{}] = crcache.ByObject{
+			Namespaces: map[string]crcache.Config{
+				globalPullSecretKey.Namespace: {
+					LabelSelector: k8slabels.Everything(),
+					FieldSelector: fields.SelectorFromSet(map[string]string{
+						"metadata.name": globalPullSecretKey.Name,
+					}),
+				},
+			},
+		}
+	}
 
 	setupLog.Info("set up manager")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -133,16 +164,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "9c4404e7.operatorframework.io",
-		Cache: crcache.Options{
-			ByObject: map[client.Object]crcache.ByObject{
-				&ocv1alpha1.ClusterExtension{}: {Label: k8slabels.Everything()},
-				&catalogd.ClusterCatalog{}:     {Label: k8slabels.Everything()},
-			},
-			DefaultNamespaces: map[string]crcache.Config{
-				systemNamespace: {LabelSelector: k8slabels.Everything()},
-			},
-			DefaultLabelSelector: dependentSelector,
-		},
+		Cache:                  cacheOptions,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -199,6 +221,15 @@ func main() {
 		// TODO: This needs to be derived per extension via ext.Spec.InstallNamespace
 		AuthNamespace:   systemNamespace,
 		CertPoolWatcher: certPoolWatcher,
+	}
+	if globalPullSecretKey != nil {
+		unpacker.PullSecretFetcher = func(ctx context.Context) ([]corev1.Secret, error) {
+			pullSecret, err := coreClient.Secrets(globalPullSecretKey.Namespace).Get(ctx, globalPullSecretKey.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			return []corev1.Secret{*pullSecret}, err
+		}
 	}
 
 	clusterExtensionFinalizers := crfinalizer.NewFinalizers()

@@ -17,6 +17,7 @@ import (
 	gcrkube "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	corev1 "k8s.io/api/core/v1"
 	apimacherrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -52,10 +53,13 @@ func NewUnrecoverable(err error) *Unrecoverable {
 // TODO: Make asynchronous
 
 type ImageRegistry struct {
-	BaseCachePath   string
-	AuthNamespace   string
-	CertPoolWatcher *httputil.CertPoolWatcher
+	BaseCachePath     string
+	AuthNamespace     string
+	CertPoolWatcher   *httputil.CertPoolWatcher
+	PullSecretFetcher PullSecretFetcher
 }
+
+type PullSecretFetcher func(ctx context.Context) ([]corev1.Secret, error)
 
 func (i *ImageRegistry) Unpack(ctx context.Context, bundle *BundleSource) (*Result, error) {
 	l := log.FromContext(ctx)
@@ -116,6 +120,20 @@ func (i *ImageRegistry) Unpack(ctx context.Context, bundle *BundleSource) (*Resu
 		if stat, err := os.Stat(unpackPath); err == nil && stat.IsDir() {
 			l.V(1).Info("found image in filesystem cache", "digest", hexVal)
 			return unpackedResult(os.DirFS(unpackPath), bundle, digest.String()), nil
+		}
+	}
+
+	if i.PullSecretFetcher != nil {
+		pullSecrets, err := i.PullSecretFetcher(ctx)
+		if err != nil {
+			l.V(1).Error(err, "failed to fetch global pullsecret, attempting unauthenticated image pull")
+		} else {
+			pullSecretAuth, err := gcrkube.NewFromPullSecrets(ctx, pullSecrets)
+			if err != nil {
+				l.V(1).Error(err, "failed to parse global pullsecret, attempting unauthenticated image pull")
+			} else {
+				remoteOpts = append(remoteOpts, remote.WithAuthFromKeychain(pullSecretAuth))
+			}
 		}
 	}
 
