@@ -44,6 +44,8 @@ spec:
             - --metrics-bind-address=:8443
             - --leader-elect
             - --ca-certs-dir=/run/secrets/kubernetes.io/serviceaccount
+            - --tls-cert=/var/certs/tls.crt
+            - --tls-key=/var/certs/tls.key
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
@@ -76,6 +78,8 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
+            - mountPath: /var/certs
+              name: operator-controller-certs
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -103,6 +107,10 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - name: operator-controller-certs
+          secret:
+            optional: false
+            secretName: operator-controller-cert
         - hostPath:
             path: /etc/containers
             type: Directory
