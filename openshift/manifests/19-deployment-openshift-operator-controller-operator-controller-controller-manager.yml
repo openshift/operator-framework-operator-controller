@@ -41,9 +41,11 @@ spec:
       containers:
         - args:
             - --health-probe-bind-address=:8081
-            - --metrics-bind-address=127.0.0.1:8080
+            - --metrics-bind-address=:8443
             - --leader-elect
             - --ca-certs-dir=/run/secrets/kubernetes.io/serviceaccount
+            - --tls-cert=/var/certs/tls.crt
+            - --tls-key=/var/certs/tls.key
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
@@ -76,31 +78,11 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
+            - mountPath: /var/certs
+              name: operator-controller-certs
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
-        - args:
-            - --secure-listen-address=0.0.0.0:8443
-            - --http2-disable
-            - --upstream=http://127.0.0.1:8080/
-            - --logtostderr=true
-            - --v=${LOG_VERBOSITY}
-          image: ${KUBE_RBAC_PROXY_IMAGE}
-          name: kube-rbac-proxy
-          ports:
-            - containerPort: 8443
-              name: https
-              protocol: TCP
-          resources:
-            requests:
-              cpu: 5m
-              memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-          terminationMessagePolicy: FallbackToLogsOnError
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/master: ""
@@ -125,6 +107,10 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - name: operator-controller-certs
+          secret:
+            optional: false
+            secretName: operator-controller-cert
         - hostPath:
             path: /etc/containers
             type: Directory
