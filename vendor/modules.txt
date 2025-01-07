@@ -383,8 +383,8 @@ github.com/cppforlife/color
 ## explicit; go 1.13
 github.com/cppforlife/go-cli-ui/ui
 github.com/cppforlife/go-cli-ui/ui/table
-# github.com/cyphar/filepath-securejoin v0.2.5
-## explicit; go 1.13
+# github.com/cyphar/filepath-securejoin v0.3.6
+## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
@@ -466,11 +466,11 @@ github.com/go-git/gcfg
 github.com/go-git/gcfg/scanner
 github.com/go-git/gcfg/token
 github.com/go-git/gcfg/types
-# github.com/go-git/go-billy/v5 v5.5.0
-## explicit; go 1.19
+# github.com/go-git/go-billy/v5 v5.6.1
+## explicit; go 1.21
 github.com/go-git/go-billy/v5
-# github.com/go-git/go-git/v5 v5.12.0
-## explicit; go 1.19
+# github.com/go-git/go-git/v5 v5.13.1
+## explicit; go 1.21
 github.com/go-git/go-git/v5/internal/path_util
 github.com/go-git/go-git/v5/plumbing/format/config
 github.com/go-git/go-git/v5/plumbing/format/gitignore
@@ -673,11 +673,11 @@ github.com/jbenet/go-context/io
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
 github.com/jmespath/go-jmespath
-# github.com/jmoiron/sqlx v1.3.5
+# github.com/jmoiron/sqlx v1.4.0
 ## explicit; go 1.10
 github.com/jmoiron/sqlx
 github.com/jmoiron/sqlx/reflectx
-# github.com/joelanford/ignore v0.1.0
+# github.com/joelanford/ignore v0.1.1
 ## explicit; go 1.21
 github.com/joelanford/ignore
 # github.com/josharian/intern v1.0.0
@@ -951,9 +951,10 @@ github.com/stoewer/go-strcase
 # github.com/stretchr/objx v0.5.2
 ## explicit; go 1.20
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.9.0
+# github.com/stretchr/testify v1.10.0
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
@@ -1066,7 +1067,7 @@ go.uber.org/zap/internal/exit
 go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.25.0
+# golang.org/x/crypto v0.31.0
 ## explicit; go 1.20
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
@@ -1087,7 +1088,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/net v0.27.0
+# golang.org/x/net v0.33.0
 ## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/html
@@ -1102,7 +1103,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
 golang.org/x/net/websocket
-# golang.org/x/oauth2 v0.20.0
+# golang.org/x/oauth2 v0.22.0
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/authhandler
@@ -1114,21 +1115,21 @@ golang.org/x/oauth2/google/internal/stsexchange
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sync v0.7.0
+# golang.org/x/sync v0.10.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.22.0
+# golang.org/x/sys v0.28.0
 ## explicit; go 1.18
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.22.0
+# golang.org/x/term v0.27.0
 ## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.16.0
+# golang.org/x/text v0.21.0
 ## explicit; go 1.18
 golang.org/x/text/cases
 golang.org/x/text/encoding
