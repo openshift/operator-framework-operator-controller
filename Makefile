@@ -106,7 +106,7 @@ generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyI
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: tidy fmt vet generate manifests #HELP Verify all generated code is up-to-date.
+verify: tidy fmt vendor vet generate manifests #HELP Verify all generated code is up-to-date.
 	git diff --exit-code
 
 .PHONY: fix-lint
@@ -120,6 +120,10 @@ fmt: #EXHELP Formats code
 .PHONY: vet
 vet: #EXHELP Run go vet against code.
 	go vet ./...
+
+.PHONY: vendor
+vendor: #EXHELP Run go mod vendor.
+	go mod vendor
 
 .PHONY: test
 test: manifests generate fmt vet test-unit test-e2e #HELP Run all tests.
