@@ -2,11 +2,26 @@
   path: /spec/template/spec/volumes/-
   value: {"name":"operator-controller-certs", "secret":{"optional":false,"secretName":"operator-controller-cert"}}
 - op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"trusted-ca-bundle", "configMap":{"optional":false,"name":"trusted-ca-bundle"}}
+- op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt"}}
+- op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"operator-controller-certs", "mountPath":"/var/certs"}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"trusted-ca-bundle", "mountPath":"/var/trusted-cas/ca-bundle.crt", "subPath":"ca-bundle.crt" }
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"service-ca", "mountPath":"/var/trusted-cas/service-ca.crt", "subPath":"service-ca.crt" }
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-cert=/var/certs/tls.crt"
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-key=/var/certs/tls.key"
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--ca-certs-dir=/var/trusted-cas"
