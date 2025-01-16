@@ -43,7 +43,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
-            - --ca-certs-dir=/run/secrets/kubernetes.io/serviceaccount
+            - --ca-certs-dir=/var/trusted-cas
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
@@ -76,6 +76,12 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
+            - mountPath: /var/trusted-cas/ca-bundle.crt
+              name: trusted-ca-bundle
+              subPath: ca-bundle.crt
+            - mountPath: /var/trusted-cas/service-ca.crt
+              name: service-ca
+              subPath: service-ca.crt
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -125,6 +131,14 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - configMap:
+            name: operator-controller-trusted-ca-bundle
+            optional: false
+          name: trusted-ca-bundle
+        - configMap:
+            name: openshift-service-ca.crt
+            optional: false
+          name: service-ca
         - hostPath:
             path: /etc/containers
             type: Directory
