@@ -35,3 +35,6 @@ test-e2e: ## Run the e2e tests.
 	$(DIR)/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/...;
+
+.PHONY: test-e2e-techpreview
+test-e2e-techpreview: test-e2e
