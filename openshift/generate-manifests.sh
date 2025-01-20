@@ -18,7 +18,7 @@ declare -A IMAGE_MAPPINGS
 # shellcheck disable=SC2016
 IMAGE_MAPPINGS[kube-rbac-proxy]='${KUBE_RBAC_PROXY_IMAGE}'
 # shellcheck disable=SC2016
-IMAGE_MAPPINGS[manager]='${OPERATOR_CONTROLLER_IMAGE}'
+IMAGE_MAPPINGS[operator-controller]='${OPERATOR_CONTROLLER_IMAGE}'
 
 # This is a mapping of catalogd flag names to values. For example, given a deployment with a container
 # named "manager" and arguments:
