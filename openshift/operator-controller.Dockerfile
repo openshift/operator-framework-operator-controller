@@ -5,7 +5,7 @@ RUN make go-build-local
 
 FROM registry.ci.openshift.org/ocp/4.19:base-rhel9
 USER 1001
-COPY --from=builder /build/bin/manager /manager
+COPY --from=builder /build/bin/operator-controller /operator-controller
 COPY openshift/manifests /openshift/manifests
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller" \
