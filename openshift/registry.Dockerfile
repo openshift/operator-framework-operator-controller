@@ -10,7 +10,7 @@ FROM registry.ci.openshift.org/ocp/4.18:base-rhel9
 USER 1001
 COPY --from=builder /build/registry /registry
 COPY --from=builder /build/push /push
-COPY openshift/manifests /openshift/manifests
+COPY openshift/operator-controller/manifests /openshift/manifests
 COPY testdata/images /images
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller E2E Registry" \
