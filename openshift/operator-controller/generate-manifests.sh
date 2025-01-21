@@ -38,7 +38,7 @@ FLAG_MAPPINGS[global-pull-secret]="openshift-config/pull-secret"
 ##################################################
 
 # Know where the repo root is so we can reference things relative to it
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Source bingo so we can use kustomize and yq
 . "${REPO_ROOT}/openshift/.bingo/variables.env"
@@ -50,8 +50,8 @@ trap 'rm -rf $TMP_ROOT' EXIT
 
 # Copy all kustomize files into a temp dir
 cp -a "${REPO_ROOT}/config" "${TMP_ROOT}/config"
-mkdir -p "${TMP_ROOT}/openshift"
-cp -a "${REPO_ROOT}/openshift/kustomize" "${TMP_ROOT}/openshift/kustomize"
+mkdir -p "${TMP_ROOT}/openshift/operator-controller/"
+cp -a "${REPO_ROOT}/openshift/operator-controller/kustomize" "${TMP_ROOT}/openshift/operator-controller/kustomize"
 
 # Override OPENSHIFT-NAMESPACE to ${NAMESPACE}
 find "${TMP_ROOT}" -name "*.yaml" -exec sed -i'.bak' "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
@@ -63,7 +63,7 @@ mkdir -p "$TMP_MANIFEST_DIR"
 
 # Run kustomize, which emits a single yaml file
 TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${TMP_ROOT}/openshift/kustomize/overlays/openshift" -o "$TMP_KUSTOMIZE_OUTPUT"
+$KUSTOMIZE build "${TMP_ROOT}/openshift/operator-controller/kustomize/overlays/openshift" -o "$TMP_KUSTOMIZE_OUTPUT"
 
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"
@@ -98,7 +98,7 @@ done
 rm "$TMP_KUSTOMIZE_OUTPUT"
 
 # Delete and recreate the actual manifests directory
-MANIFEST_DIR="${REPO_ROOT}/openshift/manifests"
+MANIFEST_DIR="${REPO_ROOT}/openshift/operator-controller/manifests"
 rm -rf "${MANIFEST_DIR}"
 mkdir -p "${MANIFEST_DIR}"
 
