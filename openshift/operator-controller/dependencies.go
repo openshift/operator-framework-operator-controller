@@ -1,6 +1,6 @@
 //go:build tools
 // +build tools
 
-package openshift
+package operator_controller
 
 import _ "github.com/openshift/build-machinery-go"
