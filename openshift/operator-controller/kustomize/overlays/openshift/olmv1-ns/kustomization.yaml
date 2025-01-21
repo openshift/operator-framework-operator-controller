@@ -2,10 +2,10 @@
 namespace: OPENSHIFT-NAMESPACE
 
 resources:
-  - ../../../../../config/base/operator-controller/crd
-  - ../../../../../config/base/operator-controller/rbac
-  - ../../../../../config/base/operator-controller/manager
-  - ../../../../../config/base/common
+  - ../../../../../../config/base/operator-controller/crd
+  - ../../../../../../config/base/operator-controller/rbac
+  - ../../../../../../config/base/operator-controller/manager
+  - ../../../../../../config/base/common
   - trusted-ca/operator_controller_trusted_ca_configmap.yaml
 
 patches:
