@@ -49,7 +49,7 @@ spec:
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
-            - /manager
+            - /operator-controller
           image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
