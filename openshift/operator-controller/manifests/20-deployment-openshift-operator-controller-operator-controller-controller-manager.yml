@@ -52,6 +52,13 @@ spec:
             - /operator-controller
           image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - cd /var/trusted-cas && find */ -maxdepth 1 -mindepth 1 -type f -name '*.crt' -exec ln -s {} . \;
           livenessProbe:
             httpGet:
               path: /healthz
@@ -80,12 +87,10 @@ spec:
               name: cache
             - mountPath: /var/certs
               name: operator-controller-certs
-            - mountPath: /var/trusted-cas/ca-bundle.crt
+            - mountPath: /var/trusted-cas/trusted-ca-bundle
               name: trusted-ca-bundle
-              subPath: ca-bundle.crt
-            - mountPath: /var/trusted-cas/service-ca.crt
+            - mountPath: /var/trusted-cas/service-ca
               name: service-ca
-              subPath: service-ca.crt
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true

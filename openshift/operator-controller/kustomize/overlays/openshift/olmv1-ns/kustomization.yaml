@@ -23,6 +23,10 @@ patches:
   - target:
       kind: Deployment
       name: controller-manager
+    path: patches/manager_deployment_poststart.yaml
+  - target:
+      kind: Deployment
+      name: controller-manager
     path: patches/manager_deployment_mount_etc_containers.yaml
   - target:
       kind: Deployment

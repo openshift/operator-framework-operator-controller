@@ -1,0 +1,10 @@
+- op: add
+  path: /spec/template/spec/containers/0/lifecycle
+  value: {}
+- op: add
+  path: /spec/template/spec/containers/0/lifecycle/postStart
+  value: {}
+- op: add
+  path: /spec/template/spec/containers/0/lifecycle/postStart/exec
+  value:
+    command: ["/bin/sh", "-c", "cd /var/trusted-cas && find */ -maxdepth 1 -mindepth 1 -type f -name '*.crt' -exec ln -s {} . \\;"]
