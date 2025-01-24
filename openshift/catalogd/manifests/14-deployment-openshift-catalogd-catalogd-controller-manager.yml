@@ -90,6 +90,9 @@ spec:
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
+            - mountPath: /etc/docker
+              name: etc-docker
+              readOnly: true
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/master: ""
@@ -133,4 +136,8 @@ spec:
             path: /etc/containers
             type: Directory
           name: etc-containers
+        - hostPath:
+            path: /etc/docker
+            type: Directory
+          name: etc-docker
       priorityClassName: system-cluster-critical
