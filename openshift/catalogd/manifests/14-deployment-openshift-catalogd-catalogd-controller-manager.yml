@@ -119,6 +119,9 @@ spec:
             optional: false
             secretName: catalogserver-cert
         - configMap:
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
             name: catalogd-trusted-ca-bundle
             optional: false
           name: trusted-ca-bundle

@@ -118,6 +118,9 @@ spec:
             optional: false
             secretName: operator-controller-cert
         - configMap:
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
             name: operator-controller-trusted-ca-bundle
             optional: false
           name: trusted-ca-bundle
