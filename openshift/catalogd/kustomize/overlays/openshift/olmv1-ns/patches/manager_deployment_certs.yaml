@@ -3,7 +3,7 @@
   value: {"name":"catalogserver-certs", "secret":{"optional":false,"secretName":"catalogserver-cert"}}
 - op: add
   path: /spec/template/spec/volumes/-
-  value: {"name":"trusted-ca-bundle", "configMap":{"optional":false,"name":"trusted-ca-bundle"}}
+  value: {"name":"trusted-ca-bundle", "configMap":{"optional":false,"name":"trusted-ca-bundle", "items":[{"key":"ca-bundle.crt","path":"ca-bundle.crt"}]}}
 - op: add
   path: /spec/template/spec/volumes/-
   value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt"}}
