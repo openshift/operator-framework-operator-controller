@@ -80,12 +80,8 @@ spec:
               name: cache
             - mountPath: /var/certs
               name: operator-controller-certs
-            - mountPath: /var/trusted-cas/ca-bundle.crt
-              name: trusted-ca-bundle
-              subPath: ca-bundle.crt
-            - mountPath: /var/trusted-cas/service-ca.crt
+            - mountPath: /var/trusted-cas/
               name: service-ca
-              subPath: service-ca.crt
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -122,12 +118,8 @@ spec:
             secretName: operator-controller-cert
         - configMap:
             items:
-              - key: ca-bundle.crt
-                path: ca-bundle.crt
-            name: operator-controller-trusted-ca-bundle
-            optional: false
-          name: trusted-ca-bundle
-        - configMap:
+              - key: service-ca.crt
+                path: service-ca.crt
             name: openshift-service-ca.crt
             optional: false
           name: service-ca

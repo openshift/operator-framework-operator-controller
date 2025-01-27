@@ -294,8 +294,8 @@ func main() {
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
 			srcContext := &types.SystemContext{
-				DockerCertPath: caCertDir,
-				OCICertPath:    caCertDir,
+				DockerCertPath: "", // use default path, not caCertDir
+				OCICertPath:    "", // use default path, not caCertDir
 			}
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
