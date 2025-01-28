@@ -7,7 +7,6 @@ resources:
 - ../../../../../../config/base/crd
 - ../../../../../../config/base/rbac
 - ../../../../../../config/base/manager
-- trusted-ca/catalogd_trusted_ca_configmap.yaml
 
 patches:
 - path: patches/manager_namespace_privileged.yaml
@@ -30,7 +29,7 @@ patches:
 - target:
     kind: Deployment
     name: controller-manager
-  path: patches/manager_deployment_mount_etc_containers.yaml
+  path: patches/manager_deployment_node_mounts.yaml
 - target:
     kind: Deployment
     name: controller-manager
