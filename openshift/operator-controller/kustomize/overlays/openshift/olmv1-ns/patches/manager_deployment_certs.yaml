@@ -6,7 +6,7 @@
   value: {"name":"trusted-ca-bundle", "configMap":{"optional":false,"name":"trusted-ca-bundle", "items":[{"key":"ca-bundle.crt","path":"ca-bundle.crt"}]}}
 - op: add
   path: /spec/template/spec/volumes/-
-  value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt"}}
+  value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt", "items":[{"key":"service-ca.crt","path":"service-ca.crt"}]}}
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"operator-controller-certs", "mountPath":"/var/certs"}
