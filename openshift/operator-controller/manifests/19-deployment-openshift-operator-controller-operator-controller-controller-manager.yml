@@ -5,15 +5,14 @@ metadata:
   annotations:
     kubectl.kubernetes.io/default-logs-container: manager
   labels:
-    control-plane: catalogd-controller-manager
-  name: catalogd-controller-manager
-  namespace: openshift-catalogd
+    control-plane: operator-controller-controller-manager
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
 spec:
-  minReadySeconds: 5
   replicas: 1
   selector:
     matchLabels:
-      control-plane: catalogd-controller-manager
+      control-plane: operator-controller-controller-manager
   template:
     metadata:
       annotations:
@@ -21,7 +20,7 @@ spec:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
         openshift.io/required-scc: privileged
       labels:
-        control-plane: catalogd-controller-manager
+        control-plane: operator-controller-controller-manager
     spec:
       affinity:
         nodeAffinity:
@@ -41,17 +40,17 @@ spec:
                       - linux
       containers:
         - args:
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8443
             - --leader-elect
-            - --metrics-bind-address=:7443
-            - --external-address=catalogd-service.openshift-catalogd.svc
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
-            - --ca-certs-dir=/var/trusted-cas
+            - --ca-certs-dir=/var/service-cas
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
-            - ./catalogd
-          image: ${CATALOGD_IMAGE}
+            - /operator-controller
+          image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -68,8 +67,8 @@ spec:
             periodSeconds: 10
           resources:
             requests:
-              cpu: 100m
-              memory: 200Mi
+              cpu: 10m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -77,21 +76,22 @@ spec:
                 - ALL
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
-            - mountPath: /var/cache/
+            - mountPath: /var/cache
               name: cache
             - mountPath: /var/certs
-              name: catalogserver-certs
-            - mountPath: /var/trusted-cas/ca-bundle.crt
-              name: trusted-ca-bundle
-              subPath: ca-bundle.crt
-            - mountPath: /var/trusted-cas/service-ca.crt
-              name: service-ca
-              subPath: service-ca.crt
+              name: operator-controller-certs
+              readOnly: true
+            - mountPath: /var/service-cas
+              name: service-cas
+              readOnly: true
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
             - mountPath: /etc/docker
               name: etc-docker
+              readOnly: true
+            - mountPath: /etc/pki
+              name: etc-pki
               readOnly: true
       nodeSelector:
         kubernetes.io/os: linux
@@ -100,7 +100,7 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: catalogd-controller-manager
+      serviceAccountName: operator-controller-controller-manager
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
@@ -117,21 +117,17 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
-        - name: catalogserver-certs
+        - name: operator-controller-certs
           secret:
             optional: false
-            secretName: catalogserver-cert
+            secretName: operator-controller-cert
         - configMap:
             items:
-              - key: ca-bundle.crt
-                path: ca-bundle.crt
-            name: catalogd-trusted-ca-bundle
-            optional: false
-          name: trusted-ca-bundle
-        - configMap:
+              - key: service-ca.crt
+                path: service-ca.crt
             name: openshift-service-ca.crt
             optional: false
-          name: service-ca
+          name: service-cas
         - hostPath:
             path: /etc/containers
             type: Directory
@@ -140,4 +136,8 @@ spec:
             path: /etc/docker
             type: Directory
           name: etc-docker
+        - hostPath:
+            path: /etc/pki
+            type: Directory
+          name: etc-pki
       priorityClassName: system-cluster-critical

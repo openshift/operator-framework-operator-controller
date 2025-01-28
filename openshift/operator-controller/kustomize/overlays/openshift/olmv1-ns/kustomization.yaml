@@ -5,7 +5,6 @@ resources:
   - ../../../../../../config/base/crd
   - ../../../../../../config/base/rbac
   - ../../../../../../config/base/manager
-  - trusted-ca/operator_controller_trusted_ca_configmap.yaml
 
 patches:
   - target:
@@ -23,7 +22,7 @@ patches:
   - target:
       kind: Deployment
       name: controller-manager
-    path: patches/manager_deployment_mount_etc_containers.yaml
+    path: patches/manager_deployment_node_mounts.yaml
   - target:
       kind: Deployment
       name: controller-manager
