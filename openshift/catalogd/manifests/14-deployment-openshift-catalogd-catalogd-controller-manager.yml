@@ -50,6 +50,11 @@ spec:
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - ./catalogd
+          env:
+            - name: SSL_CERT_FILE
+              value: /var/ca-certs/trusted-ca-bundle/ca-bundle.crt
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs/service-ca
           image: ${CATALOGD_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -81,7 +86,10 @@ spec:
             - mountPath: /var/certs
               name: catalogserver-certs
               readOnly: true
-            - mountPath: /etc/pki/tls/certs
+            - mountPath: /var/ca-certs/trusted-ca-bundle
+              name: trusted-ca-bundle
+              readOnly: true
+            - mountPath: /var/ca-certs/service-ca
               name: service-ca
               readOnly: true
             - mountPath: /etc/containers
@@ -89,9 +97,6 @@ spec:
               readOnly: true
             - mountPath: /etc/docker
               name: etc-docker
-              readOnly: true
-            - mountPath: /etc/pki/ca-trust/extracted/pem
-              name: etc-pki
               readOnly: true
       nodeSelector:
         kubernetes.io/os: linux
@@ -123,6 +128,13 @@ spec:
             secretName: catalogserver-cert
         - configMap:
             items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+            name: catalogd-trusted-ca-bundle
+            optional: false
+          name: trusted-ca-bundle
+        - configMap:
+            items:
               - key: service-ca.crt
                 path: service-ca.crt
             name: openshift-service-ca.crt
@@ -136,8 +148,4 @@ spec:
             path: /etc/docker
             type: Directory
           name: etc-docker
-        - hostPath:
-            path: /etc/pki/ca-trust/extracted/pem
-            type: Directory
-          name: etc-pki
       priorityClassName: system-cluster-critical

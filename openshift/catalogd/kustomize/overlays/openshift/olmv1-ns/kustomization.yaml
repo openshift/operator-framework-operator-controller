@@ -7,6 +7,7 @@ resources:
 - ../../../../../../config/base/crd
 - ../../../../../../config/base/rbac
 - ../../../../../../config/base/manager
+- trusted-ca/catalogd_trusted_ca_configmap.yaml
 
 patches:
 - path: patches/manager_namespace_privileged.yaml
