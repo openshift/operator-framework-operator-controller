@@ -37,8 +37,3 @@ test-e2e: ## Run the e2e tests.
 	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/...;
-	# Run e2e tests for catalogd
-	# TODO: Add build of the testdata/test-catalog.Dockerfile to openshift/release
-	# See that catalogd e2e tests uses testdata/test-catalog.Dockerfile
-	# More info: https://github.com/openshift/release/blob/master/ci-operator/config/openshift/operator-framework-catalogd/openshift-operator-framework-catalogd-main.yaml#L26-L29
-	#$(MAKE) test-e2e -C $(DIR)/../catalogd/
