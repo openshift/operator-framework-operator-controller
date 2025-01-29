@@ -10,9 +10,3 @@
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"etc-docker", "readOnly": true, "mountPath":"/etc/docker"}
-- op: add
-  path: /spec/template/spec/volumes/-
-  value: {"name":"etc-pki", "hostPath":{"path":"/etc/pki/ca-trust/extracted/pem", "type": "Directory"}}
-- op: add
-  path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"etc-pki", "readOnly": true, "mountPath":"/etc/pki/ca-trust/extracted/pem"}

@@ -5,6 +5,7 @@ resources:
   - ../../../../../../config/base/crd
   - ../../../../../../config/base/rbac
   - ../../../../../../config/base/manager
+  - trusted-ca/operator_controller_trusted_ca_configmap.yaml
 
 patches:
   - target:
