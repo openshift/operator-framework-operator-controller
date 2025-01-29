@@ -45,7 +45,6 @@ spec:
             - --leader-elect
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
-            - --ca-certs-dir=/var/service-cas
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
@@ -81,8 +80,8 @@ spec:
             - mountPath: /var/certs
               name: operator-controller-certs
               readOnly: true
-            - mountPath: /var/service-cas
-              name: service-cas
+            - mountPath: /etc/pki/tls/certs
+              name: service-ca
               readOnly: true
             - mountPath: /etc/containers
               name: etc-containers
@@ -90,7 +89,7 @@ spec:
             - mountPath: /etc/docker
               name: etc-docker
               readOnly: true
-            - mountPath: /etc/pki
+            - mountPath: /etc/pki/ca-trust/extracted/pem
               name: etc-pki
               readOnly: true
       nodeSelector:
@@ -127,7 +126,7 @@ spec:
                 path: service-ca.crt
             name: openshift-service-ca.crt
             optional: false
-          name: service-cas
+          name: service-ca
         - hostPath:
             path: /etc/containers
             type: Directory
@@ -137,7 +136,7 @@ spec:
             type: Directory
           name: etc-docker
         - hostPath:
-            path: /etc/pki
+            path: /etc/pki/ca-trust/extracted/pem
             type: Directory
           name: etc-pki
       priorityClassName: system-cluster-critical

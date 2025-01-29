@@ -81,13 +81,16 @@ spec:
             - mountPath: /var/certs
               name: catalogserver-certs
               readOnly: true
+            - mountPath: /etc/pki/tls/certs
+              name: service-ca
+              readOnly: true
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
             - mountPath: /etc/docker
               name: etc-docker
               readOnly: true
-            - mountPath: /etc/pki
+            - mountPath: /etc/pki/ca-trust/extracted/pem
               name: etc-pki
               readOnly: true
       nodeSelector:
@@ -118,6 +121,13 @@ spec:
           secret:
             optional: false
             secretName: catalogserver-cert
+        - configMap:
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt
+            name: openshift-service-ca.crt
+            optional: false
+          name: service-ca
         - hostPath:
             path: /etc/containers
             type: Directory
@@ -127,7 +137,7 @@ spec:
             type: Directory
           name: etc-docker
         - hostPath:
-            path: /etc/pki
+            path: /etc/pki/ca-trust/extracted/pem
             type: Directory
           name: etc-pki
       priorityClassName: system-cluster-critical

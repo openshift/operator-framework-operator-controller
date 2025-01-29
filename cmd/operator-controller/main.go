@@ -105,7 +105,7 @@ func main() {
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "", "The address for the metrics endpoint. Requires tls-cert and tls-key. (Default: ':8443')")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&caCertDir, "ca-certs-dir", "", "The directory of TLS certificate to use for verifying HTTPS connections to the catalogd")
+	flag.StringVar(&caCertDir, "ca-certs-dir", "", "The directory of TLS certificate to use for verifying HTTPS connections to the Catalogd and docker-registry web servers.")
 	flag.StringVar(&certFile, "tls-cert", "", "The certificate file used for the metrics server. Required to enable the metrics server. Requires tls-key.")
 	flag.StringVar(&keyFile, "tls-key", "", "The key file used for the metrics server. Required to enable the metrics server. Requires tls-cert")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -293,7 +293,10 @@ func main() {
 	unpacker := &source.ContainersImageRegistry{
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
-			srcContext := &types.SystemContext{}
+			srcContext := &types.SystemContext{
+				DockerCertPath: caCertDir,
+				OCICertPath:    caCertDir,
+			}
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
 				srcContext.AuthFilePath = authFilePath

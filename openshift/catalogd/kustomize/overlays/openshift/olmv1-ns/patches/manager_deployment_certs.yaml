@@ -2,8 +2,14 @@
   path: /spec/template/spec/volumes/-
   value: {"name":"catalogserver-certs", "secret":{"optional":false,"secretName":"catalogserver-cert"}}
 - op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt","items":[{"key":"service-ca.crt","path":"service-ca.crt"}]}}
+- op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"catalogserver-certs", "readOnly": true, "mountPath":"/var/certs"}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"service-ca", "readOnly": true, "mountPath":"/etc/pki/tls/certs" }
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-cert=/var/certs/tls.crt"
