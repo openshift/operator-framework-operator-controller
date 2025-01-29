@@ -51,10 +51,8 @@ spec:
           command:
             - ./catalogd
           env:
-            - name: SSL_CERT_FILE
-              value: /var/ca-certs/trusted-ca-bundle/ca-bundle.crt
             - name: SSL_CERT_DIR
-              value: /var/ca-certs/service-ca
+              value: /var/trusted-cas/trusted-ca-bundle:/var/trusted-cas/service-ca
           image: ${CATALOGD_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -86,10 +84,10 @@ spec:
             - mountPath: /var/certs
               name: catalogserver-certs
               readOnly: true
-            - mountPath: /var/ca-certs/trusted-ca-bundle
+            - mountPath: /var/trusted-cas/trusted-ca-bundle
               name: trusted-ca-bundle
               readOnly: true
-            - mountPath: /var/ca-certs/service-ca
+            - mountPath: /var/trusted-cas/service-ca
               name: service-ca
               readOnly: true
             - mountPath: /etc/containers

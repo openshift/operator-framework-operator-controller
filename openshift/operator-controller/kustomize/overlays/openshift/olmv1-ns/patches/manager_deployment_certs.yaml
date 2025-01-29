@@ -12,10 +12,10 @@
   value: {"name":"operator-controller-certs", "readOnly": true, "mountPath":"/var/certs"}
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"trusted-ca-bundle", "readOnly": true, "mountPath":"/var/ca-certs/trusted-ca-bundle" }
+  value: {"name":"trusted-ca-bundle", "readOnly": true, "mountPath":"/var/trusted-cas/trusted-ca-bundle" }
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"service-ca", "readOnly": true, "mountPath":"/var/ca-certs/service-ca" }
+  value: {"name":"service-ca", "readOnly": true, "mountPath":"/var/trusted-cas/service-ca" }
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-cert=/var/certs/tls.crt"
@@ -24,4 +24,4 @@
   value: "--tls-key=/var/certs/tls.key"
 - op: add
   path: /spec/template/spec/containers/0/env
-  value: [{"name":"SSL_CERT_FILE","value":"/var/ca-certs/trusted-ca-bundle/ca-bundle.crt"},{"name":"SSL_CERT_DIR","value":"/var/ca-certs/service-ca"}]
+  value: [{"name":"SSL_CERT_DIR","value":"/var/trusted-cas/trusted-ca-bundle:/var/trusted-cas/service-ca"}]
