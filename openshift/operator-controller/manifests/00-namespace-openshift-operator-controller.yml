@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   labels:
     app.kubernetes.io/part-of: olm
+    openshift.io/cluster-monitoring: "true"
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/audit-version: latest
     pod-security.kubernetes.io/enforce: privileged
