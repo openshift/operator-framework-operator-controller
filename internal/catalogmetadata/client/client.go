@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -9,8 +10,10 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	catalogd "github.com/operator-framework/catalogd/api/v1"
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -110,6 +113,17 @@ func (c *Client) PopulateCache(ctx context.Context, catalog *catalogd.ClusterCat
 	return c.cache.Put(catalog.Name, catalog.Status.ResolvedSource.Image.Ref, resp.Body, nil)
 }
 
+func logX509Error(err error, l logr.Logger) {
+	var cvErr *tls.CertificateVerificationError
+	if errors.As(err, &cvErr) {
+		n := 1
+		for _, cert := range cvErr.UnverifiedCertificates {
+			l.Error(err, "unverified cert", "n", n, "subject", cert.Subject, "issuer", cert.Issuer, "DNSNames", cert.DNSNames, "serial", cert.SerialNumber)
+			n = n + 1
+		}
+	}
+}
+
 func (c *Client) doRequest(ctx context.Context, catalog *catalogd.ClusterCatalog) (*http.Response, error) {
 	if catalog.Status.URLs == nil {
 		return nil, fmt.Errorf("error: catalog %q has a nil status.urls value", catalog.Name)
@@ -132,6 +146,7 @@ func (c *Client) doRequest(ctx context.Context, catalog *catalogd.ClusterCatalog
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logX509Error(err, ctrl.Log.WithName("catalog-client"))
 		return nil, fmt.Errorf("error performing request: %v", err)
 	}
 
