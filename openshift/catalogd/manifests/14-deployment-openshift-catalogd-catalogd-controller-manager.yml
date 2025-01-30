@@ -46,11 +46,13 @@ spec:
             - --external-address=catalogd-service.openshift-catalogd.svc
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
-            - --ca-certs-dir=/var/trusted-cas
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - ./catalogd
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
           image: ${CATALOGD_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -81,12 +83,9 @@ spec:
               name: cache
             - mountPath: /var/certs
               name: catalogserver-certs
-            - mountPath: /var/trusted-cas/ca-bundle.crt
-              name: trusted-ca-bundle
-              subPath: ca-bundle.crt
-            - mountPath: /var/trusted-cas/service-ca.crt
-              name: service-ca
-              subPath: service-ca.crt
+            - mountPath: /var/ca-certs
+              name: ca-certs
+              readOnly: true
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -121,20 +120,21 @@ spec:
           secret:
             optional: false
             secretName: catalogserver-cert
-        - configMap:
-            items:
-              - key: ca-bundle.crt
-                path: ca-bundle.crt
-            name: catalogd-trusted-ca-bundle
-            optional: false
-          name: trusted-ca-bundle
-        - configMap:
-            items:
-              - key: service-ca.crt
-                path: service-ca.crt
-            name: openshift-service-ca.crt
-            optional: false
-          name: service-ca
+        - name: ca-certs
+          projected:
+            sources:
+              - configMap:
+                  items:
+                    - key: ca-bundle.crt
+                      path: ca-bundle.crt
+                  name: catalogd-trusted-ca-bundle
+                  optional: false
+              - configMap:
+                  items:
+                    - key: service-ca.crt
+                      path: service-ca.crt
+                  name: openshift-service-ca.crt
+                  optional: false
         - hostPath:
             path: /etc/containers
             type: Directory
