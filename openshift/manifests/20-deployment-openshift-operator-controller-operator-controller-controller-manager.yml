@@ -43,11 +43,13 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
-            - --ca-certs-dir=/var/trusted-cas
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - /manager
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
           image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -76,12 +78,9 @@ spec:
           volumeMounts:
             - mountPath: /var/cache
               name: cache
-            - mountPath: /var/trusted-cas/ca-bundle.crt
-              name: trusted-ca-bundle
-              subPath: ca-bundle.crt
-            - mountPath: /var/trusted-cas/service-ca.crt
-              name: service-ca
-              subPath: service-ca.crt
+            - mountPath: /var/ca-certs
+              name: ca-certs
+              readOnly: true
             - mountPath: /etc/containers
               name: etc-containers
               readOnly: true
@@ -131,20 +130,21 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
-        - configMap:
-            items:
-              - key: ca-bundle.crt
-                path: ca-bundle.crt
-            name: operator-controller-trusted-ca-bundle
-            optional: false
-          name: trusted-ca-bundle
-        - configMap:
-            items:
-              - key: service-ca.crt
-                path: service-ca.crt
-            name: openshift-service-ca.crt
-            optional: false
-          name: service-ca
+        - name: ca-certs
+          projected:
+            sources:
+              - configMap:
+                  items:
+                    - key: ca-bundle.crt
+                      path: ca-bundle.crt
+                  name: operator-controller-trusted-ca-bundle
+                  optional: false
+              - configMap:
+                  items:
+                    - key: service-ca.crt
+                      path: service-ca.crt
+                  name: openshift-service-ca.crt
+                  optional: false
         - hostPath:
             path: /etc/containers
             type: Directory
