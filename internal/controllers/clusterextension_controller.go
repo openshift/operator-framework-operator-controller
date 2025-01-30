@@ -53,6 +53,7 @@ import (
 	"github.com/operator-framework/operator-controller/internal/bundleutil"
 	"github.com/operator-framework/operator-controller/internal/conditionsets"
 	"github.com/operator-framework/operator-controller/internal/contentmanager"
+	"github.com/operator-framework/operator-controller/internal/httputil"
 	"github.com/operator-framework/operator-controller/internal/labels"
 	"github.com/operator-framework/operator-controller/internal/resolve"
 	rukpaksource "github.com/operator-framework/operator-controller/internal/rukpak/source"
@@ -257,6 +258,10 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1.Cl
 		// Wrap the error passed to this with the resolution information until we have successfully
 		// installed since we intend for the progressing condition to replace the resolved condition
 		// and will be removing the .status.resolution field from the ClusterExtension status API
+		l := ctrl.Log.WithName("operator-controller-unpacker")
+		if httputil.LogUnverifiedCertificate(err, l) {
+			httputil.DumpCertificates("/etc/docker/certs.d", l)
+		}
 		setStatusProgressing(ext, wrapErrorWithResolutionInfo(resolvedBundleMetadata, err))
 		setInstalledStatusFromBundle(ext, installedBundle)
 		return ctrl.Result{}, err

@@ -40,6 +40,7 @@ import (
 	catalogdv1 "github.com/operator-framework/operator-controller/catalogd/api/v1"
 	"github.com/operator-framework/operator-controller/catalogd/internal/source"
 	"github.com/operator-framework/operator-controller/catalogd/internal/storage"
+	"github.com/operator-framework/operator-controller/internal/httputil"
 )
 
 const (
@@ -229,6 +230,10 @@ func (r *ClusterCatalogReconciler) reconcile(ctx context.Context, catalog *catal
 
 	unpackResult, err := r.Unpacker.Unpack(ctx, catalog)
 	if err != nil {
+		l := ctrl.Log.WithName("catalog-unpacker")
+		if httputil.LogUnverifiedCertificate(err, l) {
+			httputil.DumpCertificates("/etc/docker/certs.d", l)
+		}
 		unpackErr := fmt.Errorf("source catalog content: %w", err)
 		updateStatusProgressing(&catalog.Status, catalog.GetGeneration(), unpackErr)
 		return ctrl.Result{}, unpackErr

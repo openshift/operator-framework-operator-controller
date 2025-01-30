@@ -52,7 +52,7 @@ func NewCertPoolWatcher(caDir string, log logr.Logger) (*CertPoolWatcher, error)
 	// location, thus they may change, thus we should watch those locations.
 	sslCertDir := os.Getenv("SSL_CERT_DIR")
 	sslCertFile := os.Getenv("SSL_CERT_FILE")
-	log.Info("SSL environment", "SSL_CERT_DIR", sslCertDir, "SSL_CERT_FILE", sslCertFile)
+	log.V(defaultLogLevel).Info("SSL environment", "SSL_CERT_DIR", sslCertDir, "SSL_CERT_FILE", sslCertFile)
 
 	watchPaths := strings.Split(sslCertDir, ":")
 	watchPaths = append(watchPaths, caDir, sslCertFile)
