@@ -8,10 +8,12 @@ resources:
 - ../../../../../../config/base/catalogd/rbac
 - ../../../../../../config/base/catalogd/manager
 - ../../../../../../config/base/common
+- metrics
 - trusted-ca/catalogd_trusted_ca_configmap.yaml
 
 patches:
 - path: patches/manager_namespace_privileged.yaml
+- path: patches/manager_namespace_monitored.yaml
 - target:
     kind: Service
     name: service

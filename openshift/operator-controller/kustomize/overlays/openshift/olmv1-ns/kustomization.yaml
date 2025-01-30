@@ -6,9 +6,12 @@ resources:
   - ../../../../../../config/base/operator-controller/rbac
   - ../../../../../../config/base/operator-controller/manager
   - ../../../../../../config/base/common
+  - metrics
   - trusted-ca/operator_controller_trusted_ca_configmap.yaml
 
 patches:
+  - path: patches/manager_namespace_privileged.yaml
+  - path: patches/manager_namespace_monitored.yaml
   - target:
       kind: Service
       name: service
@@ -33,4 +36,3 @@ patches:
       kind: Deployment
       name: controller-manager
     path: patches/manager_deployment_node_selection.yaml
-  - path: patches/manager_namespace_privileged.yaml
