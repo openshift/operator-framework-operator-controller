@@ -95,12 +95,14 @@ func main() {
 		cachePath                 string
 		operatorControllerVersion bool
 		systemNamespace           string
-		caCertDir                 string
+		catalogdCasDir            string
+		pullCasDir                string
 		globalPullSecret          string
 	)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&caCertDir, "ca-certs-dir", "", "The directory of TLS certificate to use for verifying HTTPS connections to the Catalogd and docker-registry web servers.")
+	flag.StringVar(&catalogdCasDir, "catalogd-cas-dir", "", "The directory of TLS certificate authorities to use for verifying HTTPS connections to the Catalogd web service.")
+	flag.StringVar(&pullCasDir, "pull-cas-dir", "", "The directory of TLS certificate authorities to use for verifying HTTPS connections to image registries.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -221,7 +223,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	certPoolWatcher, err := httputil.NewCertPoolWatcher(caCertDir, ctrl.Log.WithName("cert-pool"))
+	certPoolWatcher, err := httputil.NewCertPoolWatcher(catalogdCasDir, ctrl.Log.WithName("cert-pool"))
 	if err != nil {
 		setupLog.Error(err, "unable to create CA certificate pool")
 		os.Exit(1)
@@ -231,8 +233,8 @@ func main() {
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
 			srcContext := &types.SystemContext{
-				DockerCertPath: caCertDir,
-				OCICertPath:    caCertDir,
+				DockerCertPath: pullCasDir,
+				OCICertPath:    pullCasDir,
 			}
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
