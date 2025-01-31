@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/operator-framework/operator-controller/internal/util"
+	"github.com/operator-framework/operator-controller/internal/fsutil"
 )
 
 type ContainersImageRegistry struct {
@@ -252,7 +252,7 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 		return fmt.Errorf("error creating image source: %w", err)
 	}
 
-	if err := util.EnsureEmptyDirectory(unpackPath, 0700); err != nil {
+	if err := fsutil.EnsureEmptyDirectory(unpackPath, 0700); err != nil {
 		return fmt.Errorf("error ensuring empty unpack directory: %w", err)
 	}
 	l := log.FromContext(ctx)
