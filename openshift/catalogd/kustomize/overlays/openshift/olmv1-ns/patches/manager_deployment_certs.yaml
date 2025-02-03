@@ -3,13 +3,19 @@
   value: {"name":"catalogserver-certs", "secret":{"optional":false,"secretName":"catalogserver-cert"}}
 - op: add
   path: /spec/template/spec/volumes/-
-  value: {"name":"ca-certs", "projected": {"sources":[{"configMap":{"optional":false,"name":"trusted-ca-bundle", "items":[{"key":"ca-bundle.crt","path":"ca-bundle.crt"}]}},{"configMap":{"optional":false,"name":"openshift-service-ca.crt", "items":[{"key":"service-ca.crt","path":"service-ca.crt"}]}}]}}
+  value: {"name":"trusted-ca-bundle", "configMap":{"optional":false,"name":"trusted-ca-bundle", "items":[{"key":"ca-bundle.crt","path":"ca-bundle.crt"}]}}
+- op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"service-ca", "configMap":{"optional":false,"name":"openshift-service-ca.crt", "items":[{"key":"service-ca.crt","path":"service-ca.crt"}]}}
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"catalogserver-certs", "mountPath":"/var/certs"}
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"ca-certs", "mountPath":"/var/ca-certs", "readOnly": true}
+  value: {"name":"trusted-ca-bundle", "mountPath":"/var/trusted-cas/ca-bundle.crt", "subPath":"ca-bundle.crt"}
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"service-ca", "mountPath":"/var/trusted-cas/service-ca.crt", "subPath":"service-ca.crt"}
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-cert=/var/certs/tls.crt"
@@ -17,5 +23,5 @@
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-key=/var/certs/tls.key"
 - op: add
-  path: /spec/template/spec/containers/0/env
-  value: [{"name":"SSL_CERT_DIR", "value":"/var/ca-certs"}]
+  path: /spec/template/spec/containers/0/args/-
+  value: "--ca-certs-dir=/var/trusted-cas"
