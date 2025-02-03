@@ -141,7 +141,7 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, bundle *BundleSour
 	//
 	//////////////////////////////////////////////////////
 	if err := i.unpackImage(ctx, unpackPath, layoutRef, srcCtx); err != nil {
-		if cleanupErr := DeleteReadOnlyRecursive(unpackPath); cleanupErr != nil {
+		if cleanupErr := fsutil.DeleteReadOnlyRecursive(unpackPath); cleanupErr != nil {
 			err = errors.Join(err, cleanupErr)
 		}
 		return nil, fmt.Errorf("error unpacking image: %w", err)
@@ -169,7 +169,7 @@ func successResult(bundleName, unpackPath string, canonicalRef reference.Canonic
 }
 
 func (i *ContainersImageRegistry) Cleanup(_ context.Context, bundle *BundleSource) error {
-	return DeleteReadOnlyRecursive(i.bundlePath(bundle.Name))
+	return fsutil.DeleteReadOnlyRecursive(i.bundlePath(bundle.Name))
 }
 
 func (i *ContainersImageRegistry) bundlePath(bundleName string) string {
@@ -271,10 +271,10 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 			l.Info("applied layer", "layer", i)
 			return nil
 		}(); err != nil {
-			return errors.Join(err, DeleteReadOnlyRecursive(unpackPath))
+			return errors.Join(err, fsutil.DeleteReadOnlyRecursive(unpackPath))
 		}
 	}
-	if err := SetReadOnlyRecursive(unpackPath); err != nil {
+	if err := fsutil.SetReadOnlyRecursive(unpackPath); err != nil {
 		return fmt.Errorf("error making unpack directory read-only: %w", err)
 	}
 	return nil
@@ -311,7 +311,7 @@ func (i *ContainersImageRegistry) deleteOtherImages(bundleName string, digestToK
 			continue
 		}
 		imgDirPath := filepath.Join(bundlePath, imgDir.Name())
-		if err := DeleteReadOnlyRecursive(imgDirPath); err != nil {
+		if err := fsutil.DeleteReadOnlyRecursive(imgDirPath); err != nil {
 			return fmt.Errorf("error removing image directory: %w", err)
 		}
 	}
