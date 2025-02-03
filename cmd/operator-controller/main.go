@@ -68,7 +68,6 @@ import (
 	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
 	"github.com/operator-framework/operator-controller/internal/rukpak/source"
 	"github.com/operator-framework/operator-controller/internal/scheme"
-	"github.com/operator-framework/operator-controller/internal/util"
 	"github.com/operator-framework/operator-controller/internal/version"
 )
 
@@ -298,11 +297,6 @@ func main() {
 		}
 	}
 
-	if err := util.EnsureEmptyDirectory(cachePath, 0700); err != nil {
-		setupLog.Error(err, "unable to ensure empty cache directory")
-		os.Exit(1)
-	}
-
 	unpacker := &source.ContainersImageRegistry{
 		BaseCachePath: filepath.Join(cachePath, "unpack"),
 		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
@@ -367,7 +361,7 @@ func main() {
 		crdupgradesafety.NewPreflight(aeClient.CustomResourceDefinitions()),
 	}
 
-	helmApplier := &applier.Helm{
+	applier := &applier.Helm{
 		ActionClientGetter: acg,
 		Preflights:         preflights,
 	}
@@ -387,7 +381,7 @@ func main() {
 		Client:                cl,
 		Resolver:              resolver,
 		Unpacker:              unpacker,
-		Applier:               helmApplier,
+		Applier:               applier,
 		InstalledBundleGetter: &controllers.DefaultInstalledBundleGetter{ActionClientGetter: acg},
 		Finalizers:            clusterExtensionFinalizers,
 		Manager:               cm,

@@ -277,16 +277,7 @@ func TestUnpackUnexpectedFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(unpackPath, []byte{}, 0600))
 
 	// Attempt to pull and unpack the image
-	_, err := unpacker.Unpack(context.Background(), bundleSource)
-	require.NoError(t, err)
-
-	// Ensure unpack path is now a directory
-	stat, err := os.Stat(unpackPath)
-	require.NoError(t, err)
-	require.True(t, stat.IsDir())
-
-	// Unset read-only to allow cleanup
-	require.NoError(t, source.UnsetReadOnlyRecursive(unpackPath))
+	assert.Panics(t, func() { _, _ = unpacker.Unpack(context.Background(), bundleSource) })
 }
 
 func TestUnpackCopySucceedsMountFails(t *testing.T) {
