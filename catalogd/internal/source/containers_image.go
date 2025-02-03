@@ -29,8 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	catalogdv1 "github.com/operator-framework/operator-controller/catalogd/api/v1"
-	"github.com/operator-framework/operator-controller/internal/rukpak/source"
-	"github.com/operator-framework/operator-controller/internal/util"
 )
 
 const ConfigDirLabel = "operators.operatorframework.io.index.configs.v1"
@@ -72,11 +70,12 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, catalog *catalogdv
 	//
 	//////////////////////////////////////////////////////
 	unpackPath := i.unpackPath(catalog.Name, canonicalRef.Digest())
-	if isUnpacked, unpackTime, err := source.IsImageUnpacked(unpackPath); isUnpacked && err == nil {
+	if unpackStat, err := os.Stat(unpackPath); err == nil {
+		if !unpackStat.IsDir() {
+			panic(fmt.Sprintf("unexpected file at unpack path %q: expected a directory", unpackPath))
+		}
 		l.Info("image already unpacked", "ref", imgRef.String(), "digest", canonicalRef.Digest().String())
-		return successResult(unpackPath, canonicalRef, unpackTime), nil
-	} else if err != nil {
-		return nil, fmt.Errorf("error checking image already unpacked: %w", err)
+		return successResult(unpackPath, canonicalRef, unpackStat.ModTime()), nil
 	}
 
 	//////////////////////////////////////////////////////
@@ -149,7 +148,7 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, catalog *catalogdv
 	//
 	//////////////////////////////////////////////////////
 	if err := i.unpackImage(ctx, unpackPath, layoutRef, specIsCanonical, srcCtx); err != nil {
-		if cleanupErr := source.DeleteReadOnlyRecursive(unpackPath); cleanupErr != nil {
+		if cleanupErr := deleteRecursive(unpackPath); cleanupErr != nil {
 			err = errors.Join(err, cleanupErr)
 		}
 		return nil, fmt.Errorf("error unpacking image: %w", err)
@@ -190,7 +189,7 @@ func successResult(unpackPath string, canonicalRef reference.Canonical, lastUnpa
 }
 
 func (i *ContainersImageRegistry) Cleanup(_ context.Context, catalog *catalogdv1.ClusterCatalog) error {
-	if err := source.DeleteReadOnlyRecursive(i.catalogPath(catalog.Name)); err != nil {
+	if err := deleteRecursive(i.catalogPath(catalog.Name)); err != nil {
 		return fmt.Errorf("error deleting catalog cache: %w", err)
 	}
 	return nil
@@ -289,8 +288,8 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 		return wrapTerminal(fmt.Errorf("catalog image is missing the required label %q", ConfigDirLabel), specIsCanonical)
 	}
 
-	if err := util.EnsureEmptyDirectory(unpackPath, 0700); err != nil {
-		return fmt.Errorf("error ensuring empty unpack directory: %w", err)
+	if err := os.MkdirAll(unpackPath, 0700); err != nil {
+		return fmt.Errorf("error creating unpack directory: %w", err)
 	}
 	l := log.FromContext(ctx)
 	l.Info("unpacking image", "path", unpackPath)
@@ -308,10 +307,10 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 			l.Info("applied layer", "layer", i)
 			return nil
 		}(); err != nil {
-			return errors.Join(err, source.DeleteReadOnlyRecursive(unpackPath))
+			return errors.Join(err, deleteRecursive(unpackPath))
 		}
 	}
-	if err := source.SetReadOnlyRecursive(unpackPath); err != nil {
+	if err := setReadOnlyRecursive(unpackPath); err != nil {
 		return fmt.Errorf("error making unpack directory read-only: %w", err)
 	}
 	return nil
@@ -355,11 +354,67 @@ func (i *ContainersImageRegistry) deleteOtherImages(catalogName string, digestTo
 			continue
 		}
 		imgDirPath := filepath.Join(catalogPath, imgDir.Name())
-		if err := source.DeleteReadOnlyRecursive(imgDirPath); err != nil {
+		if err := deleteRecursive(imgDirPath); err != nil {
 			return fmt.Errorf("error removing image directory: %w", err)
 		}
 	}
 	return nil
+}
+
+func setReadOnlyRecursive(root string) error {
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		if err := func() error {
+			switch typ := fi.Mode().Type(); typ {
+			case os.ModeSymlink:
+				// do not follow symlinks
+				// 1. if they resolve to other locations in the root, we'll find them anyway
+				// 2. if they resolve to other locations outside the root, we don't want to change their permissions
+				return nil
+			case os.ModeDir:
+				return os.Chmod(path, 0500)
+			case 0: // regular file
+				return os.Chmod(path, 0400)
+			default:
+				return fmt.Errorf("refusing to change ownership of file %q with type %v", path, typ.String())
+			}
+		}(); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("error making catalog cache read-only: %w", err)
+	}
+	return nil
+}
+
+func deleteRecursive(root string) error {
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if err := os.Chmod(path, 0700); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("error making catalog cache writable for deletion: %w", err)
+	}
+	return os.RemoveAll(root)
 }
 
 func wrapTerminal(err error, isTerminal bool) error {

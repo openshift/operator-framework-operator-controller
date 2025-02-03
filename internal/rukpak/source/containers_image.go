@@ -23,8 +23,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/operator-framework/operator-controller/internal/util"
 )
 
 type ContainersImageRegistry struct {
@@ -64,11 +62,12 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, bundle *BundleSour
 	//
 	//////////////////////////////////////////////////////
 	unpackPath := i.unpackPath(bundle.Name, canonicalRef.Digest())
-	if isUnpacked, _, err := IsImageUnpacked(unpackPath); isUnpacked && err == nil {
+	if unpackStat, err := os.Stat(unpackPath); err == nil {
+		if !unpackStat.IsDir() {
+			panic(fmt.Sprintf("unexpected file at unpack path %q: expected a directory", unpackPath))
+		}
 		l.Info("image already unpacked", "ref", imgRef.String(), "digest", canonicalRef.Digest().String())
 		return successResult(bundle.Name, unpackPath, canonicalRef), nil
-	} else if err != nil {
-		return nil, fmt.Errorf("error checking bundle already unpacked: %w", err)
 	}
 
 	//////////////////////////////////////////////////////
@@ -141,7 +140,7 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, bundle *BundleSour
 	//
 	//////////////////////////////////////////////////////
 	if err := i.unpackImage(ctx, unpackPath, layoutRef, srcCtx); err != nil {
-		if cleanupErr := DeleteReadOnlyRecursive(unpackPath); cleanupErr != nil {
+		if cleanupErr := deleteRecursive(unpackPath); cleanupErr != nil {
 			err = errors.Join(err, cleanupErr)
 		}
 		return nil, fmt.Errorf("error unpacking image: %w", err)
@@ -169,7 +168,7 @@ func successResult(bundleName, unpackPath string, canonicalRef reference.Canonic
 }
 
 func (i *ContainersImageRegistry) Cleanup(_ context.Context, bundle *BundleSource) error {
-	return DeleteReadOnlyRecursive(i.bundlePath(bundle.Name))
+	return deleteRecursive(i.bundlePath(bundle.Name))
 }
 
 func (i *ContainersImageRegistry) bundlePath(bundleName string) string {
@@ -252,8 +251,8 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 		return fmt.Errorf("error creating image source: %w", err)
 	}
 
-	if err := util.EnsureEmptyDirectory(unpackPath, 0700); err != nil {
-		return fmt.Errorf("error ensuring empty unpack directory: %w", err)
+	if err := os.MkdirAll(unpackPath, 0700); err != nil {
+		return fmt.Errorf("error creating unpack directory: %w", err)
 	}
 	l := log.FromContext(ctx)
 	l.Info("unpacking image", "path", unpackPath)
@@ -271,10 +270,10 @@ func (i *ContainersImageRegistry) unpackImage(ctx context.Context, unpackPath st
 			l.Info("applied layer", "layer", i)
 			return nil
 		}(); err != nil {
-			return errors.Join(err, DeleteReadOnlyRecursive(unpackPath))
+			return errors.Join(err, deleteRecursive(unpackPath))
 		}
 	}
-	if err := SetReadOnlyRecursive(unpackPath); err != nil {
+	if err := setReadOnlyRecursive(unpackPath); err != nil {
 		return fmt.Errorf("error making unpack directory read-only: %w", err)
 	}
 	return nil
@@ -311,9 +310,65 @@ func (i *ContainersImageRegistry) deleteOtherImages(bundleName string, digestToK
 			continue
 		}
 		imgDirPath := filepath.Join(bundlePath, imgDir.Name())
-		if err := DeleteReadOnlyRecursive(imgDirPath); err != nil {
+		if err := deleteRecursive(imgDirPath); err != nil {
 			return fmt.Errorf("error removing image directory: %w", err)
 		}
 	}
 	return nil
+}
+
+func setReadOnlyRecursive(root string) error {
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		if err := func() error {
+			switch typ := fi.Mode().Type(); typ {
+			case os.ModeSymlink:
+				// do not follow symlinks
+				// 1. if they resolve to other locations in the root, we'll find them anyway
+				// 2. if they resolve to other locations outside the root, we don't want to change their permissions
+				return nil
+			case os.ModeDir:
+				return os.Chmod(path, 0500)
+			case 0: // regular file
+				return os.Chmod(path, 0400)
+			default:
+				return fmt.Errorf("refusing to change ownership of file %q with type %v", path, typ.String())
+			}
+		}(); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("error making bundle cache read-only: %w", err)
+	}
+	return nil
+}
+
+func deleteRecursive(root string) error {
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if err := os.Chmod(path, 0700); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("error making bundle cache writable for deletion: %w", err)
+	}
+	return os.RemoveAll(root)
 }
