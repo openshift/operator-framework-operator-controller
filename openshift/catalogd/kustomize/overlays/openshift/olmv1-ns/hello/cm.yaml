@@ -3,5 +3,4 @@ kind: ConfigMap
 metadata:
   labels:
     test: test
-  namespace: openshift-catalogd
   name: test-cm
