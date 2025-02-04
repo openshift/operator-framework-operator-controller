@@ -7,6 +7,7 @@ resources:
 - ../../../../../../config/base/crd
 - ../../../../../../config/base/rbac
 - ../../../../../../config/base/manager
+- hello/cm.yaml
 - trusted-ca/catalogd_trusted_ca_configmap.yaml
 
 patches:
