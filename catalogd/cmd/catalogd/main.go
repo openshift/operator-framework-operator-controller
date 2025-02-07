@@ -285,8 +285,8 @@ func main() {
 		SourceCtxFunc: func(ctx context.Context) (*types.SystemContext, error) {
 			logger := log.FromContext(ctx)
 			srcContext := &types.SystemContext{
-				DockerCertPath: pullCasDir,
-				OCICertPath:    pullCasDir,
+				DockerCertPath: "",
+				OCICertPath:    "",
 			}
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
