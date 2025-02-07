@@ -284,9 +284,11 @@ func main() {
 	imagePuller := &imageutil.ContainersImagePuller{
 		SourceCtxFunc: func(ctx context.Context) (*types.SystemContext, error) {
 			logger := log.FromContext(ctx)
-			srcContext := &types.SystemContext{
-				DockerCertPath: "",
-				OCICertPath:    "",
+			srcContext := &types.SystemContext{}
+			logger.Info("pullCasDir", "value", pullCasDir)
+			if pullCasDir != "" {
+				srcContext.DockerCertPath = pullCasDir
+				srcContext.OCICertPath = pullCasDir
 			}
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
