@@ -17,6 +17,7 @@ import (
 	"github.com/containers/image/v5/oci/layout"
 	"github.com/containers/image/v5/pkg/blobinfocache/none"
 	"github.com/containers/image/v5/pkg/compression"
+	"github.com/containers/image/v5/pkg/sysregistriesv2"
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/types"
 	"github.com/go-logr/logr"
@@ -40,6 +41,9 @@ func (i *ContainersImageRegistry) Unpack(ctx context.Context, bundle *BundleSour
 	if bundle.Image == nil {
 		return nil, reconcile.TerminalError(fmt.Errorf("error parsing bundle, bundle %s has a nil image source", bundle.Name))
 	}
+
+	// Reload registries cache in case of configuration update
+	sysregistriesv2.InvalidateCache()
 
 	srcCtx, err := i.SourceContextFunc(l)
 	if err != nil {
