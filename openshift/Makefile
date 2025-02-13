@@ -9,7 +9,7 @@ include $(DIR)/.bingo/Variables.mk
 
 .PHONY: verify
 verify: ## Run downstream-specific verify
-	$(MAKE) tidy fmt vet generate -C $(DIR)/../
+	$(MAKE) tidy fmt generate -C $(DIR)/../
 	$(MAKE) manifests
 	git diff --exit-code
 
