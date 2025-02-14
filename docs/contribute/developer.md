@@ -89,7 +89,7 @@ Follow Tilt's [instructions](https://docs.tilt.dev/install.html) for installatio
 ### Installing catalogd
 
 operator-controller requires
-[catalogd](https://github.com/operator-framework/catalogd). Please make sure it's installed, either normally or via its own Tiltfile., before proceeding. If you want to use Tilt, make sure you specify a unique `--port` flag to each `tilt up` invocation.
+[catalogd](https://github.com/operator-framework/operator-controller/tree/main/catalogd). When you give a `tilt up` invocation, catalogd will be started along with operator-controller.
 
 ### Starting Tilt
 
@@ -145,7 +145,7 @@ Some additional setup is necessary on Macintosh computers to install and configu
 Follow the instructions to [install Homebrew](https://docs.brew.sh/Installation), and then execute the following command to install the required tools:
 
 ```sh
-brew install bash gnu-tar gsed
+brew install bash gnu-tar gsed coreutils
 ```
 
 ### Configure your shell

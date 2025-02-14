@@ -17,16 +17,25 @@ Note that throughout this guide, the `upstream` remote refers to the `operator-f
 The release process differs slightly based on whether a patch or major/minor release is being made.
 
 ### Patch Release
-#### Step 1
-In this example we will be creating a new patch release from version `v1.2.3`, on the branch `release-v1.2`.  
-First ensure that the release branch has been updated on remote with the changes from the patch, then perform the following:
+
+In this example, we will be creating a new patch release from version `v1.2.3` on the branch `release-v1.2`.
+
+#### Step 1 
+First, make sure the `release-v1.2` branch is updated with the latest changes from upstream:
 ```bash
 git fetch upstream release-v1.2
-git pull release-v1.2
 git checkout release-v1.2
+git reset --hard upstream/release-v1.2
 ```
 
 #### Step 2
+Run the following command to confirm that your local branch has the latest expected commit:
+```bash
+git log --oneline -n 5
+```
+Check that the most recent commit matches the latest commit in the upstream `release-v1.2` branch. 
+
+#### Step 3
 Create a new tag, incrementing the patch number from the previous version. In this case, we'll be incrementing from `v1.2.3` to `v1.2.4`:
 ```bash
 ## Previous version was v1.2.3, so we bump the patch number up by one
@@ -54,3 +63,21 @@ git push upstream v1.2.0
 
 ### Post-Steps
 Once the tag has been pushed the release action should run automatically. You can view the progress [here](https://github.com/operator-framework/operator-controller/actions/workflows/release.yaml). When finished, the release should then be available on the [releases page](https://github.com/operator-framework/operator-controller/releases).
+
+
+## Backporting Policy
+
+Significant security and critical bug fixes can be backported to the most recent minor release.
+Special backport requests can be discussed during the weekly Community meeting or via Slack channel;
+this does not guarantee an exceptional backport will be created.
+
+Occasionally non-critical issue fixes will be backported, either at an approver’s discretion or by request as noted above.
+If you believe an issue should be backported, please feel free to reach out and raise your concerns or needs.
+For information on contacting maintainers via the [#olm-dev](https://kubernetes.slack.com/archives/C0181L6JYQ2) Slack channel
+and attending meetings. To know more about see [How to Contribute](./CONTRIBUTING.md).
+
+### Process
+
+1. Create a PR with the fix cherry-picked into the release branch
+2. Ask for a review from the maintainers.
+3. Once approved, merge the PR and perform the Patch Release steps above.

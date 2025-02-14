@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/operator-framework/operator-controller/internal/scheme"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/scheme"
 )
 
 const (
@@ -21,12 +22,14 @@ var (
 	c          client.Client
 	kclientset kubernetes.Interface
 
+	cfg                      *rest.Config
 	testClusterCatalogName   string
 	testClusterExtensionName string
 )
 
 func TestMain(m *testing.M) {
 	var ok bool
+	cfg = ctrl.GetConfigOrDie()
 	testClusterCatalogName, ok = os.LookupEnv(testClusterCatalogNameEnv)
 	if !ok {
 		fmt.Printf("%q is not set", testClusterCatalogNameEnv)

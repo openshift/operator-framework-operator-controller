@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -28,7 +29,7 @@ import (
 	"time"
 
 	"github.com/containers/image/v5/types"
-	"github.com/go-logr/logr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -47,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crfinalizer "sigs.k8s.io/controller-runtime/pkg/finalizer"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -54,21 +56,22 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	catalogd "github.com/operator-framework/operator-controller/catalogd/api/v1"
-	"github.com/operator-framework/operator-controller/internal/action"
-	"github.com/operator-framework/operator-controller/internal/applier"
-	"github.com/operator-framework/operator-controller/internal/authentication"
-	"github.com/operator-framework/operator-controller/internal/catalogmetadata/cache"
-	catalogclient "github.com/operator-framework/operator-controller/internal/catalogmetadata/client"
-	"github.com/operator-framework/operator-controller/internal/contentmanager"
-	"github.com/operator-framework/operator-controller/internal/controllers"
-	"github.com/operator-framework/operator-controller/internal/features"
-	"github.com/operator-framework/operator-controller/internal/finalizers"
-	"github.com/operator-framework/operator-controller/internal/httputil"
-	"github.com/operator-framework/operator-controller/internal/resolve"
-	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
-	"github.com/operator-framework/operator-controller/internal/rukpak/source"
-	"github.com/operator-framework/operator-controller/internal/scheme"
-	"github.com/operator-framework/operator-controller/internal/version"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/action"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/authentication"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/catalogmetadata/cache"
+	catalogclient "github.com/operator-framework/operator-controller/internal/operator-controller/catalogmetadata/client"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/contentmanager"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/controllers"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/features"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/finalizers"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/resolve"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/preflights/crdupgradesafety"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/scheme"
+	fsutil "github.com/operator-framework/operator-controller/internal/shared/util/fs"
+	httputil "github.com/operator-framework/operator-controller/internal/shared/util/http"
+	imageutil "github.com/operator-framework/operator-controller/internal/shared/util/image"
+	"github.com/operator-framework/operator-controller/internal/shared/version"
 )
 
 var (
@@ -120,6 +123,9 @@ func main() {
 	flag.StringVar(&globalPullSecret, "global-pull-secret", "", "The <namespace>/<name> of the global pull secret that is going to be used to pull bundle images.")
 
 	klog.InitFlags(flag.CommandLine)
+	if klog.V(4).Enabled() {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	features.OperatorControllerFeatureGate.AddFlag(pflag.CommandLine)
@@ -131,12 +137,16 @@ func main() {
 	}
 
 	if (certFile != "" && keyFile == "") || (certFile == "" && keyFile != "") {
-		setupLog.Error(nil, "unable to configure TLS certificates: tls-cert and tls-key flags must be used together")
+		setupLog.Error(errors.New("missing TLS configuration"),
+			"tls-cert and tls-key flags must be used together",
+			"certFile", certFile, "keyFile", keyFile)
 		os.Exit(1)
 	}
 
 	if metricsAddr != "" && certFile == "" && keyFile == "" {
-		setupLog.Error(nil, "metrics-bind-address requires tls-cert and tls-key flags to be set")
+		setupLog.Error(errors.New("invalid metrics configuration"),
+			"metrics-bind-address requires tls-cert and tls-key flags to be set",
+			"metricsAddr", metricsAddr, "certFile", certFile, "keyFile", keyFile)
 		os.Exit(1)
 	}
 
@@ -227,11 +237,12 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme.Scheme,
-		Metrics:                metricsServerOptions,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9c4404e7.operatorframework.io",
+		Scheme:                        scheme.Scheme,
+		Metrics:                       metricsServerOptions,
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "9c4404e7.operatorframework.io",
+		LeaderElectionReleaseOnCancel: true,
 		// Recommended Leader Election values
 		// https://github.com/openshift/enhancements/blob/61581dcd985130357d6e4b0e72b87ee35394bf6e/CONVENTIONS.md#handling-kube-apiserver-disruption
 		LeaseDuration: ptr.To(137 * time.Second),
@@ -299,13 +310,19 @@ func main() {
 		}
 	}
 
-	unpacker := &source.ContainersImageRegistry{
-		BaseCachePath: filepath.Join(cachePath, "unpack"),
-		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
+	if err := fsutil.EnsureEmptyDirectory(cachePath, 0700); err != nil {
+		setupLog.Error(err, "unable to ensure empty cache directory")
+		os.Exit(1)
+	}
+
+	imageCache := imageutil.BundleCache(filepath.Join(cachePath, "unpack"))
+	imagePuller := &imageutil.ContainersImagePuller{
+		SourceCtxFunc: func(ctx context.Context) (*types.SystemContext, error) {
 			srcContext := &types.SystemContext{
 				DockerCertPath: pullCasDir,
 				OCICertPath:    pullCasDir,
 			}
+			logger := log.FromContext(ctx)
 			if _, err := os.Stat(authFilePath); err == nil && globalPullSecretKey != nil {
 				logger.Info("using available authentication information for pulling image")
 				srcContext.AuthFilePath = authFilePath
@@ -315,11 +332,12 @@ func main() {
 				return nil, fmt.Errorf("could not stat auth file, error: %w", err)
 			}
 			return srcContext, nil
-		}}
+		},
+	}
 
 	clusterExtensionFinalizers := crfinalizer.NewFinalizers()
 	if err := clusterExtensionFinalizers.Register(controllers.ClusterExtensionCleanupUnpackCacheFinalizer, finalizers.FinalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
-		return crfinalizer.Result{}, unpacker.Cleanup(ctx, &source.BundleSource{Name: obj.GetName()})
+		return crfinalizer.Result{}, imageCache.Delete(ctx, obj.GetName())
 	})); err != nil {
 		setupLog.Error(err, "unable to register finalizer", "finalizerKey", controllers.ClusterExtensionCleanupUnpackCacheFinalizer)
 		os.Exit(1)
@@ -363,7 +381,7 @@ func main() {
 		crdupgradesafety.NewPreflight(aeClient.CustomResourceDefinitions()),
 	}
 
-	applier := &applier.Helm{
+	helmApplier := &applier.Helm{
 		ActionClientGetter: acg,
 		Preflights:         preflights,
 	}
@@ -382,8 +400,9 @@ func main() {
 	if err = (&controllers.ClusterExtensionReconciler{
 		Client:                cl,
 		Resolver:              resolver,
-		Unpacker:              unpacker,
-		Applier:               applier,
+		ImageCache:            imageCache,
+		ImagePuller:           imagePuller,
+		Applier:               helmApplier,
 		InstalledBundleGetter: &controllers.DefaultInstalledBundleGetter{ActionClientGetter: acg},
 		Finalizers:            clusterExtensionFinalizers,
 		Manager:               cm,

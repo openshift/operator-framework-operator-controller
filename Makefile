@@ -25,6 +25,7 @@ endif
 export IMAGE_TAG
 
 IMG := $(IMAGE_REPO):$(IMAGE_TAG)
+CATALOGD_IMG := $(CATALOG_IMAGE_REPO):$(IMAGE_TAG)
 
 # Define dependency versions (use go.mod if we also use Go code from dependency)
 export CERT_MGR_VERSION := v1.15.3
@@ -64,11 +65,14 @@ $(warning Could not find docker or podman in path! This may result in targets re
 endif
 
 KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
+CATALOGD_KUSTOMIZE_BUILD_DIR := catalogd/config/overlays/cert-manager
 
 # Disable -j flag for make
 .NOTPARALLEL:
 
 .DEFAULT_GOAL := build
+
+GINKGO := go run github.com/onsi/ginkgo/v2/ginkgo
 
 #SECTION General
 
@@ -95,29 +99,41 @@ help-extended: #HELP Display extended help.
 #SECTION Development
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
+lint: lint-custom $(GOLANGCI_LINT) #HELP Run golangci linter.
 	$(GOLANGCI_LINT) run --build-tags $(GO_BUILD_TAGS) $(GOLANGCI_LINT_ARGS)
+
+.PHONY: custom-linter-build
+custom-linter-build: #HELP Build custom linter
+	go build -tags $(GO_BUILD_TAGS) -o ./bin/custom-linter ./hack/ci/custom-linters/cmd
+
+.PHONY: lint-custom
+lint-custom: custom-linter-build #HELP Call custom linter for the project
+	go vet -tags=$(GO_BUILD_TAGS) -vettool=./bin/custom-linter ./...
 
 .PHONY: tidy
 tidy: #HELP Update dependencies.
 	# Force tidy to use the version already in go.mod
 	$(Q)go mod tidy -go=$(GOLANG_VERSION)
 
-
 .PHONY: manifests
+KUSTOMIZE_CRDS_DIR := config/base/crd/bases
+KUSTOMIZE_RBAC_DIR := config/base/rbac
+KUSTOMIZE_WEBHOOKS_DIR := config/base/manager/webhook
 manifests: $(CONTROLLER_GEN) #EXHELP Generate WebhookConfiguration, ClusterRole, and CustomResourceDefinition objects.
-	# To generate the manifests used and do not use catalogd directory
-	$(CONTROLLER_GEN) rbac:roleName=manager-role paths=./internal/... output:rbac:artifacts:config=config/base/rbac
-	$(CONTROLLER_GEN) crd paths=./api/... output:crd:artifacts:config=config/base/crd/bases
-	# To generate the manifests for catalogd
-	$(MAKE) -C catalogd generate
+	# Generate the operator-controller manifests
+	rm -rf $(KUSTOMIZE_CRDS_DIR) && $(CONTROLLER_GEN) crd paths=./api/... output:crd:artifacts:config=$(KUSTOMIZE_CRDS_DIR)
+	rm -f $(KUSTOMIZE_RBAC_DIR)/role.yaml && $(CONTROLLER_GEN) rbac:roleName=manager-role paths=./internal/operator-controller/... output:rbac:artifacts:config=$(KUSTOMIZE_RBAC_DIR)
+	# Generate the catalogd manifests
+	rm -rf catalogd/$(KUSTOMIZE_CRDS_DIR) && $(CONTROLLER_GEN) crd paths="./catalogd/api/..." output:crd:artifacts:config=catalogd/$(KUSTOMIZE_CRDS_DIR)
+	rm -f catalogd/$(KUSTOMIZE_RBAC_DIR)/role.yaml && $(CONTROLLER_GEN) rbac:roleName=manager-role paths="./internal/catalogd/..." output:rbac:artifacts:config=catalogd/$(KUSTOMIZE_RBAC_DIR)
+	rm -f catalogd/$(KUSTOMIZE_WEBHOOKS_DIR)/manifests.yaml && $(CONTROLLER_GEN) webhook paths="./internal/catalogd/..." output:webhook:artifacts:config=catalogd/$(KUSTOMIZE_WEBHOOKS_DIR)
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: tidy fmt vet generate manifests crd-ref-docs #HELP Verify all generated code is up-to-date.
+verify: tidy fmt generate manifests crd-ref-docs #HELP Verify all generated code is up-to-date.
 	git diff --exit-code
 
 .PHONY: fix-lint
@@ -127,10 +143,6 @@ fix-lint: $(GOLANGCI_LINT) #EXHELP Fix lint issues
 .PHONY: fmt
 fmt: #EXHELP Formats code
 	go fmt ./...
-
-.PHONY: vet
-vet: #EXHELP Run go vet against code.
-	go vet -tags '$(GO_BUILD_TAGS)' ./...
 
 .PHONY: bingo-upgrade
 bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
@@ -142,12 +154,16 @@ bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
 .PHONY: verify-crd-compatibility
 CRD_DIFF_ORIGINAL_REF := main
 CRD_DIFF_UPDATED_SOURCE := file://config/base/crd/bases/olm.operatorframework.io_clusterextensions.yaml
+CATALOGD_CRD_DIFF_UPDATED_SOURCE := file://catalogd/config/base/crd/bases/olm.operatorframework.io_clustercatalogs.yaml
 CRD_DIFF_CONFIG := crd-diff-config.yaml
+
 verify-crd-compatibility: $(CRD_DIFF) manifests
 	$(CRD_DIFF) --config="${CRD_DIFF_CONFIG}" "git://${CRD_DIFF_ORIGINAL_REF}?path=config/base/crd/bases/olm.operatorframework.io_clusterextensions.yaml" ${CRD_DIFF_UPDATED_SOURCE}
+	$(CRD_DIFF) --config="${CRD_DIFF_CONFIG}" "git://${CRD_DIFF_ORIGINAL_REF}?path=catalogd/config/base/crd/bases/olm.operatorframework.io_clustercatalogs.yaml" ${CATALOGD_CRD_DIFF_UPDATED_SOURCE}
+
 
 .PHONY: test
-test: manifests generate generate-catalogd fmt vet test-unit test-e2e #HELP Run all tests.
+test: manifests generate fmt lint test-unit test-e2e #HELP Run all tests.
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
@@ -209,6 +225,39 @@ test-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/e2e
 test-e2e: GO_BUILD_FLAGS := -cover
 test-e2e: run image-registry e2e e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
 
+# Catalogd e2e tests
+FOCUS := $(if $(TEST),-v -focus "$(TEST)")
+ifeq ($(origin E2E_FLAGS), undefined)
+E2E_FLAGS :=
+endif
+test-catalogd-e2e: ## Run the e2e tests on existing cluster
+	$(GINKGO) $(E2E_FLAGS) -trace -vv $(FOCUS) test/catalogd-e2e
+
+catalogd-e2e: KIND_CLUSTER_NAME := catalogd-e2e
+catalogd-e2e: ISSUER_KIND := Issuer
+catalogd-e2e: ISSUER_NAME := selfsigned-issuer
+catalogd-e2e: CATALOGD_KUSTOMIZE_BUILD_DIR := catalogd/config/overlays/e2e
+catalogd-e2e: run catalogd-image-registry test-catalogd-e2e ##  kind-clean Run e2e test suite on local kind cluster
+
+## image-registry target has to come after run-latest-release,
+## because the image-registry depends on the olm-ca issuer.
+.PHONY: test-catalogd-upgrade-e2e
+test-catalogd-upgrade-e2e: export TEST_CLUSTER_CATALOG_NAME := test-catalog
+test-catalogd-upgrade-e2e: export TEST_CLUSTER_CATALOG_IMAGE := docker-registry.catalogd-e2e.svc:5000/test-catalog:e2e
+test-catalogd-upgrade-e2e: ISSUER_KIND=ClusterIssuer
+test-catalogd-upgrade-e2e: ISSUER_NAME=olmv1-ca
+test-catalogd-upgrade-e2e: kind-cluster docker-build kind-load run-latest-release catalogd-image-registry catalogd-pre-upgrade-setup kind-deploy catalogd-post-upgrade-checks kind-clean ## Run upgrade e2e tests on a local kind cluster
+
+.PHONY: catalogd-post-upgrade-checks
+catalogd-post-upgrade-checks:
+	$(GINKGO) $(E2E_FLAGS) -trace -vv $(FOCUS) test/catalogd-upgrade-e2e
+
+catalogd-pre-upgrade-setup:
+	./test/tools/imageregistry/pre-upgrade-setup.sh ${TEST_CLUSTER_CATALOG_IMAGE} ${TEST_CLUSTER_CATALOG_NAME}
+
+catalogd-image-registry: ## Setup in-cluster image registry
+	./test/tools/imageregistry/registry.sh $(ISSUER_KIND) $(ISSUER_NAME)
+
 .PHONY: extension-developer-e2e
 extension-developer-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
 extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e  #EXHELP Run extension-developer e2e on local kind cluster
@@ -244,10 +293,10 @@ kind-load: $(KIND) #EXHELP Loads the currently constructed images into the KIND 
 
 .PHONY: kind-deploy
 kind-deploy: export MANIFEST := ./operator-controller.yaml
+kind-deploy: export DEFAULT_CATALOG := ./catalogd/config/base/default/clustercatalogs/default-catalogs.yaml
 kind-deploy: manifests $(KUSTOMIZE)
-	($(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) && echo "---" && $(KUSTOMIZE) build catalogd/config/overlays/cert-manager | sed "s/cert-git-version/cert-$(VERSION)/g") > $(MANIFEST)
-	envsubst '$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh | bash -s
-
+	($(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) && echo "---" && $(KUSTOMIZE) build $(CATALOGD_KUSTOMIZE_BUILD_DIR) | sed "s/cert-git-version/cert-$(VERSION)/g") > $(MANIFEST)
+	envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh | bash -s
 
 .PHONY: kind-cluster
 kind-cluster: $(KIND) #EXHELP Standup a kind cluster.
@@ -272,7 +321,7 @@ endif
 export CGO_ENABLED
 
 export GIT_REPO := $(shell go list -m)
-export VERSION_PATH := ${GIT_REPO}/internal/version
+export VERSION_PATH := ${GIT_REPO}/internal/shared/version
 export GO_BUILD_TAGS := containers_image_openpgp
 export GO_BUILD_ASMFLAGS := all=-trimpath=$(PWD)
 export GO_BUILD_GCFLAGS := all=-trimpath=$(PWD)
@@ -286,7 +335,7 @@ $(BINARIES):
 	go build $(GO_BUILD_FLAGS) -tags '$(GO_BUILD_TAGS)' -ldflags '$(GO_BUILD_LDFLAGS)' -gcflags '$(GO_BUILD_GCFLAGS)' -asmflags '$(GO_BUILD_ASMFLAGS)' -o $(BUILDBIN)/$@ ./cmd/$@
 
 .PHONY: build-deps
-build-deps: manifests generate fmt vet
+build-deps: manifests generate fmt
 
 .PHONY: build go-build-local
 build: build-deps go-build-local #HELP Build manager binary for current GOOS and GOARCH. Default target.
@@ -301,7 +350,12 @@ go-build-linux: export GOARCH=amd64
 go-build-linux: $(BINARIES)
 
 .PHONY: run
-run: docker-build kind-cluster kind-load kind-deploy #HELP Build the operator-controller then deploy it into a new kind cluster.
+run: docker-build kind-cluster kind-load kind-deploy wait #HELP Build the operator-controller then deploy it into a new kind cluster.
+
+CATALOGD_NAMESPACE := olmv1-system
+wait:
+	kubectl wait --for=condition=Available --namespace=$(CATALOGD_NAMESPACE) deployment/catalogd-controller-manager --timeout=60s
+	kubectl wait --for=condition=Ready --namespace=$(CATALOGD_NAMESPACE) certificate/catalogd-service-cert # Avoid upgrade test flakes when reissuing cert
 
 .PHONY: docker-build
 docker-build: build-linux  #EXHELP Build docker image for operator-controller and catalog with GOOS=linux and local GOARCH.
@@ -324,10 +378,11 @@ release: $(GORELEASER) #EXHELP Runs goreleaser for the operator-controller. By d
 	OPERATOR_CONTROLLER_IMAGE_REPO=$(IMAGE_REPO) CATALOGD_IMAGE_REPO=$(CATALOG_IMAGE_REPO) $(GORELEASER) $(GORELEASER_ARGS)
 
 .PHONY: quickstart
-quickstart: export MANIFEST := ./operator-controller.yaml
+quickstart: export MANIFEST := https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/operator-controller.yaml
+quickstart: export DEFAULT_CATALOG := "https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/default-catalogs.yaml"
 quickstart: $(KUSTOMIZE) manifests #EXHELP Generate the unified installation release manifests and scripts.
-	($(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) && echo "---" && $(KUSTOMIZE) build catalogd/config/overlays/cert-manager | sed "s/cert-git-version/cert-$(VERSION)/g") > $(MANIFEST)
-	envsubst '$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > install.sh
+	($(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) && echo "---" && $(KUSTOMIZE) build catalogd/config/overlays/cert-manager) | sed "s/cert-git-version/cert-$(VERSION)/g" | sed "s/:devel/:$(VERSION)/g" > operator-controller.yaml
+	envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > install.sh
 
 ##@ Docs
 
@@ -363,5 +418,10 @@ serve-docs: venv
 deploy-docs: venv
 	. $(VENV)/activate; \
 	mkdocs gh-deploy --force
+
+# The demo script requires to install asciinema with: brew install asciinema to run on mac os envs.
+.PHONY: demo-update #EXHELP build demo
+demo-update:
+	./hack/demo/generate-asciidemo.sh -u -n catalogd-demo catalogd-demo-script.sh
 
 include Makefile.venv

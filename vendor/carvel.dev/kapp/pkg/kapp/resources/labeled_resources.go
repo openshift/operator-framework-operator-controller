@@ -5,6 +5,7 @@ package resources
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -93,10 +94,12 @@ type AllAndMatchingOpts struct {
 	ExistingNonLabeledResourcesCheck            bool
 	ExistingNonLabeledResourcesCheckConcurrency int
 	SkipResourceOwnershipCheck                  bool
+	SkipOwnershipCheckAllowedApps               []string
 	IsNewApp                                    bool
 
 	DisallowedResourcesByLabelKeys []string
 	LabelErrorResolutionFunc       func(string, string) string
+	LabelValAppMapResolverFunc     func() map[string]string
 
 	IdentifiedResourcesListOpts IdentifiedResourcesListOpts
 }
@@ -131,7 +134,7 @@ func (a *LabeledResources) AllAndMatching(newResources []Resource, opts AllAndMa
 		}
 	}
 
-	if !opts.SkipResourceOwnershipCheck && len(nonLabeledResources) > 0 {
+	if len(nonLabeledResources) > 0 && !opts.SkipResourceOwnershipCheck {
 		resourcesForCheck := a.resourcesForOwnershipCheck(newResources, nonLabeledResources)
 		if len(resourcesForCheck) > 0 {
 			err := a.checkResourceOwnership(resourcesForCheck, opts)
@@ -180,10 +183,21 @@ func (a *LabeledResources) checkResourceOwnership(resources []Resource, opts All
 	}
 
 	var errs []error
+	labelValAppMap := map[string]string{}
+	isSelectiveOwnershipOverride := len(opts.SkipOwnershipCheckAllowedApps) > 0
+	if isSelectiveOwnershipOverride {
+		labelValAppMap = opts.LabelValAppMapResolverFunc()
+	}
 
 	for _, res := range resources {
 		if val, found := res.Labels()[expectedLabelKey]; found {
-			if val != expectedLabelVal {
+			ownershipOverrideAllowed := false
+
+			if isSelectiveOwnershipOverride {
+				ownershipOverrideAllowed = a.ownershipOverrideAllowed(labelValAppMap, res,
+					expectedLabelKey, opts.SkipOwnershipCheckAllowedApps)
+			}
+			if val != expectedLabelVal && !ownershipOverrideAllowed {
 				ownerMsg := fmt.Sprintf("different label '%s=%s'", expectedLabelKey, val)
 				if opts.LabelErrorResolutionFunc != nil {
 					ownerMsgSuggested := opts.LabelErrorResolutionFunc(expectedLabelKey, val)
@@ -206,6 +220,19 @@ func (a *LabeledResources) checkResourceOwnership(resources []Resource, opts All
 	}
 
 	return nil
+}
+
+func (a *LabeledResources) ownershipOverrideAllowed(labelValAppMap map[string]string, res Resource,
+	expectedLabelKey string, overrideAllowedApps []string) bool {
+	labelVal, found := res.Labels()[expectedLabelKey]
+	if !found {
+		return true
+	}
+	appName, found := labelValAppMap[labelVal]
+	if !found {
+		return false
+	}
+	return slices.Contains(overrideAllowedApps, appName)
 }
 
 func (a *LabeledResources) checkDisallowedLabels(resources []Resource, disallowedLblKeys []string) error {

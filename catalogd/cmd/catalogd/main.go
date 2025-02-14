@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ import (
 	"time"
 
 	"github.com/containers/image/v5/types"
-	"github.com/go-logr/logr"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -48,21 +49,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	crwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	catalogdv1 "github.com/operator-framework/operator-controller/catalogd/api/v1"
-	corecontrollers "github.com/operator-framework/operator-controller/catalogd/internal/controllers/core"
-	"github.com/operator-framework/operator-controller/catalogd/internal/features"
-	"github.com/operator-framework/operator-controller/catalogd/internal/garbagecollection"
-	catalogdmetrics "github.com/operator-framework/operator-controller/catalogd/internal/metrics"
-	"github.com/operator-framework/operator-controller/catalogd/internal/serverutil"
-	"github.com/operator-framework/operator-controller/catalogd/internal/source"
-	"github.com/operator-framework/operator-controller/catalogd/internal/storage"
-	"github.com/operator-framework/operator-controller/catalogd/internal/version"
-	"github.com/operator-framework/operator-controller/catalogd/internal/webhook"
+	corecontrollers "github.com/operator-framework/operator-controller/internal/catalogd/controllers/core"
+	"github.com/operator-framework/operator-controller/internal/catalogd/features"
+	"github.com/operator-framework/operator-controller/internal/catalogd/garbagecollection"
+	catalogdmetrics "github.com/operator-framework/operator-controller/internal/catalogd/metrics"
+	"github.com/operator-framework/operator-controller/internal/catalogd/serverutil"
+	"github.com/operator-framework/operator-controller/internal/catalogd/storage"
+	"github.com/operator-framework/operator-controller/internal/catalogd/webhook"
+	fsutil "github.com/operator-framework/operator-controller/internal/shared/util/fs"
+	imageutil "github.com/operator-framework/operator-controller/internal/shared/util/image"
+	"github.com/operator-framework/operator-controller/internal/shared/version"
 )
 
 var (
@@ -119,6 +122,9 @@ func main() {
 	flag.StringVar(&globalPullSecret, "global-pull-secret", "", "The <namespace>/<name> of the global pull secret that is going to be used to pull bundle images.")
 
 	klog.InitFlags(flag.CommandLine)
+	if klog.V(4).Enabled() {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
 	// Combine both flagsets and parse them
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -126,7 +132,7 @@ func main() {
 	pflag.Parse()
 
 	if catalogdVersion {
-		fmt.Printf("%#v\n", version.Version())
+		fmt.Printf("%#v\n", version.String())
 		os.Exit(0)
 	}
 
@@ -144,12 +150,16 @@ func main() {
 	}
 
 	if (certFile != "" && keyFile == "") || (certFile == "" && keyFile != "") {
-		setupLog.Error(nil, "unable to configure TLS certificates: tls-cert and tls-key flags must be used together")
+		setupLog.Error(errors.New("missing TLS configuration"),
+			"tls-cert and tls-key flags must be used together",
+			"certFile", certFile, "keyFile", keyFile)
 		os.Exit(1)
 	}
 
 	if metricsAddr != "" && certFile == "" && keyFile == "" {
-		setupLog.Error(nil, "metrics-bind-address requires tls-cert and tls-key flags to be set")
+		setupLog.Error(errors.New("invalid metrics configuration"),
+			"metrics-bind-address requires tls-cert and tls-key flags to be set",
+			"metricsAddr", metricsAddr, "certFile", certFile, "keyFile", keyFile)
 		os.Exit(1)
 	}
 
@@ -167,7 +177,8 @@ func main() {
 
 	cw, err := certwatcher.New(certFile, keyFile)
 	if err != nil {
-		log.Fatalf("Failed to initialize certificate watcher: %v", err)
+		setupLog.Error(err, "failed to initialize certificate watcher")
+		os.Exit(1)
 	}
 
 	tlsOpts := func(config *tls.Config) {
@@ -226,12 +237,13 @@ func main() {
 
 	// Create manager
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		PprofBindAddress:       pprofAddr,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "catalogd-operator-lock",
+		Scheme:                        scheme,
+		Metrics:                       metricsServerOptions,
+		PprofBindAddress:              pprofAddr,
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "catalogd-operator-lock",
+		LeaderElectionReleaseOnCancel: true,
 		// Recommended Leader Election values
 		// https://github.com/openshift/enhancements/blob/61581dcd985130357d6e4b0e72b87ee35394bf6e/CONVENTIONS.md#handling-kube-apiserver-disruption
 		LeaseDuration: ptr.To(137 * time.Second),
@@ -257,19 +269,21 @@ func main() {
 		systemNamespace = podNamespace()
 	}
 
-	if err := os.MkdirAll(cacheDir, 0700); err != nil {
-		setupLog.Error(err, "unable to create cache directory")
+	if err := fsutil.EnsureEmptyDirectory(cacheDir, 0700); err != nil {
+		setupLog.Error(err, "unable to ensure empty cache directory")
 		os.Exit(1)
 	}
 
-	unpackCacheBasePath := filepath.Join(cacheDir, source.UnpackCacheDir)
+	unpackCacheBasePath := filepath.Join(cacheDir, "unpack")
 	if err := os.MkdirAll(unpackCacheBasePath, 0770); err != nil {
 		setupLog.Error(err, "unable to create cache directory for unpacking")
 		os.Exit(1)
 	}
-	unpacker := &source.ContainersImageRegistry{
-		BaseCachePath: unpackCacheBasePath,
-		SourceContextFunc: func(logger logr.Logger) (*types.SystemContext, error) {
+
+	imageCache := imageutil.CatalogCache(unpackCacheBasePath)
+	imagePuller := &imageutil.ContainersImagePuller{
+		SourceCtxFunc: func(ctx context.Context) (*types.SystemContext, error) {
+			logger := log.FromContext(ctx)
 			srcContext := &types.SystemContext{
 				DockerCertPath: pullCasDir,
 				OCICertPath:    pullCasDir,
@@ -301,9 +315,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	localStorage = storage.LocalDirV1{RootDir: storeDir, RootURL: baseStorageURL}
+	localStorage = &storage.LocalDirV1{
+		RootDir:            storeDir,
+		RootURL:            baseStorageURL,
+		EnableMetasHandler: features.CatalogdFeatureGate.Enabled(features.APIV1MetasHandler),
+	}
 
-	// Config for the the catalogd web server
+	// Config for the catalogd web server
 	catalogServerConfig := serverutil.CatalogServerConfig{
 		ExternalAddr: externalAddr,
 		CatalogAddr:  catalogServerAddr,
@@ -319,9 +337,10 @@ func main() {
 	}
 
 	if err = (&corecontrollers.ClusterCatalogReconciler{
-		Client:   mgr.GetClient(),
-		Unpacker: unpacker,
-		Storage:  localStorage,
+		Client:      mgr.GetClient(),
+		ImageCache:  imageCache,
+		ImagePuller: imagePuller,
+		Storage:     localStorage,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCatalog")
 		os.Exit(1)

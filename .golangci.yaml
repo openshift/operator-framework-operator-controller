@@ -23,6 +23,7 @@ linters:
   - errorlint
   - gci
   - gofmt
+  - govet
   - gosec
   - importas
   - misspell
@@ -66,6 +67,8 @@ linters-settings:
       alias: ctrl
     - pkg: github.com/blang/semver/v4
       alias: bsemver
+    - pkg: "^github.com/operator-framework/operator-controller/internal/util/([^/]+)$"
+      alias: "${1}util"
 
 output:
   formats:
