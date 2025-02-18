@@ -71,7 +71,7 @@ export VERSION
 
 export VERSION_PKG     := $(shell go list -m)/internal/shared/version
 
-export GIT_COMMIT      := $(shell git rev-parse HEAD)
+GIT_COMMIT := $(if $(SOURCE_GIT_COMMIT),$(SOURCE_GIT_COMMIT),$(shell git rev-parse HEAD))
 export GIT_VERSION     := $(shell git describe --tags --always --dirty)
 export GIT_TREE_STATE  := $(shell [ -z "$(shell git status --porcelain)" ] && echo "clean" || echo "dirty")
 export GIT_COMMIT_DATE := $(shell TZ=UTC0 git show --quiet --date=format:'%Y-%m-%dT%H:%M:%SZ' --format="%cd")
