@@ -50,7 +50,7 @@ TMP_ROOT="$(mktemp -p . -d 2>/dev/null || mktemp -d ./tmpdir.XXXXXXX)"
 trap 'rm -rf $TMP_ROOT' EXIT
 
 # Copy all kustomize files into a temp dir
-cp -a "${REPO_ROOT}/catalogd/config/" "${TMP_ROOT}/config/"
+cp -a "${REPO_ROOT}/config/" "${TMP_ROOT}/config/"
 
 mkdir -p "${TMP_ROOT}/openshift/catalogd/"
 cp -a "${REPO_ROOT}/openshift/catalogd/kustomize" "${TMP_ROOT}/openshift/catalogd/kustomize"

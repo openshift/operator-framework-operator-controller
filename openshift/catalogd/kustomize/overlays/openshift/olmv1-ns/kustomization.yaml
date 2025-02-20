@@ -4,9 +4,10 @@ namespace: OPENSHIFT-NAMESPACE
 namePrefix: catalogd-
 
 resources:
-- ../../../../../../config/base/crd
-- ../../../../../../config/base/rbac
-- ../../../../../../config/base/manager
+- ../../../../../../config/base/catalogd/crd
+- ../../../../../../config/base/catalogd/rbac
+- ../../../../../../config/base/catalogd/manager
+- ../../../../../../config/base/common
 - metrics
 - trusted-ca/catalogd_trusted_ca_configmap.yaml
 
