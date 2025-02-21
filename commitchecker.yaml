@@ -1,0 +1,4 @@
+expectedMergeBase: 9b888eb937d7e25031febb2a4919ae6edab056b5
+upstreamBranch: main
+upstreamOrg: operator-framework
+upstreamRepo: operator-controller
