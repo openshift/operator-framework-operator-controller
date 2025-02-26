@@ -1,11 +1,11 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19 AS builder
 WORKDIR /build
 COPY . .
-RUN make -C catalogd go-build-local
+RUN make go-build-local
 
 FROM registry.ci.openshift.org/ocp/4.19:base-rhel9
 USER 1001
-COPY --from=builder /build/catalogd/bin/catalogd /catalogd
+COPY --from=builder /build/bin/catalogd /catalogd
 COPY openshift/catalogd/manifests /openshift/manifests
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Catalog Controller" \
