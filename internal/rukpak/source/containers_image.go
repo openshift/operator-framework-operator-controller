@@ -295,6 +295,8 @@ func applyLayerFilter() archive.Filter {
 		h.Uid = os.Getuid()
 		h.Gid = os.Getgid()
 		h.Mode |= 0700
+		h.PAXRecords = nil
+		h.Xattrs = nil //nolint:staticcheck
 		return true, nil
 	}
 }
