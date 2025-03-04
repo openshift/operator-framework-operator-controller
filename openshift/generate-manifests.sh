@@ -54,7 +54,8 @@ mkdir -p "${TMP_ROOT}/openshift"
 cp -a "${REPO_ROOT}/openshift/kustomize" "${TMP_ROOT}/openshift/kustomize"
 
 # Override OPENSHIFT-NAMESPACE to ${NAMESPACE}
-find "${TMP_ROOT}" -name "*.yaml" -exec sed -i "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
+find "${TMP_ROOT}" -name "*.yaml" -exec sed -i'.bak' "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
+find "${TMP_ROOT}" -name "*.bak" -exec rm {} \;
 
 # Create a temp dir for manifests
 TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"

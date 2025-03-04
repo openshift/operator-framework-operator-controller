@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/enforce-version: "v1.31"
   name: system
 ---
 apiVersion: apps/v1
