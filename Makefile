@@ -32,8 +32,22 @@ export IMAGE_TAG
 OPCON_IMG := $(OPCON_IMAGE_REPO):$(IMAGE_TAG)
 CATD_IMG := $(CATD_IMAGE_REPO):$(IMAGE_TAG)
 
+# Extract Kubernetes client-go version used to set the version to the PSA labels, for ENVTEST and KIND
+ifeq ($(origin K8S_VERSION), undefined)
+K8S_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed -E 's/^v0\.([0-9]+)\.[0-9]+$$/1.\1/')
+endif
+
+# Ensure ENVTEST_VERSION follows correct "X.Y.x" format
+ENVTEST_VERSION := $(K8S_VERSION).x
+
+# Not guaranteed to have patch releases available and node image tags are full versions (i.e v1.28.0 - no v1.28, v1.29, etc.)
+# The K8S_VERSION is set by getting the version of the k8s.io/client-go dependency from the go.mod
+# and sets major version to "1" and the patch version to "0". For example, a client-go version of v0.28.5
+# will map to a K8S_VERSION of 1.28.0
+KIND_CLUSTER_IMAGE := kindest/node:v$(K8S_VERSION).0
+
 # Define dependency versions (use go.mod if we also use Go code from dependency)
-export CERT_MGR_VERSION := v1.15.3
+export CERT_MGR_VERSION := v1.17.1
 export WAIT_TIMEOUT := 60s
 
 # Install default ClusterCatalogs
@@ -54,12 +68,6 @@ ifeq ($(origin KIND_CLUSTER_NAME), undefined)
 KIND_CLUSTER_NAME := operator-controller
 endif
 
-# Not guaranteed to have patch releases available and node image tags are full versions (i.e v1.28.0 - no v1.28, v1.29, etc.)
-# The KIND_NODE_VERSION is set by getting the version of the k8s.io/client-go dependency from the go.mod
-# and sets major version to "1" and the patch version to "0". For example, a client-go version of v0.28.5
-# will map to a KIND_NODE_VERSION of 1.28.0
-KIND_NODE_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.0/')
-KIND_CLUSTER_IMAGE := kindest/node:v$(KIND_NODE_VERSION)
 
 ifneq (, $(shell command -v docker 2>/dev/null))
 CONTAINER_RUNTIME := docker
@@ -178,7 +186,7 @@ test: manifests generate fmt lint test-unit test-e2e #HELP Run all tests.
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
-	go test -count=1 -v ./test/e2e/...
+	go test -count=1 -v -run "$(if $(TEST_FILTER),$(TEST_FILTER),.)" ./test/e2e/...
 
 E2E_REGISTRY_NAME := docker-registry
 E2E_REGISTRY_NAMESPACE := operator-controller-e2e
@@ -194,8 +202,10 @@ test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension creat
 	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) $(KIND) $(KIND_CLUSTER_NAME) $(E2E_REGISTRY_NAMESPACE)
 	go test -count=1 -v ./test/extension-developer-e2e/...
 
-ENVTEST_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.x/')
-UNIT_TEST_DIRS := $(shell go list ./... | grep -v /test/)
+# Define TEST_PKGS to be either user-specified or a default set of packages:
+ifeq ($(origin TEST_PKGS), undefined)
+TEST_PKGS := $(shell go list ./... | grep -v /test/)
+endif
 COVERAGE_UNIT_DIR := $(ROOT_DIR)/coverage/unit
 
 .PHONY: envtest-k8s-bins #HELP Uses setup-envtest to download and install the binaries required to run ENVTEST-test based locally at the project/bin directory.
@@ -211,7 +221,8 @@ test-unit: $(SETUP_ENVTEST) envtest-k8s-bins #HELP Run the unit tests
                 -tags '$(GO_BUILD_TAGS)' \
                 -cover -coverprofile ${ROOT_DIR}/coverage/unit.out \
                 -count=1 -race -short \
-                $(UNIT_TEST_DIRS) \
+                -run "$(if $(TEST_FILTER),$(TEST_FILTER),.)" \
+                $(TEST_PKGS) \
                 -test.gocoverdir=$(COVERAGE_UNIT_DIR)
 
 .PHONY: image-registry
@@ -308,6 +319,7 @@ export GO_BUILD_GCFLAGS := all=-trimpath=$(PWD)
 export GO_BUILD_FLAGS :=
 export GO_BUILD_LDFLAGS := -s -w \
     -X '$(VERSION_PATH).version=$(VERSION)' \
+    -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)' \
 
 BINARIES=operator-controller catalogd
 
