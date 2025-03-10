@@ -19,6 +19,8 @@ declare -A IMAGE_MAPPINGS
 IMAGE_MAPPINGS[kube-rbac-proxy]='${KUBE_RBAC_PROXY_IMAGE}'
 # shellcheck disable=SC2016
 IMAGE_MAPPINGS[manager]='${OPERATOR_CONTROLLER_IMAGE}'
+# shellcheck disable=SC2016
+IMAGE_MAPPINGS[init-etc-docker]='${OPERATOR_CONTROLLER_IMAGE}'
 
 # This is a mapping of catalogd flag names to values. For example, given a deployment with a container
 # named "manager" and arguments:
@@ -67,6 +69,7 @@ $KUSTOMIZE build "${TMP_ROOT}/openshift/kustomize/overlays/openshift" -o "$TMP_K
 for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   placeholder="${IMAGE_MAPPINGS[$container_name]}"
   $YQ -i "(select(.kind == \"Deployment\")|.spec.template.spec.containers[]|select(.name==\"$container_name\")|.image) = \"$placeholder\"" "$TMP_KUSTOMIZE_OUTPUT"
+  $YQ -i "(select(.kind == \"Deployment\")|.spec.template.spec.initContainers[]|select(.name==\"$container_name\")|.image) = \"$placeholder\"" "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"target.workload.openshift.io/management": "{\"effect\": \"PreferredDuringScheduling\"}"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "privileged"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"

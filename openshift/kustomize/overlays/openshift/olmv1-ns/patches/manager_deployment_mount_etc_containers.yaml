@@ -2,11 +2,17 @@
   path: /spec/template/spec/volumes/-
   value: {"name":"etc-containers", "hostPath":{"path":"/etc/containers", "type": "Directory"}}
 - op: add
+  path: /spec/template/spec/volumes/-
+  value: {"name":"etc-host", "hostPath":{"path":"/etc", "type": "Directory"}}
+- op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"etc-containers", "readOnly": true, "mountPath":"/etc/containers"}
 - op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value: {"name":"etc-host", "readOnly": true, "mountPath":"/hostetc"}
+- op: add
   path: /spec/template/spec/volumes/-
-  value: {"name":"etc-docker", "hostPath":{"path":"/etc/docker", "type": "Directory"}}
+  value: {"name":"etc-docker", "emptyDir":{}}
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
-  value: {"name":"etc-docker", "readOnly": true, "mountPath":"/etc/docker"}
+  value: {"name":"etc-docker", "mountPath":"/etc/docker"}

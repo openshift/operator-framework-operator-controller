@@ -1,0 +1,20 @@
+$patch: merge
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: init-etc-docker
+        image: {}
+        imagePullPolicy: IfNotPresent
+        command:
+          - '/bin/bash'
+        args:
+          - '-c'
+          - 'ln -s /hostetc/docker/certs.d /etc/docker/certs.d'
+        volumeMounts:
+        - mountPath: /etc/docker
+          name: etc-docker
