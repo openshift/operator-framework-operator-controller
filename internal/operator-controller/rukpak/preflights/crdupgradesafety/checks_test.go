@@ -2,10 +2,8 @@ package crdupgradesafety
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
-	kappcus "carvel.dev/kapp/pkg/kapp/crdupgradesafety"
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/utils/ptr"
@@ -13,7 +11,7 @@ import (
 
 type testcase struct {
 	name    string
-	diff    kappcus.FieldDiff
+	diff    FieldDiff
 	err     error
 	handled bool
 }
@@ -22,7 +20,7 @@ func TestEnum(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Enum: []apiextensionsv1.JSON{
 						{
@@ -43,7 +41,7 @@ func TestEnum(t *testing.T) {
 		},
 		{
 			name: "new enum constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Enum: []apiextensionsv1.JSON{},
 				},
@@ -60,7 +58,7 @@ func TestEnum(t *testing.T) {
 		},
 		{
 			name: "remove enum value, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Enum: []apiextensionsv1.JSON{
 						{
@@ -84,7 +82,7 @@ func TestEnum(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -97,7 +95,7 @@ func TestEnum(t *testing.T) {
 		},
 		{
 			name: "different field changed with enum, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 					Enum: []apiextensionsv1.JSON{
@@ -131,7 +129,7 @@ func TestRequired(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Required: []string{
 						"foo",
@@ -148,7 +146,7 @@ func TestRequired(t *testing.T) {
 		},
 		{
 			name: "new required field, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					Required: []string{
@@ -161,7 +159,7 @@ func TestRequired(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -185,7 +183,7 @@ func TestMaximum(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Maximum: ptr.To(10.0),
 				},
@@ -198,7 +196,7 @@ func TestMaximum(t *testing.T) {
 		},
 		{
 			name: "new maximum constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					Maximum: ptr.To(10.0),
@@ -209,7 +207,7 @@ func TestMaximum(t *testing.T) {
 		},
 		{
 			name: "maximum constraint decreased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Maximum: ptr.To(20.0),
 				},
@@ -222,7 +220,7 @@ func TestMaximum(t *testing.T) {
 		},
 		{
 			name: "maximum constraint increased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Maximum: ptr.To(20.0),
 				},
@@ -235,7 +233,7 @@ func TestMaximum(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -259,7 +257,7 @@ func TestMaxItems(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxItems: ptr.To(int64(10)),
 				},
@@ -272,7 +270,7 @@ func TestMaxItems(t *testing.T) {
 		},
 		{
 			name: "new maxItems constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MaxItems: ptr.To(int64(10)),
@@ -283,7 +281,7 @@ func TestMaxItems(t *testing.T) {
 		},
 		{
 			name: "maxItems constraint decreased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxItems: ptr.To(int64(20)),
 				},
@@ -296,7 +294,7 @@ func TestMaxItems(t *testing.T) {
 		},
 		{
 			name: "maxitems constraint increased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxItems: ptr.To(int64(10)),
 				},
@@ -309,7 +307,7 @@ func TestMaxItems(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -333,7 +331,7 @@ func TestMaxLength(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxLength: ptr.To(int64(10)),
 				},
@@ -346,7 +344,7 @@ func TestMaxLength(t *testing.T) {
 		},
 		{
 			name: "new maxLength constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MaxLength: ptr.To(int64(10)),
@@ -357,7 +355,7 @@ func TestMaxLength(t *testing.T) {
 		},
 		{
 			name: "maxLength constraint decreased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxLength: ptr.To(int64(20)),
 				},
@@ -370,7 +368,7 @@ func TestMaxLength(t *testing.T) {
 		},
 		{
 			name: "maxLength constraint increased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxLength: ptr.To(int64(10)),
 				},
@@ -383,7 +381,7 @@ func TestMaxLength(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -407,7 +405,7 @@ func TestMaxProperties(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxProperties: ptr.To(int64(10)),
 				},
@@ -420,7 +418,7 @@ func TestMaxProperties(t *testing.T) {
 		},
 		{
 			name: "new maxProperties constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MaxProperties: ptr.To(int64(10)),
@@ -431,7 +429,7 @@ func TestMaxProperties(t *testing.T) {
 		},
 		{
 			name: "maxProperties constraint decreased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxProperties: ptr.To(int64(20)),
 				},
@@ -444,7 +442,7 @@ func TestMaxProperties(t *testing.T) {
 		},
 		{
 			name: "maxProperties constraint increased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MaxProperties: ptr.To(int64(10)),
 				},
@@ -457,7 +455,7 @@ func TestMaxProperties(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -481,7 +479,7 @@ func TestMinItems(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinItems: ptr.To(int64(10)),
 				},
@@ -494,7 +492,7 @@ func TestMinItems(t *testing.T) {
 		},
 		{
 			name: "new minItems constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MinItems: ptr.To(int64(10)),
@@ -505,7 +503,7 @@ func TestMinItems(t *testing.T) {
 		},
 		{
 			name: "minItems constraint decreased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinItems: ptr.To(int64(20)),
 				},
@@ -518,7 +516,7 @@ func TestMinItems(t *testing.T) {
 		},
 		{
 			name: "minItems constraint increased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinItems: ptr.To(int64(10)),
 				},
@@ -531,7 +529,7 @@ func TestMinItems(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -555,7 +553,7 @@ func TestMinimum(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Minimum: ptr.To(10.0),
 				},
@@ -568,7 +566,7 @@ func TestMinimum(t *testing.T) {
 		},
 		{
 			name: "new minimum constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					Minimum: ptr.To(10.0),
@@ -579,7 +577,7 @@ func TestMinimum(t *testing.T) {
 		},
 		{
 			name: "minLength constraint decreased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Minimum: ptr.To(20.0),
 				},
@@ -592,7 +590,7 @@ func TestMinimum(t *testing.T) {
 		},
 		{
 			name: "minLength constraint increased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Minimum: ptr.To(10.0),
 				},
@@ -605,7 +603,7 @@ func TestMinimum(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -629,7 +627,7 @@ func TestMinLength(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinLength: ptr.To(int64(10)),
 				},
@@ -642,7 +640,7 @@ func TestMinLength(t *testing.T) {
 		},
 		{
 			name: "new minLength constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MinLength: ptr.To(int64(10)),
@@ -653,7 +651,7 @@ func TestMinLength(t *testing.T) {
 		},
 		{
 			name: "minLength constraint decreased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinLength: ptr.To(int64(20)),
 				},
@@ -666,7 +664,7 @@ func TestMinLength(t *testing.T) {
 		},
 		{
 			name: "minLength constraint increased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinLength: ptr.To(int64(10)),
 				},
@@ -679,7 +677,7 @@ func TestMinLength(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -703,7 +701,7 @@ func TestMinProperties(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinProperties: ptr.To(int64(10)),
 				},
@@ -716,7 +714,7 @@ func TestMinProperties(t *testing.T) {
 		},
 		{
 			name: "new minProperties constraint, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					MinProperties: ptr.To(int64(10)),
@@ -727,7 +725,7 @@ func TestMinProperties(t *testing.T) {
 		},
 		{
 			name: "minProperties constraint decreased, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinProperties: ptr.To(int64(20)),
 				},
@@ -740,7 +738,7 @@ func TestMinProperties(t *testing.T) {
 		},
 		{
 			name: "minProperties constraint increased, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					MinProperties: ptr.To(int64(10)),
 				},
@@ -753,7 +751,7 @@ func TestMinProperties(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -777,7 +775,7 @@ func TestDefault(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Default: &apiextensionsv1.JSON{
 						Raw: []byte("foo"),
@@ -794,7 +792,7 @@ func TestDefault(t *testing.T) {
 		},
 		{
 			name: "new default value, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{},
 				New: &apiextensionsv1.JSONSchemaProps{
 					Default: &apiextensionsv1.JSON{
@@ -807,7 +805,7 @@ func TestDefault(t *testing.T) {
 		},
 		{
 			name: "default value removed, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Default: &apiextensionsv1.JSON{
 						Raw: []byte("foo"),
@@ -820,7 +818,7 @@ func TestDefault(t *testing.T) {
 		},
 		{
 			name: "default value changed, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Default: &apiextensionsv1.JSON{
 						Raw: []byte("foo"),
@@ -837,7 +835,7 @@ func TestDefault(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -861,7 +859,7 @@ func TestType(t *testing.T) {
 	for _, tc := range []testcase{
 		{
 			name: "no diff, no error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Type: "string",
 				},
@@ -874,7 +872,7 @@ func TestType(t *testing.T) {
 		},
 		{
 			name: "type changed, error, handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					Type: "string",
 				},
@@ -887,7 +885,7 @@ func TestType(t *testing.T) {
 		},
 		{
 			name: "different field changed, no error, not handled",
-			diff: kappcus.FieldDiff{
+			diff: FieldDiff{
 				Old: &apiextensionsv1.JSONSchemaProps{
 					ID: "foo",
 				},
@@ -903,84 +901,6 @@ func TestType(t *testing.T) {
 			handled, err := Type(tc.diff)
 			require.Equal(t, tc.err, err)
 			require.Equal(t, tc.handled, handled)
-		})
-	}
-}
-
-func TestOrderKappsValidateErr(t *testing.T) {
-	testErr1 := errors.New("fallback1")
-	testErr2 := errors.New("fallback2")
-
-	generateErrors := func(n int, base string) []error {
-		var result []error
-		for i := n; i >= 0; i-- {
-			result = append(result, fmt.Errorf("%s%d", base, i))
-		}
-		return result
-	}
-
-	joinedAndNested := func(format string, errs ...error) error {
-		return fmt.Errorf(format, errors.Join(errs...))
-	}
-
-	testCases := []struct {
-		name          string
-		inpuError     error
-		expectedError error
-	}{
-		{
-			name:          "fallback: initial error was not error.Join'ed",
-			inpuError:     testErr1,
-			expectedError: testErr1,
-		},
-		{
-			name:          "fallback: nested error was not wrapped",
-			inpuError:     errors.Join(testErr1),
-			expectedError: testErr1,
-		},
-		{
-			name:          "fallback: multiple nested errors, one was not wrapped",
-			inpuError:     errors.Join(testErr2, fmt.Errorf("%w", testErr1)),
-			expectedError: errors.Join(testErr2, fmt.Errorf("%w", testErr1)),
-		},
-		{
-			name:          "fallback: nested error did not contain \":\"",
-			inpuError:     errors.Join(fmt.Errorf("%w", testErr1)),
-			expectedError: testErr1,
-		},
-		{
-			name:          "fallback: multiple nested errors, one did not contain \":\"",
-			inpuError:     errors.Join(joinedAndNested("fail: %w", testErr2), joinedAndNested("%w", testErr1)),
-			expectedError: errors.Join(fmt.Errorf("fail: %w", testErr2), testErr1),
-		},
-		{
-			name:          "fallback: nested error was not error.Join'ed",
-			inpuError:     errors.Join(fmt.Errorf("fail: %w", testErr1)),
-			expectedError: fmt.Errorf("fail: %w", testErr1),
-		},
-		{
-			name:          "fallback: multiple nested errors, one was not error.Join'ed",
-			inpuError:     errors.Join(joinedAndNested("fail: %w", testErr2), fmt.Errorf("fail: %w", testErr1)),
-			expectedError: fmt.Errorf("fail: %w\nfail: %w", testErr2, testErr1),
-		},
-		{
-			name:          "ensures order for a single group of multiple deeply nested errors",
-			inpuError:     errors.Join(joinedAndNested("fail: %w", testErr2, testErr1)),
-			expectedError: fmt.Errorf("fail: %w\n%w", testErr1, testErr2),
-		},
-		{
-			name: "ensures order for multiple groups of deeply nested errors",
-			inpuError: errors.Join(
-				joinedAndNested("fail: %w", testErr2, testErr1),
-				joinedAndNested("validation: %w", generateErrors(5, "err")...),
-			),
-			expectedError: fmt.Errorf("fail: %w\n%w\nvalidation: err0\nerr1\nerr2\nerr3\nerr4\nerr5", testErr1, testErr2),
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := orderKappsValidateErr(tc.inpuError)
-			require.EqualError(t, err, tc.expectedError.Error())
 		})
 	}
 }

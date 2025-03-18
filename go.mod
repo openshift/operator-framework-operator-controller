@@ -3,11 +3,10 @@ module github.com/operator-framework/operator-controller
 go 1.23.4
 
 require (
-	carvel.dev/kapp v0.64.0
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/blang/semver/v4 v4.0.0
-	github.com/containerd/containerd v1.7.26
+	github.com/containerd/containerd v1.7.27
 	github.com/containers/image/v5 v5.33.1
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-logr/logr v1.4.2
@@ -17,6 +16,7 @@ require (
 	github.com/klauspost/compress v1.18.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
+	github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11
 	github.com/operator-framework/api v0.30.0
 	github.com/operator-framework/helm-operator-plugins v0.8.0
 	github.com/operator-framework/operator-registry v1.50.0
@@ -25,17 +25,17 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7
-	golang.org/x/sync v0.11.0
-	golang.org/x/tools v0.30.0
+	golang.org/x/sync v0.12.0
+	golang.org/x/tools v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.17.1
-	k8s.io/api v0.32.2
+	helm.sh/helm/v3 v3.17.2
+	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.2
-	k8s.io/apimachinery v0.32.2
-	k8s.io/apiserver v0.32.2
-	k8s.io/cli-runtime v0.32.2
-	k8s.io/client-go v0.32.2
-	k8s.io/component-base v0.32.2
+	k8s.io/apimachinery v0.32.3
+	k8s.io/apiserver v0.32.3
+	k8s.io/cli-runtime v0.32.3
+	k8s.io/client-go v0.32.3
+	k8s.io/component-base v0.32.3
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/controller-runtime v0.20.2
@@ -43,7 +43,6 @@ require (
 )
 
 require (
-	carvel.dev/vendir v0.40.0 // indirect
 	cel.dev/expr v0.18.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
@@ -76,9 +75,6 @@ require (
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.2.0 // indirect
 	github.com/containers/storage v1.56.1 // indirect
-	github.com/cppforlife/cobrautil v0.0.0-20221130162803-acdfead391ef // indirect
-	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
-	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231217050601-ba74d44ecf5f // indirect
 	github.com/cyphar/filepath-securejoin v0.3.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -133,7 +129,6 @@ require (
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -141,8 +136,6 @@ require (
 	github.com/joelanford/ignore v0.1.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/k14s/starlark-go v0.0.0-20200720175618-3a5c849cc368 // indirect
-	github.com/k14s/ytt v0.36.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
@@ -176,7 +169,6 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/onsi/gomega v1.36.2 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
-	github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11 // indirect
 	github.com/operator-framework/operator-lib v0.17.0 // indirect
 	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -203,8 +195,6 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vbatts/tar-split v0.11.6 // indirect
 	github.com/vbauerster/mpb/v8 v8.8.3 // indirect
-	github.com/vito/go-interact v1.0.1 // indirect
-	github.com/vmware-tanzu/carvel-kapp-controller v0.51.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -223,13 +213,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.33.0 // indirect
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/mod v0.23.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
@@ -242,7 +232,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
-	k8s.io/kubectl v0.32.1 // indirect
+	k8s.io/kubectl v0.32.2 // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect

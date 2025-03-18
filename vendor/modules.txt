@@ -1,20 +1,3 @@
-# carvel.dev/kapp v0.64.0
-## explicit; go 1.23.3
-carvel.dev/kapp/pkg/kapp/cmd/core
-carvel.dev/kapp/pkg/kapp/config
-carvel.dev/kapp/pkg/kapp/crdupgradesafety
-carvel.dev/kapp/pkg/kapp/diffgraph
-carvel.dev/kapp/pkg/kapp/logger
-carvel.dev/kapp/pkg/kapp/matcher
-carvel.dev/kapp/pkg/kapp/preflight
-carvel.dev/kapp/pkg/kapp/resources
-carvel.dev/kapp/pkg/kapp/resourcesmisc
-carvel.dev/kapp/pkg/kapp/util
-carvel.dev/kapp/pkg/kapp/version
-carvel.dev/kapp/pkg/kapp/yttresmod
-# carvel.dev/vendir v0.40.0
-## explicit; go 1.21
-carvel.dev/vendir/pkg/vendir/versions/v1alpha1
 # cel.dev/expr v0.18.0
 ## explicit; go 1.21.1
 cel.dev/expr
@@ -118,7 +101,7 @@ github.com/chai2010/gettext-go/po
 # github.com/containerd/cgroups/v3 v3.0.3
 ## explicit; go 1.18
 github.com/containerd/cgroups/v3/cgroup1/stats
-# github.com/containerd/containerd v1.7.26
+# github.com/containerd/containerd v1.7.27
 ## explicit; go 1.21
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
@@ -290,16 +273,6 @@ github.com/containers/storage/pkg/reexec
 github.com/containers/storage/pkg/regexp
 github.com/containers/storage/pkg/system
 github.com/containers/storage/pkg/unshare
-# github.com/cppforlife/cobrautil v0.0.0-20221130162803-acdfead391ef
-## explicit
-github.com/cppforlife/cobrautil
-# github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835
-## explicit; go 1.13
-github.com/cppforlife/color
-# github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14
-## explicit; go 1.13
-github.com/cppforlife/go-cli-ui/ui
-github.com/cppforlife/go-cli-ui/ui/table
 # github.com/cyberphone/json-canonicalization v0.0.0-20231217050601-ba74d44ecf5f
 ## explicit
 github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer
@@ -589,9 +562,6 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
-# github.com/hashicorp/go-version v1.6.0
-## explicit
-github.com/hashicorp/go-version
 # github.com/huandu/xstrings v1.5.0
 ## explicit; go 1.12
 github.com/huandu/xstrings
@@ -614,33 +584,6 @@ github.com/josharian/intern
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/k14s/starlark-go v0.0.0-20200720175618-3a5c849cc368
-## explicit; go 1.13
-github.com/k14s/starlark-go/internal/compile
-github.com/k14s/starlark-go/internal/spell
-github.com/k14s/starlark-go/resolve
-github.com/k14s/starlark-go/starlark
-github.com/k14s/starlark-go/starlarkstruct
-github.com/k14s/starlark-go/syntax
-# github.com/k14s/ytt v0.36.0
-## explicit; go 1.16
-github.com/k14s/ytt/pkg/cmd/template
-github.com/k14s/ytt/pkg/cmd/ui
-github.com/k14s/ytt/pkg/filepos
-github.com/k14s/ytt/pkg/files
-github.com/k14s/ytt/pkg/orderedmap
-github.com/k14s/ytt/pkg/schema
-github.com/k14s/ytt/pkg/template
-github.com/k14s/ytt/pkg/template/core
-github.com/k14s/ytt/pkg/texttemplate
-github.com/k14s/ytt/pkg/version
-github.com/k14s/ytt/pkg/workspace
-github.com/k14s/ytt/pkg/workspace/ref
-github.com/k14s/ytt/pkg/yamlmeta
-github.com/k14s/ytt/pkg/yamlmeta/internal/yaml.v2
-github.com/k14s/ytt/pkg/yamltemplate
-github.com/k14s/ytt/pkg/yttlibrary
-github.com/k14s/ytt/pkg/yttlibrary/overlay
 # github.com/klauspost/compress v1.18.0
 ## explicit; go 1.22
 github.com/klauspost/compress
@@ -928,13 +871,6 @@ github.com/vbauerster/mpb/v8
 github.com/vbauerster/mpb/v8/cwriter
 github.com/vbauerster/mpb/v8/decor
 github.com/vbauerster/mpb/v8/internal
-# github.com/vito/go-interact v1.0.1
-## explicit; go 1.12
-github.com/vito/go-interact/interact
-# github.com/vmware-tanzu/carvel-kapp-controller v0.51.0
-## explicit; go 1.21
-github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1
-github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
@@ -1032,8 +968,8 @@ go.opentelemetry.io/proto/otlp/collector/trace/v1
 go.opentelemetry.io/proto/otlp/common/v1
 go.opentelemetry.io/proto/otlp/resource/v1
 go.opentelemetry.io/proto/otlp/trace/v1
-# golang.org/x/crypto v0.33.0
-## explicit; go 1.20
+# golang.org/x/crypto v0.36.0
+## explicit; go 1.23.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -1056,14 +992,14 @@ golang.org/x/crypto/sha3
 ## explicit; go 1.23.0
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/mod v0.23.0
-## explicit; go 1.22.0
+# golang.org/x/mod v0.24.0
+## explicit; go 1.23.0
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.35.0
-## explicit; go 1.18
+# golang.org/x/net v0.37.0
+## explicit; go 1.23.0
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
@@ -1081,23 +1017,23 @@ golang.org/x/net/websocket
 ## explicit; go 1.23.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.11.0
-## explicit; go 1.18
+# golang.org/x/sync v0.12.0
+## explicit; go 1.23.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.30.0
-## explicit; go 1.18
+# golang.org/x/sys v0.31.0
+## explicit; go 1.23.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.29.0
-## explicit; go 1.18
+# golang.org/x/term v0.30.0
+## explicit; go 1.23.0
 golang.org/x/term
-# golang.org/x/text v0.22.0
-## explicit; go 1.18
+# golang.org/x/text v0.23.0
+## explicit; go 1.23.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
@@ -1124,8 +1060,8 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.10.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.30.0
-## explicit; go 1.22.0
+# golang.org/x/tools v0.31.0
+## explicit; go 1.23.0
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/analysistest
 golang.org/x/tools/go/analysis/checker
@@ -1291,7 +1227,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# helm.sh/helm/v3 v3.17.1
+# helm.sh/helm/v3 v3.17.2
 ## explicit; go 1.23.0
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/resolver
@@ -1330,7 +1266,7 @@ helm.sh/helm/v3/pkg/storage/driver
 helm.sh/helm/v3/pkg/time
 helm.sh/helm/v3/pkg/time/ctime
 helm.sh/helm/v3/pkg/uploader
-# k8s.io/api v0.32.2
+# k8s.io/api v0.32.3
 ## explicit; go 1.23.0
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -1413,7 +1349,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/features
-# k8s.io/apimachinery v0.32.2
+# k8s.io/apimachinery v0.32.3
 ## explicit; go 1.23.0
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1481,7 +1417,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.32.2
+# k8s.io/apiserver v0.32.3
 ## explicit; go 1.23.0
 k8s.io/apiserver/pkg/apis/apiserver
 k8s.io/apiserver/pkg/apis/apiserver/install
@@ -1529,13 +1465,13 @@ k8s.io/apiserver/pkg/warning
 k8s.io/apiserver/plugin/pkg/authenticator/token/webhook
 k8s.io/apiserver/plugin/pkg/authorizer/webhook
 k8s.io/apiserver/plugin/pkg/authorizer/webhook/metrics
-# k8s.io/cli-runtime v0.32.2
+# k8s.io/cli-runtime v0.32.3
 ## explicit; go 1.23.0
 k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/genericiooptions
 k8s.io/cli-runtime/pkg/printers
 k8s.io/cli-runtime/pkg/resource
-# k8s.io/client-go v0.32.2
+# k8s.io/client-go v0.32.3
 ## explicit; go 1.23.0
 k8s.io/client-go/applyconfigurations
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
@@ -1894,7 +1830,7 @@ k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/watchlist
 k8s.io/client-go/util/workqueue
-# k8s.io/component-base v0.32.2
+# k8s.io/component-base v0.32.3
 ## explicit; go 1.23.0
 k8s.io/component-base/cli/flag
 k8s.io/component-base/featuregate
@@ -1934,7 +1870,7 @@ k8s.io/kube-openapi/pkg/validation/spec
 k8s.io/kube-openapi/pkg/validation/strfmt
 k8s.io/kube-openapi/pkg/validation/strfmt/bson
 k8s.io/kube-openapi/pkg/validation/validate
-# k8s.io/kubectl v0.32.1
+# k8s.io/kubectl v0.32.2
 ## explicit; go 1.23.0
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/scheme

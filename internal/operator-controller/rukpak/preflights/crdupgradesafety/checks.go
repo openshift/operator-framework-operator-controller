@@ -3,87 +3,22 @@ package crdupgradesafety
 import (
 	"bytes"
 	"cmp"
-	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 
-	kappcus "carvel.dev/kapp/pkg/kapp/crdupgradesafety"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	versionhelper "k8s.io/apimachinery/pkg/version"
 )
 
-type ServedVersionValidator struct {
-	Validations []kappcus.ChangeValidation
-}
+type resetFunc func(diff FieldDiff) FieldDiff
 
-func (c *ServedVersionValidator) Validate(old, new apiextensionsv1.CustomResourceDefinition) error {
-	// If conversion webhook is specified, pass check
-	if new.Spec.Conversion != nil && new.Spec.Conversion.Strategy == apiextensionsv1.WebhookConverter {
-		return nil
-	}
-
-	errs := []error{}
-	servedVersions := []apiextensionsv1.CustomResourceDefinitionVersion{}
-	for _, version := range new.Spec.Versions {
-		if version.Served {
-			servedVersions = append(servedVersions, version)
-		}
-	}
-
-	slices.SortFunc(servedVersions, func(a, b apiextensionsv1.CustomResourceDefinitionVersion) int {
-		return versionhelper.CompareKubeAwareVersionStrings(a.Name, b.Name)
-	})
-
-	for i, oldVersion := range servedVersions[:len(servedVersions)-1] {
-		for _, newVersion := range servedVersions[i+1:] {
-			flatOld := kappcus.FlattenSchema(oldVersion.Schema.OpenAPIV3Schema)
-			flatNew := kappcus.FlattenSchema(newVersion.Schema.OpenAPIV3Schema)
-			diffs, err := kappcus.CalculateFlatSchemaDiff(flatOld, flatNew)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("calculating schema diff between CRD versions %q and %q", oldVersion.Name, newVersion.Name))
-				continue
-			}
-
-			for field, diff := range diffs {
-				handled := false
-				for _, validation := range c.Validations {
-					ok, err := validation(diff)
-					if err != nil {
-						errs = append(errs, fmt.Errorf("version upgrade %q to %q, field %q: %w", oldVersion.Name, newVersion.Name, field, err))
-					}
-					if ok {
-						handled = true
-						break
-					}
-				}
-
-				if !handled {
-					errs = append(errs, fmt.Errorf("version %q, field %q has unknown change, refusing to determine that change is safe", oldVersion.Name, field))
-				}
-			}
-		}
-	}
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
-	return nil
-}
-
-func (c *ServedVersionValidator) Name() string {
-	return "ServedVersionValidator"
-}
-
-type resetFunc func(diff kappcus.FieldDiff) kappcus.FieldDiff
-
-func isHandled(diff kappcus.FieldDiff, reset resetFunc) bool {
+func isHandled(diff FieldDiff, reset resetFunc) bool {
 	diff = reset(diff)
 	return reflect.DeepEqual(diff.Old, diff.New)
 }
 
-func Enum(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Enum(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Enum = []apiextensionsv1.JSON{}
 		diff.New.Enum = []apiextensionsv1.JSON{}
 		return diff
@@ -111,8 +46,8 @@ func Enum(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func Required(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Required(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Required = []string{}
 		diff.New.Required = []string{}
 		return diff
@@ -141,8 +76,8 @@ func maxVerification[T cmp.Ordered](older *T, newer *T) error {
 	return err
 }
 
-func Maximum(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Maximum(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Maximum = nil
 		diff.New.Maximum = nil
 		return diff
@@ -156,8 +91,8 @@ func Maximum(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MaxItems(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MaxItems(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MaxItems = nil
 		diff.New.MaxItems = nil
 		return diff
@@ -171,8 +106,8 @@ func MaxItems(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MaxLength(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MaxLength(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MaxLength = nil
 		diff.New.MaxLength = nil
 		return diff
@@ -186,8 +121,8 @@ func MaxLength(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MaxProperties(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MaxProperties(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MaxProperties = nil
 		diff.New.MaxProperties = nil
 		return diff
@@ -212,8 +147,8 @@ func minVerification[T cmp.Ordered](older *T, newer *T) error {
 	return err
 }
 
-func Minimum(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Minimum(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Minimum = nil
 		diff.New.Minimum = nil
 		return diff
@@ -227,8 +162,8 @@ func Minimum(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MinItems(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MinItems(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MinItems = nil
 		diff.New.MinItems = nil
 		return diff
@@ -242,8 +177,8 @@ func MinItems(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MinLength(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MinLength(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MinLength = nil
 		diff.New.MinLength = nil
 		return diff
@@ -257,8 +192,8 @@ func MinLength(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func MinProperties(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func MinProperties(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.MinProperties = nil
 		diff.New.MinProperties = nil
 		return diff
@@ -272,8 +207,8 @@ func MinProperties(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func Default(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Default(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Default = nil
 		diff.New.Default = nil
 		return diff
@@ -293,8 +228,8 @@ func Default(diff kappcus.FieldDiff) (bool, error) {
 	return isHandled(diff, reset), err
 }
 
-func Type(diff kappcus.FieldDiff) (bool, error) {
-	reset := func(diff kappcus.FieldDiff) kappcus.FieldDiff {
+func Type(diff FieldDiff) (bool, error) {
+	reset := func(diff FieldDiff) FieldDiff {
 		diff.Old.Type = ""
 		diff.New.Type = ""
 		return diff
