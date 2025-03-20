@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
@@ -326,5 +327,11 @@ func (s *LocalDirV1) getIndex(catalog string) (*index, error) {
 	if err != nil {
 		return nil, err
 	}
+	go func() {
+		timer := time.NewTimer(20 * time.Second)
+		defer timer.Stop()
+		<-timer.C
+		s.sf.Forget(catalog)
+	}()
 	return idx.(*index), nil
 }
