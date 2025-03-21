@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/singleflight"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
@@ -31,14 +30,6 @@ type LocalDirV1 struct {
 	EnableMetasHandler bool
 
 	m sync.RWMutex
-	// this singleflight Group is used in `getIndex()`` to handle concurrent HTTP requests
-	// optimally. With the use of this slightflight group, the index is loaded from disk
-	// once per concurrent group of HTTP requests being handled by the metas handler.
-	// The single flight instance gives us a way to load the index from disk exactly once
-	// per concurrent group of callers, and then let every concurrent caller have access to
-	// the loaded index. This avoids lots of unnecessary open/decode/close cycles when concurrent
-	// requests are being handled, which improves overall performance and decreases response latency.
-	sf singleflight.Group
 }
 
 var (
@@ -311,20 +302,14 @@ func serveJSONLines(w http.ResponseWriter, r *http.Request, rs io.Reader) {
 }
 
 func (s *LocalDirV1) getIndex(catalog string) (*index, error) {
-	idx, err, _ := s.sf.Do(catalog, func() (interface{}, error) {
-		indexFile, err := os.Open(catalogIndexFilePath(s.catalogDir(catalog)))
-		if err != nil {
-			return nil, err
-		}
-		defer indexFile.Close()
-		var idx index
-		if err := json.NewDecoder(indexFile).Decode(&idx); err != nil {
-			return nil, err
-		}
-		return &idx, nil
-	})
+	indexFile, err := os.Open(catalogIndexFilePath(s.catalogDir(catalog)))
 	if err != nil {
 		return nil, err
 	}
-	return idx.(*index), nil
+	defer indexFile.Close()
+	var idx index
+	if err := json.NewDecoder(indexFile).Decode(&idx); err != nil {
+		return nil, err
+	}
+	return &idx, nil
 }
