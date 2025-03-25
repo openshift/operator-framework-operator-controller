@@ -11,8 +11,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
+	"github.com/joelanford/ignore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -75,7 +77,7 @@ func (s *LocalDirV1) Store(ctx context.Context, catalog string, fsys fs.FS) erro
 			return f(tmpCatalogDir, metaChans[i])
 		})
 	}
-	err = declcfg.WalkMetasFS(egCtx, fsys, func(path string, meta *declcfg.Meta, err error) error {
+	err = WalkMetasFS(egCtx, fsys, func(path string, meta *declcfg.Meta, err error) error {
 		if err != nil {
 			return err
 		}
@@ -87,7 +89,7 @@ func (s *LocalDirV1) Store(ctx context.Context, catalog string, fsys fs.FS) erro
 			}
 		}
 		return nil
-	}, declcfg.WithConcurrency(1))
+	}, WithConcurrency(1))
 	for _, ch := range metaChans {
 		close(ch)
 	}
@@ -104,6 +106,133 @@ func (s *LocalDirV1) Store(ctx context.Context, catalog string, fsys fs.FS) erro
 		os.RemoveAll(catalogDir),
 		os.Rename(tmpCatalogDir, catalogDir),
 	)
+}
+
+type LoadOptions struct {
+	concurrency int
+}
+
+type LoadOption func(*LoadOptions)
+
+// WalkMetasFS walks the filesystem rooted at root and calls walkFn for each individual meta object found in the root.
+// By default, WalkMetasFS is not thread-safe because it invokes walkFn concurrently. In order to make it thread-safe,
+// use the WithConcurrency(1) to avoid concurrent invocations of walkFn.
+func WalkMetasFS(ctx context.Context, root fs.FS, walkFn declcfg.WalkMetasFSFunc, opts ...LoadOption) error {
+	if root == nil {
+		return fmt.Errorf("no declarative config filesystem provided")
+	}
+
+	options := LoadOptions{
+		concurrency: runtime.NumCPU(),
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	pathChan := make(chan string, options.concurrency)
+
+	// Create an errgroup to manage goroutines. The context is closed when any
+	// goroutine returns an error. Goroutines should check the context
+	// to see if they should return early (in the case of another goroutine
+	// returning an error).
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// Walk the FS and send paths to a channel for parsing.
+	eg.Go(func() error {
+		return sendPaths(ctx, root, pathChan)
+	})
+
+	// Parse paths concurrently. The waitgroup ensures that all paths are parsed
+	// before the cfgChan is closed.
+	for i := 0; i < options.concurrency; i++ {
+		eg.Go(func() error {
+			return parseMetaPaths(ctx, root, pathChan, walkFn, options)
+		})
+	}
+	return eg.Wait()
+}
+
+func sendPaths(ctx context.Context, root fs.FS, pathChan chan<- string) error {
+	defer close(pathChan)
+	return walkFiles(root, func(_ fs.FS, path string, err error) error {
+		if err != nil {
+			return err
+		}
+		select {
+		case pathChan <- path:
+		case <-ctx.Done(): // don't block on sending to pathChan
+			return ctx.Err()
+		}
+		return nil
+	})
+}
+
+func parseMetaPaths(ctx context.Context, root fs.FS, pathChan <-chan string, walkFn declcfg.WalkMetasFSFunc, options LoadOptions) error {
+	for {
+		select {
+		case <-ctx.Done(): // don't block on receiving from pathChan
+			return ctx.Err()
+		case path, ok := <-pathChan:
+			if !ok {
+				return nil
+			}
+			// This was previously:
+			// file, err := root.Open(path)
+			// if err != nil {
+			// 	return err
+			// }
+			// if err := WalkMetasReader(file, func(meta *Meta, err error) error {
+			// 	return walkFn(path, meta, err)
+			// }); err != nil {
+			// 	return err
+			// }
+			// notice that `file` was not being closed here
+			err := func() error {
+				file, err := root.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close() // File is closed when this closure returns
+
+				return declcfg.WalkMetasReader(file, func(meta *declcfg.Meta, err error) error {
+					return walkFn(path, meta, err)
+				})
+			}()
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func walkFiles(root fs.FS, fn func(root fs.FS, path string, err error) error) error {
+	if root == nil {
+		return fmt.Errorf("no declarative config filesystem provided")
+	}
+
+	matcher, err := ignore.NewMatcher(root, ".indexignore")
+	if err != nil {
+		return err
+	}
+
+	return fs.WalkDir(root, ".", func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return fn(root, path, err)
+		}
+		// avoid validating a directory, an .indexignore file, or any file that matches
+		// an ignore pattern outlined in a .indexignore file.
+		if info.IsDir() || info.Name() == ".indexignore" || matcher.Match(path, false) {
+			return nil
+		}
+
+		return fn(root, path, nil)
+	})
+}
+
+func WithConcurrency(concurrency int) LoadOption {
+	return func(opts *LoadOptions) {
+		opts.concurrency = concurrency
+	}
 }
 
 func (s *LocalDirV1) Delete(catalog string) error {
