@@ -71,7 +71,6 @@ for container_name in "${!IMAGE_MAPPINGS[@]}"; do
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"target.workload.openshift.io/management": "{\"effect\": \"PreferredDuringScheduling\"}"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "privileged"}' "$TMP_KUSTOMIZE_OUTPUT"
   $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"
-  $YQ -i 'select(.kind == "Namespace").metadata.annotations += {"workload.openshift.io/allowed": "management"}' "$TMP_KUSTOMIZE_OUTPUT"
 done
 
 # Loop through any flag updates that need to be made to the manager container
