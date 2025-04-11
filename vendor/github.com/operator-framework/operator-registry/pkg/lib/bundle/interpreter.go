@@ -32,10 +32,9 @@ func NewBundleDirInterperter(bundleDir string) (*bundleDirInterpreter, error) {
 	return &bundleDirInterpreter{bundleCsvName: csv.GetName(), pkg: p}, nil
 }
 
-func (b *bundleDirInterpreter) GetBundleChannels() []string {
-	var channelNames []string
+func (b *bundleDirInterpreter) GetBundleChannels() (channelNames []string) {
 	for channelName, channel := range b.pkg.Channels {
-		for bundle := range channel.Nodes {
+		for bundle, _ := range channel.Nodes {
 			if bundle.CsvName == b.bundleCsvName {
 				channelNames = append(channelNames, channelName)
 				break
@@ -43,7 +42,7 @@ func (b *bundleDirInterpreter) GetBundleChannels() []string {
 		}
 	}
 	sort.Strings(channelNames)
-	return channelNames
+	return
 }
 
 func (b *bundleDirInterpreter) GetDefaultChannel() string {

@@ -6,7 +6,6 @@ metadata:
   namespace: argocd-system
 spec:
   replicas: 1
-  revisionHistoryLimit: 1
   selector:
     matchLabels:
       control-plane: controller-manager

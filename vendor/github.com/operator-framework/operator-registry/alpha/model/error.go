@@ -2,7 +2,6 @@ package model
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -32,7 +31,7 @@ func (v *validationError) Error() string {
 
 func (v *validationError) errorPrefix(prefix []rune, last bool, seen []error) string {
 	for _, s := range seen {
-		if errors.Is(v, s) {
+		if v == s {
 			return ""
 		}
 	}
@@ -57,9 +56,7 @@ func (v *validationError) errorPrefix(prefix []rune, last bool, seen []error) st
 		} else {
 			subPrefix = append(subPrefix, []rune("├── ")...)
 		}
-
-		var verr *validationError
-		if errors.As(serr, &verr) {
+		if verr, ok := serr.(*validationError); ok {
 			errMsg.WriteString(verr.errorPrefix(subPrefix, subLast, seen))
 		} else {
 			errMsg.WriteString(fmt.Sprintf("%s%s\n", string(subPrefix), serr))

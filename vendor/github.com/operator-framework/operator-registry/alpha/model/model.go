@@ -161,7 +161,6 @@ func (i *Icon) Validate() error {
 	return result.orNil()
 }
 
-// nolint:unused
 func (i *Icon) validateData() error {
 	if !filetype.IsImage(i.Data) {
 		return errors.New("icon data is not an image")
