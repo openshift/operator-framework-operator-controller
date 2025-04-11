@@ -7,6 +7,7 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -53,8 +54,7 @@ type Bundle struct {
 
 func NewBundle(name string, annotations *Annotations, objs ...*unstructured.Unstructured) *Bundle {
 	bundle := &Bundle{
-		Name: name,
-		// nolint:staticcheck
+		Name:        name,
 		Package:     annotations.PackageName,
 		Annotations: annotations,
 	}
@@ -62,7 +62,6 @@ func NewBundle(name string, annotations *Annotations, objs ...*unstructured.Unst
 		bundle.Add(o)
 	}
 
-	// nolint:staticcheck
 	if annotations == nil {
 		return bundle
 	}
@@ -169,7 +168,6 @@ func (b *Bundle) CustomResourceDefinitions() ([]runtime.Object, error) {
 	if err := b.cache(); err != nil {
 		return nil, err
 	}
-	// nolint:prealloc
 	var crds []runtime.Object
 	for _, crd := range b.v1crds {
 		crds = append(crds, crd)
@@ -237,6 +235,7 @@ func (b *Bundle) RequiredAPIs() (map[APIKey]struct{}, error) {
 			return nil, fmt.Errorf("couldn't parse plural.group from crd name: %s", api.Name)
 		}
 		required[APIKey{parts[1], api.Version, api.Kind, parts[0]}] = struct{}{}
+
 	}
 	_, requiredAPIs, err := csv.GetApiServiceDefinitions()
 	if err != nil {
@@ -279,18 +278,10 @@ func (b *Bundle) AllProvidedAPIsInBundle() error {
 	return nil
 }
 
-// (csvName, bundleImage string, csvBytes []byte, bundleBytes []byte, annotationBytes []byte, err error) {
-func (b *Bundle) Serialize() (string, string, []byte, []byte, []byte, error) {
-	var bundleBytes []byte
-	var csvName string
-	var csvBytes []byte
-	var annotationBytes []byte
-	var err error
-
+func (b *Bundle) Serialize() (csvName, bundleImage string, csvBytes []byte, bundleBytes []byte, annotationBytes []byte, err error) {
 	csvCount := 0
 	for _, obj := range b.Objects {
-		var objBytes []byte
-		objBytes, err = runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
+		objBytes, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
 		if err != nil {
 			return "", "", nil, nil, nil, err
 		}
@@ -310,7 +301,7 @@ func (b *Bundle) Serialize() (string, string, []byte, []byte, []byte, error) {
 	}
 
 	if b.Annotations != nil {
-		annotationBytes, _ = json.Marshal(b.Annotations)
+		annotationBytes, err = json.Marshal(b.Annotations)
 	}
 
 	return csvName, b.BundleImage, csvBytes, bundleBytes, annotationBytes, nil
