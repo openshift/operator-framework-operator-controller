@@ -79,7 +79,6 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 	// Channels and packageName are required fields where as default channel is automatically filled if unspecified
 	// and that either of the required field is missing. We are interpreting the bundle information through
 	// bundle directory embedded in the package folder.
-	// nolint:nestif
 	if channels == "" || packageName == "" {
 		var notProvided []string
 		if channels == "" {
@@ -156,10 +155,9 @@ func GenerateFunc(directory, outputDir, packageName, channels, channelDefault st
 // CopyYamlOutput takes the generated annotations yaml and writes it to disk.
 // If an outputDir is specified, it will copy the input manifests
 // It returns two strings. resultMetadata is the path to the output metadata/ folder.
-// resultManifests is the path to the output manifests/ folder -- if no copy occurred,
+// resultManifests is the path to the output manifests/ folder -- if no copy occured,
 // it just returns the input manifestDir
-func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDir string, overwrite bool) (string, string, error) {
-	var resultManifests, resultMetadata string
+func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDir string, overwrite bool) (resultManifests, resultMetadata string, err error) {
 	// First, determine the parent directory of the metadata and manifest directories
 	copyDir := ""
 
@@ -206,7 +204,6 @@ func CopyYamlOutput(annotationsContent []byte, manifestDir, outputDir, workingDi
 // Currently able to detect helm chart, registry+v1 (CSV) and plain k8s resources
 // such as CRD.
 func GetMediaType(directory string) (string, error) {
-	// nolint:prealloc
 	var files []string
 	k8sFiles := make(map[string]*unstructured.Unstructured)
 
@@ -222,7 +219,6 @@ func GetMediaType(directory string) (string, error) {
 		fileWithPath := filepath.Join(directory, item.Name())
 		fileBlob, err := os.ReadFile(fileWithPath)
 		if err != nil {
-			// nolint:stylecheck
 			return "", fmt.Errorf("Unable to read file %s in bundle", fileWithPath)
 		}
 
@@ -234,7 +230,6 @@ func GetMediaType(directory string) (string, error) {
 	}
 
 	if len(files) == 0 {
-		// nolint:stylecheck
 		return "", fmt.Errorf("The directory %s contains no yaml files", directory)
 	}
 
@@ -281,13 +276,11 @@ func ValidateAnnotations(existing, expected []byte) error {
 	for label, item := range expectedAnnotations.Annotations {
 		value, hasAnnotation := fileAnnotations.Annotations[label]
 		if !hasAnnotation {
-			// nolint:stylecheck
 			errs = append(errs, fmt.Errorf("Missing field: %s", label))
 			continue
 		}
 
 		if item != value {
-			// nolint:stylecheck
 			errs = append(errs, fmt.Errorf("Expect field %q to have value %q instead of %q",
 				label, item, value))
 		}
@@ -450,7 +443,6 @@ func copyManifestDir(from, to string, overwrite bool) error {
 	return nil
 }
 
-// nolint:unused
 func containsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {

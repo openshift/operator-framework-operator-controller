@@ -1,4 +1,5 @@
 //go:build windows || js || plan9
+// +build windows js plan9
 
 package copy
 

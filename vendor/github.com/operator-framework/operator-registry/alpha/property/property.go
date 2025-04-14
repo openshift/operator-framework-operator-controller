@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"reflect"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Property struct {
@@ -178,7 +177,6 @@ func Deduplicate(in []Property) []Property {
 	}
 
 	props := map[key]Property{}
-	// nolint:prealloc
 	var out []Property
 	for _, p := range in {
 		k := key{p.Type, string(p.Value)}

@@ -16,7 +16,6 @@ type BundleGraphLoader struct {
 func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, annotations *AnnotationsFile, skippatch bool) (*Package, error) {
 	bundleVersion, err := bundle.Version()
 	if err != nil {
-		// nolint:stylecheck
 		return nil, fmt.Errorf("Unable to extract bundle version from bundle %s, can't insert in semver mode", bundle.BundleImage)
 	}
 
@@ -44,7 +43,6 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 	if graph.DefaultChannel == "" {
 		// Infer default channel from channel list
 		if annotations.SelectDefaultChannel() == "" {
-			// nolint:stylecheck
 			return nil, fmt.Errorf("Default channel is missing and can't be inferred")
 		}
 		graph.DefaultChannel = annotations.SelectDefaultChannel()
@@ -85,7 +83,6 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		for node := range channelGraph.Nodes {
 			nodeVersion, err := semver.Make(node.Version)
 			if err != nil {
-				// nolint:stylecheck
 				return nil, fmt.Errorf("Unable to parse existing bundle version stored in index %s %s %s",
 					node.CsvName, node.Version, node.BundlePath)
 			}
@@ -134,7 +131,7 @@ func (g *BundleGraphLoader) AddBundleToGraph(bundle *Bundle, graph *Package, ann
 		// the new channel head
 		if !lowestAhead.IsEmpty() {
 			channelGraph.Nodes[lowestAhead] = map[BundleKey]struct{}{
-				newBundleKey: {},
+				newBundleKey: struct{}{},
 			}
 		} else {
 			channelGraph.Head = newBundleKey

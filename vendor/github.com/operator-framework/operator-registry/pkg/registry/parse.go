@@ -6,10 +6,9 @@ import (
 	"io/fs"
 	"strings"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 )
 
 type bundleParser struct {
@@ -157,7 +156,6 @@ func (b *bundleParser) addMetadata(metadata fs.FS, bundle *Bundle) error {
 		bundle.Package = af.Annotations.PackageName
 		bundle.Channels = af.GetChannels()
 	} else {
-		// nolint:stylecheck
 		return fmt.Errorf("Could not find annotations file")
 	}
 
@@ -186,7 +184,6 @@ func (b *bundleParser) derivedProperties(bundle *Bundle) ([]Property, error) {
 		return nil, fmt.Errorf("bundle missing csv")
 	}
 
-	// nolint:prealloc
 	var derived []Property
 	if len(csv.GetAnnotations()) > 0 {
 		properties, ok := csv.GetAnnotations()[PropertyKey]
@@ -238,7 +235,6 @@ func (b *bundleParser) derivedProperties(bundle *Bundle) ([]Property, error) {
 
 // propertySet returns the deduplicated set of a property list.
 func propertySet(properties []Property) []Property {
-	// nolint:prealloc
 	var (
 		set     []Property
 		visited = map[string]struct{}{}

@@ -30,6 +30,7 @@ func NewExporterForBundle(image, directory string, containerTool containertools.
 }
 
 func (i *BundleExporter) Export(skipTLSVerify, plainHTTP bool) error {
+
 	log := logrus.WithField("img", i.image)
 
 	tmpDir, err := os.MkdirTemp("./", "bundle_tmp")

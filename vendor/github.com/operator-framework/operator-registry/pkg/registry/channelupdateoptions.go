@@ -22,7 +22,6 @@ func GetModeFromString(mode string) (Mode, error) {
 	case "semver-skippatch":
 		return SkipPatchMode, nil
 	default:
-		// nolint:stylecheck
 		return -1, fmt.Errorf("Invalid channel update mode %s specified", mode)
 	}
 }

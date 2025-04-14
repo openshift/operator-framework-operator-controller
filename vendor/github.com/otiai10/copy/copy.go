@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -44,12 +45,6 @@ func Copy(src, dest string, opts ...Options) error {
 func switchboard(src, dest string, info os.FileInfo, opt Options) (err error) {
 	if info.Mode()&os.ModeDevice != 0 && !opt.Specials {
 		return onError(src, dest, err, opt)
-	}
-
-	if opt.RenameDestination != nil {
-		if dest, err = opt.RenameDestination(src, dest); err != nil {
-			return onError(src, dest, err, opt)
-		}
 	}
 
 	switch {
@@ -172,29 +167,28 @@ func dcopy(srcdir, destdir string, info os.FileInfo, opt Options) (err error) {
 	}
 	defer chmodfunc(&err)
 
-	var entries []fs.DirEntry
+	var contents []os.FileInfo
 	if opt.FS != nil {
-		entries, err = fs.ReadDir(opt.FS, srcdir)
+		entries, err := fs.ReadDir(opt.FS, srcdir)
 		if err != nil {
 			return err
+		}
+		for _, e := range entries {
+			info, err := e.Info()
+			if err != nil {
+				return err
+			}
+			contents = append(contents, info)
 		}
 	} else {
-		entries, err = os.ReadDir(srcdir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return err
-		}
+		contents, err = ioutil.ReadDir(srcdir)
 	}
 
-	contents := make([]fs.FileInfo, 0, len(entries))
-	for _, e := range entries {
-		info, err := e.Info()
-		if err != nil {
-			return err
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
-		contents = append(contents, info)
+		return
 	}
 
 	if yes, err := shouldCopyDirectoryConcurrent(opt, srcdir, destdir); err != nil {
@@ -292,10 +286,6 @@ func onsymlink(src, dest string, opt Options) error {
 		if err != nil {
 			return err
 		}
-		if !filepath.IsAbs(orig) {
-			// orig is a relative link: need to add src dir to orig
-			orig = filepath.Join(filepath.Dir(src), orig)
-		}
 		info, err := os.Lstat(orig)
 		if err != nil {
 			return err
@@ -311,29 +301,18 @@ func onsymlink(src, dest string, opt Options) error {
 // lcopy is for a symlink,
 // with just creating a new symlink by replicating src symlink.
 func lcopy(src, dest string) error {
-	orig, err := os.Readlink(src)
-	// @See https://github.com/otiai10/copy/issues/111
-	// TODO: This might be controlled by Options in the future.
+	src, err := os.Readlink(src)
 	if err != nil {
-		if os.IsNotExist(err) { // Copy symlink even if not existing
-			return os.Symlink(src, dest)
+		if os.IsNotExist(err) {
+			return nil
 		}
 		return err
 	}
-
-	// @See https://github.com/otiai10/copy/issues/132
-	// TODO: Control by SymlinkExistsAction
-	if _, err := os.Lstat(dest); err == nil {
-		if err := os.Remove(dest); err != nil {
-			return err
-		}
-	}
-
-	return os.Symlink(orig, dest)
+	return os.Symlink(src, dest)
 }
 
 // fclose ANYHOW closes file,
-// with assigning error raised during Close,
+// with asiging error raised during Close,
 // BUT respecting the error already reported.
 func fclose(f io.Closer, reported *error) {
 	if err := f.Close(); *reported == nil {
@@ -342,7 +321,7 @@ func fclose(f io.Closer, reported *error) {
 }
 
 // onError lets caller to handle errors
-// occurred when copying a file.
+// occured when copying a file.
 func onError(src, dest string, err error, opt Options) error {
 	if opt.OnError == nil {
 		return err

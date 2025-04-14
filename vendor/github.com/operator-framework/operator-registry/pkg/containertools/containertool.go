@@ -8,8 +8,7 @@ const (
 	DockerTool
 )
 
-func (t ContainerTool) String() string {
-	var s string
+func (t ContainerTool) String() (s string) {
 	switch t {
 	case NoneTool:
 		s = "none"
@@ -18,7 +17,7 @@ func (t ContainerTool) String() string {
 	case DockerTool:
 		s = "docker"
 	}
-	return s
+	return
 }
 
 func (t ContainerTool) CommandFactory() CommandFactory {
@@ -31,8 +30,7 @@ func (t ContainerTool) CommandFactory() CommandFactory {
 	return &StubCommandFactory{}
 }
 
-func NewContainerTool(s string, defaultTool ContainerTool) ContainerTool {
-	var t ContainerTool
+func NewContainerTool(s string, defaultTool ContainerTool) (t ContainerTool) {
 	switch s {
 	case "podman":
 		t = PodmanTool
@@ -43,17 +41,16 @@ func NewContainerTool(s string, defaultTool ContainerTool) ContainerTool {
 	default:
 		t = defaultTool
 	}
-	return t
+	return
 }
 
 // NewCommandContainerTool returns a tool that can be used in `exec` statements.
-func NewCommandContainerTool(s string) ContainerTool {
-	var t ContainerTool
+func NewCommandContainerTool(s string) (t ContainerTool) {
 	switch s {
 	case "docker":
 		t = DockerTool
 	default:
 		t = PodmanTool
 	}
-	return t
+	return
 }
