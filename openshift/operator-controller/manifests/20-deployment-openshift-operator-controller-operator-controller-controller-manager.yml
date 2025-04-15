@@ -45,6 +45,7 @@ spec:
             - --leader-elect
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
+            - --catalogd-cas-dir=/var/ca-certs
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
