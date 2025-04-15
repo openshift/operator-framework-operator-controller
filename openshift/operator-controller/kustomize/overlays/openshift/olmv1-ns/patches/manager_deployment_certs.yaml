@@ -17,5 +17,8 @@
   path: /spec/template/spec/containers/0/args/-
   value: "--tls-key=/var/certs/tls.key"
 - op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--catalogd-cas-dir=/var/ca-certs"
+- op: add
   path: /spec/template/spec/containers/0/env
   value: [{"name":"SSL_CERT_DIR", "value":"/var/ca-certs"}]
