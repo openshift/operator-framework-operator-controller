@@ -48,6 +48,16 @@ rules:
       - patch
       - update
   - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterrolebindings
+      - clusterroles
+      - rolebindings
+      - roles
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - security.openshift.io
     resourceNames:
       - privileged
