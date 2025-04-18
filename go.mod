@@ -3,7 +3,6 @@ module github.com/operator-framework/operator-controller
 go 1.22.5
 
 require (
-	carvel.dev/kapp v0.63.3
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/blang/semver/v4 v4.0.0
@@ -16,6 +15,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/opencontainers/go-digest v1.0.0
+	github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11
 	github.com/operator-framework/api v0.27.0
 	github.com/operator-framework/catalogd v1.0.0-rc1
 	github.com/operator-framework/helm-operator-plugins v0.7.0
@@ -38,7 +38,6 @@ require (
 )
 
 require (
-	carvel.dev/vendir v0.40.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -69,9 +68,6 @@ require (
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.2.0 // indirect
 	github.com/containers/storage v1.55.0 // indirect
-	github.com/cppforlife/cobrautil v0.0.0-20221130162803-acdfead391ef // indirect
-	github.com/cppforlife/color v1.9.1-0.20200716202919-6706ac40b835 // indirect
-	github.com/cppforlife/go-cli-ui v0.0.0-20220425131040-94f26b16bc14 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231217050601-ba74d44ecf5f // indirect
 	github.com/cyphar/filepath-securejoin v0.3.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -128,7 +124,6 @@ require (
 	github.com/h2non/go-is-svg v0.0.0-20160927212452-35e8c4b0612c // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -137,8 +132,6 @@ require (
 	github.com/joelanford/ignore v0.1.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/k14s/starlark-go v0.0.0-20200720175618-3a5c849cc368 // indirect
-	github.com/k14s/ytt v0.36.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
@@ -172,7 +165,6 @@ require (
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
-	github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11 // indirect
 	github.com/operator-framework/operator-lib v0.15.0 // indirect
 	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -202,8 +194,6 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/vbauerster/mpb/v8 v8.7.5 // indirect
-	github.com/vito/go-interact v1.0.1 // indirect
-	github.com/vmware-tanzu/carvel-kapp-controller v0.51.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
