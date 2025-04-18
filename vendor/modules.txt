@@ -478,6 +478,14 @@ github.com/go-git/go-git/v5/utils/ioutil
 # github.com/go-gorp/gorp/v3 v3.1.0
 ## explicit; go 1.18
 github.com/go-gorp/gorp/v3
+<<<<<<< HEAD
+=======
+# github.com/go-jose/go-jose/v4 v4.0.5
+## explicit; go 1.21
+github.com/go-jose/go-jose/v4
+github.com/go-jose/go-jose/v4/cipher
+github.com/go-jose/go-jose/v4/json
+>>>>>>> 6e86cbd9 (UPSTREAM: 1805: Bump github.com/go-jose/go-jose/v4 from 4.0.4 to 4.0.5)
 # github.com/go-logr/logr v1.4.2
 ## explicit; go 1.18
 github.com/go-logr/logr
