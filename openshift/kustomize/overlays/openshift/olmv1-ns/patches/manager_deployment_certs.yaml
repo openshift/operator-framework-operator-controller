@@ -5,5 +5,8 @@
   path: /spec/template/spec/containers/0/volumeMounts/-
   value: {"name":"ca-certs", "mountPath":"/var/ca-certs", "readOnly": true}
 - op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: "--catalogd-cas-dir=/var/ca-certs"
+- op: add
   path: /spec/template/spec/containers/0/env
   value: [{"name":"SSL_CERT_DIR", "value":"/var/ca-certs"}]
