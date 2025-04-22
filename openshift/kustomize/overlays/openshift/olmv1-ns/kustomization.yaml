@@ -29,3 +29,5 @@ patches:
       name: controller-manager
     path: patches/manager_deployment_node_selection.yaml
   - path: patches/manager_namespace_privileged.yaml
+  - path: patches/manager_namespace_annotations.yaml
+
