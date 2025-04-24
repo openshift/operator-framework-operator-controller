@@ -8,5 +8,5 @@ spec:
   source:
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/redhat-marketplace-index:v4.18
+      ref: registry.redhat.io/redhat/redhat-marketplace-index:v4.19
     type: Image
