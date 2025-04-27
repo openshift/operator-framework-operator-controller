@@ -100,6 +100,8 @@ spec:
         node-role.kubernetes.io/master: ""
       securityContext:
         runAsNonRoot: true
+        seLinuxOptions:
+          type: spc_t
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: catalogd-catalogd-controller-manager
