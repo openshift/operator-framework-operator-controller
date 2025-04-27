@@ -115,6 +115,8 @@ spec:
         node-role.kubernetes.io/master: ""
       securityContext:
         runAsNonRoot: true
+        seLinuxOptions:
+          type: spc_t
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: operator-controller-controller-manager
