@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: catalogd-controller-manager
+  namespace: openshift-catalogd
+spec:
+  egress:
+    - {}
+  ingress:
+    - ports:
+        - port: 7443
+          protocol: TCP
+        - port: 8443
+          protocol: TCP
+        - port: 9443
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      control-plane: catalogd-controller-manager
+  policyTypes:
+    - Ingress
+    - Egress
