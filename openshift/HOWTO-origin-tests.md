@@ -5,12 +5,11 @@
 The origin tests will run against any OpenShift cluster, you just need to set the
 `KUBECONFIG` variable for the `oc` (or `kubectl`) command.
 
-As of this writing, the tests only work with a `techpreview` deployment. The tests will
-be skipped if `techpreview` is not specified.
+Additional tests will be run on a `techpreview` deployment.
 
 ### Example Clusterbot Command
 ```
-launch 4.18 aws,techpreview
+launch 4.20 aws,techpreview
 ```
 
 ## Get the openshift/origin Repo
