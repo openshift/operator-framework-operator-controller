@@ -10,6 +10,7 @@ include $(DIR)/.bingo/Variables.mk
 .PHONY: verify
 verify: ## Run downstream-specific verify
 	$(MAKE) tidy fmt generate -C $(DIR)/../
+	$(MAKE) verify-registries
 	$(MAKE) manifests
 	git diff --exit-code
 
@@ -21,6 +22,10 @@ manifests: $(KUSTOMIZE) $(YQ)
 .PHONY: verify-manifests
 verify-manifests: manifests
 	git diff --exit-code
+
+.PHONY: verify-registries
+verify-registries: $(OPM) $(YQ)
+	OPM=$(OPM) YQ=$(YQ) $(DIR)/catalogd/verify-registries.sh
 
 E2E_REGISTRY_NAME=docker-registry
 E2E_REGISTRY_NAMESPACE=operator-controller-e2e
