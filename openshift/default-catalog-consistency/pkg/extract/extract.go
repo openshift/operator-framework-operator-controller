@@ -69,6 +69,11 @@ func UnpackImage(ctx context.Context, imageRef, name string) (res *ExtractedImag
 			OSChoice: "linux",
 		}
 
+		if authPath := os.Getenv("REGISTRY_AUTH_FILE"); authPath != "" {
+			fmt.Println("Using registry auth file:", authPath)
+			sysCtx.AuthFilePath = authPath
+		}
+
 		policyCtx, err := loadPolicyContext(sysCtx, imageRef)
 		if err != nil {
 			return nil, fmt.Errorf("create policy context: %w", err)
