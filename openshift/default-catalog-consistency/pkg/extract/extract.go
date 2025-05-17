@@ -39,7 +39,7 @@ func (r *ExtractedImage) Cleanup() {
 }
 
 // UnpackImage pulls the image, extracts it to disk, and opens it as an OCI store.
-func UnpackImage(ctx context.Context, imageRef, name string) (res *ExtractedImage, err error) {
+func UnpackImage(ctx context.Context, imageRef, name, authPath string) (res *ExtractedImage, err error) {
 	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("oci-%s-", name))
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -65,13 +65,13 @@ func UnpackImage(ctx context.Context, imageRef, name string) (res *ExtractedImag
 		//
 		// TODO: Update this to support checking all architectures.
 		// See: https://issues.redhat.com/browse/OPRUN-3793
-		sysCtx := &types.SystemContext{
-			OSChoice: "linux",
-		}
-
-		if authPath := os.Getenv("REGISTRY_AUTH_FILE"); authPath != "" {
+		if authPath == "" {
 			fmt.Println("Using registry auth file:", authPath)
-			sysCtx.AuthFilePath = authPath
+			authPath = os.Getenv("REGISTRY_AUTH_FILE")
+		}
+		sysCtx := &types.SystemContext{
+			OSChoice:     "linux",
+			AuthFilePath: authPath,
 		}
 
 		policyCtx, err := loadPolicyContext(sysCtx, imageRef)

@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ var _ = Describe("Check Catalog Consistency", func() {
 	images, err := utils.ParseImageRefsFromCatalog(catalogsPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(images).ToNot(BeEmpty(), "no images found")
+	authPath := os.Getenv("REGISTRY_AUTH_FILE")
 
 	for _, url := range images {
 		name := utils.ImageNameFromRef(url)
@@ -31,7 +33,7 @@ var _ = Describe("Check Catalog Consistency", func() {
 			ctx := context.Background()
 			By(fmt.Sprintf("Validating image: %s", url))
 
-			extractedImage, err := extract.UnpackImage(ctx, url, name)
+			extractedImage, err := extract.UnpackImage(ctx, url, name, authPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(check.Check(ctx, extractedImage, check.AllChecks())).To(Succeed())
 			extractedImage.Cleanup()
