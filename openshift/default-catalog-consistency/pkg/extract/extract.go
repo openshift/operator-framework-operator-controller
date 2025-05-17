@@ -39,7 +39,7 @@ func (r *ExtractedImage) Cleanup() {
 }
 
 // UnpackImage pulls the image, extracts it to disk, and opens it as an OCI store.
-func UnpackImage(ctx context.Context, imageRef, name string) (res *ExtractedImage, err error) {
+func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.SystemContext) (res *ExtractedImage, err error) {
 	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("oci-%s-", name))
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -51,27 +51,6 @@ func UnpackImage(ctx context.Context, imageRef, name string) (res *ExtractedImag
 		srcRef, err := docker.ParseReference("//" + imageRef)
 		if err != nil {
 			return nil, fmt.Errorf("parse image ref: %w", err)
-		}
-
-		// Force image resolution to Linux to avoid OS mismatch errors on macOS,
-		// like: "no image found for architecture 'arm64', OS 'darwin'".
-		//
-		// Setting OSChoice = "linux" ensures we always get a Linux image,
-		// even when running on macOS.
-		//
-		// This skips the full multi-arch index and gives us just one manifest.
-		// To check all supported architectures (e.g., amd64, arm64, ppc64le, s390x),
-		// we’d need to avoid setting OSChoice and inspect the full index manually.
-		//
-		// TODO: Update this to support checking all architectures.
-		// See: https://issues.redhat.com/browse/OPRUN-3793
-		sysCtx := &types.SystemContext{
-			OSChoice: "linux",
-		}
-
-		if authPath := os.Getenv("REGISTRY_AUTH_FILE"); authPath != "" {
-			fmt.Println("Using registry auth file:", authPath)
-			sysCtx.AuthFilePath = authPath
 		}
 
 		policyCtx, err := loadPolicyContext(sysCtx, imageRef)
