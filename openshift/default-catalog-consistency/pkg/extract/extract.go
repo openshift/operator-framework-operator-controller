@@ -176,6 +176,9 @@ func extractLayers(ctx context.Context, layoutPath, fsPath, tag string) error {
 		mask := os.FileMode(0755)
 		opts := &archive.TarOptions{
 			ForceMask: &mask,
+			// Required to avoid permission errors when extracting the layers in the OCP CI environment.
+			// extract filesystem: apply layer 0: lchown /tmp/.../afs: operation not permitted
+			NoLchown: true,
 		}
 
 		_, err = archive.ApplyUncompressedLayer(fsPath, decompress, opts)
