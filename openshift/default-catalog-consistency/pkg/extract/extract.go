@@ -88,6 +88,13 @@ func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.Syste
 
 		// Create and use a separate fs directory for unpacked layers
 		fsDir := filepath.Join(tmpDir, "fs")
+
+		// Create the fs directory and set permissions
+		// To avoid permissions issues scenarios
+		if err := os.MkdirAll(fsDir, 0o755); err != nil {
+			return nil, fmt.Errorf("make fs dir to unpack: %w", err)
+		}
+
 		if err := extractLayers(ctx, ociDir, fsDir, digestTag); err != nil {
 			return nil, fmt.Errorf("extract filesystem: %w", err)
 		}
