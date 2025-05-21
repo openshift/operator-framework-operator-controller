@@ -5,8 +5,13 @@ package extract
 // More info: https://issues.redhat.com/browse/OPRUN-3919
 
 import (
+	"archive/tar"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/containerd/containerd/archive"
 	imgcopy "github.com/containers/image/v5/copy"
 	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/docker/reference"
@@ -15,11 +20,8 @@ import (
 	"github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/types"
-	"github.com/containers/storage/pkg/archive"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
-	"os"
-	"path/filepath"
 )
 
 // ExtractedImage represents the extracted OCI content and its temporary directory.
@@ -158,23 +160,33 @@ func extractLayers(ctx context.Context, layoutPath, fsPath, tag string) error {
 			return fmt.Errorf("decompress blob %d: %w", i, err)
 		}
 
-		// To avoid permission errors faced when extracting the layers
-		mask := os.FileMode(0755)
-		opts := &archive.TarOptions{
-			ForceMask: &mask,
-			// Required to avoid permission errors when extracting the layers in the OCP CI environment.
-			// extract filesystem: apply layer 0: lchown /tmp/.../afs: operation not permitted
-			NoLchown: true,
-		}
+		err = func() error {
+			defer decompress.Close()
+			defer rc.Close()
 
-		_, err = archive.ApplyUncompressedLayer(fsPath, decompress, opts)
-		decompress.Close()
-		rc.Close()
-
+			_, err := archive.Apply(ctx, fsPath, decompress, archive.WithFilter(func(hdr *tar.Header) (bool, error) {
+				// Clean up extended headers and enforce safe permissions
+				hdr.PAXRecords = nil
+				hdr.Xattrs = nil
+				hdr.Uid = os.Getuid()
+				hdr.Gid = os.Getgid()
+				if hdr.FileInfo().IsDir() {
+					hdr.Mode = 0700
+				} else {
+					hdr.Mode = 0600
+				}
+				return true, nil
+			}))
+			if err != nil {
+				return fmt.Errorf("apply layer %d: %w", i, err)
+			}
+			return nil
+		}()
 		if err != nil {
-			return fmt.Errorf("apply layer %d: %w", i, err)
+			return fmt.Errorf("decompress layer %d: %w", i, err)
 		}
 	}
+
 	return nil
 }
 
