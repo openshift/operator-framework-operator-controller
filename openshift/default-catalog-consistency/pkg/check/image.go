@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/containers/image/v5/manifest"
-
 	specsgov1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 )
@@ -57,7 +56,7 @@ func ImageHasLabels(expectedLabels map[string]string) ImageCheck {
 		}
 	}
 
-	var pairs []string
+	pairs := make([]string, 0, len(expectedLabels))
 	for k, v := range expectedLabels {
 		pairs = append(pairs, fmt.Sprintf("%s=%s", k, v))
 	}
