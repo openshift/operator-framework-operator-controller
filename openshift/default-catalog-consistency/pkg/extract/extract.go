@@ -41,7 +41,7 @@ func (r *ExtractedImage) Cleanup() {
 }
 
 // UnpackImage pulls the image, extracts it to disk, and opens it as an OCI store.
-func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.SystemContext) (res *ExtractedImage, err error) {
+func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.SystemContext) (*ExtractedImage, error) {
 	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("oci-%s-", name))
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -49,7 +49,7 @@ func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.Syste
 
 	var digestTag string
 
-	res, err = func() (*ExtractedImage, error) {
+	extracted, err := func() (*ExtractedImage, error) {
 		srcRef, err := docker.ParseReference("//" + imageRef)
 		if err != nil {
 			return nil, fmt.Errorf("parse image ref: %w", err)
@@ -59,7 +59,12 @@ func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.Syste
 		if err != nil {
 			return nil, fmt.Errorf("create policy context: %w", err)
 		}
-		defer policyCtx.Destroy()
+		// Ensure policy context is cleaned up properly
+		defer func() {
+			if err := policyCtx.Destroy(); err != nil {
+				fmt.Printf("unable to destroy policy context: %s", err)
+			}
+		}()
 
 		canonicalRef, err := resolveCanonicalRef(ctx, srcRef, sysCtx)
 		if err != nil {
@@ -115,11 +120,13 @@ func UnpackImage(ctx context.Context, imageRef, name string, sysCtx *types.Syste
 	}()
 
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Printf("failed to remove temp dir: %v\n", err)
+		}
 		return nil, err
 	}
 
-	return res, nil
+	return extracted, nil
 }
 
 // extractLayers extracts the filesystem layers from the OCI image layout under the given digest tag.
@@ -166,8 +173,9 @@ func extractLayers(ctx context.Context, layoutPath, fsPath, tag string) error {
 
 			_, err := archive.Apply(ctx, fsPath, decompress, archive.WithFilter(func(hdr *tar.Header) (bool, error) {
 				// Clean up extended headers and enforce safe permissions
+				// This configuration allow to extract the image layers
+				// without the need of root permissions in CI environments
 				hdr.PAXRecords = nil
-				hdr.Xattrs = nil
 				hdr.Uid = os.Getuid()
 				hdr.Gid = os.Getgid()
 				if hdr.FileInfo().IsDir() {
@@ -183,10 +191,9 @@ func extractLayers(ctx context.Context, layoutPath, fsPath, tag string) error {
 			return nil
 		}()
 		if err != nil {
-			return fmt.Errorf("decompress layer %d: %w", i, err)
+			return err
 		}
 	}
-
 	return nil
 }
 
@@ -229,7 +236,7 @@ func loadPolicyContext(sourceContext *types.SystemContext, imageRef string) (*si
 	// if we need to validate the image signature then we will need to
 	// change it.
 	if err != nil {
-		fmt.Println(fmt.Sprintf("no default policy found for (%s), using insecure policy", imageRef))
+		fmt.Printf("no default policy found for (%s), using insecure policy \n", imageRef)
 		insecurePolicy := []byte(`{
 			"default": [{"type": "insecureAcceptAnything"}]
 		}`)
