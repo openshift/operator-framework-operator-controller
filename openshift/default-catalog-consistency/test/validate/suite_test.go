@@ -3,12 +3,13 @@ package validate
 import (
 	"context"
 	"fmt"
-	"github.com/containers/image/v5/types"
 	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/containers/image/v5/types"
 
 	"github/operator-framework-operator-controller/openshift/default-catalog-consistency/pkg/check"
 	"github/operator-framework-operator-controller/openshift/default-catalog-consistency/pkg/extract"
