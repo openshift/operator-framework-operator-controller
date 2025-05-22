@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github/operator-framework-operator-controller/openshift/default-catalog-consistency/pkg/extract"
 	"io/fs"
 	"os"
 	"path/filepath"
 
 	specsgov1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/operator-framework/operator-registry/alpha/declcfg"
 	"oras.land/oras-go/v2"
+
+	"github.com/operator-framework/operator-registry/alpha/declcfg"
+
+	"github/operator-framework-operator-controller/openshift/default-catalog-consistency/pkg/extract"
 )
 
 // Checks is a collection of checks to be performed on the catalog image.
