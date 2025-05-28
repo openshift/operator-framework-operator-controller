@@ -179,9 +179,9 @@ func extractLayers(ctx context.Context, layoutPath, fsPath, tag string) error {
 				hdr.Uid = os.Getuid()
 				hdr.Gid = os.Getgid()
 				if hdr.FileInfo().IsDir() {
-					hdr.Mode = 0700
+					hdr.Mode = 0755
 				} else {
-					hdr.Mode = 0600
+					hdr.Mode = 0755
 				}
 				return true, nil
 			}))
