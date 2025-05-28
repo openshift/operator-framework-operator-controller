@@ -27,7 +27,7 @@ type Checks struct {
 type ImageCheckFunc func(ctx context.Context, root specsgov1.Descriptor, target oras.ReadOnlyTarget) error
 
 // FilesystemCheckFunc define functions to perform tests using the filesystem (i.e. check if files exists in directories)
-type FilesystemCheckFunc func(ctx context.Context, imageFS fs.FS) error
+type FilesystemCheckFunc func(ctx context.Context, imageFS fs.FS, tmpDir string) error
 
 // CatalogCheckFunc define functions to perform tests using the catalog (i.e. check if the package's metadata in the catalog is valid)
 type CatalogCheckFunc func(ctx context.Context, cfg declcfg.DeclarativeConfig) error
@@ -100,7 +100,7 @@ func Check(ctx context.Context, res *extract.ExtractedImage, checks Checks) erro
 		}
 		imageFS = os.DirFS(unpackPath)
 		for _, check := range checks.FilesystemChecks {
-			if err := check.Fn(ctx, imageFS); err != nil {
+			if err := check.Fn(ctx, imageFS, res.TmpDir); err != nil {
 				checkErrors = append(checkErrors, Error{
 					CheckName: fmt.Sprintf("[FS]:%s", check.Name),
 					Err:       err,
