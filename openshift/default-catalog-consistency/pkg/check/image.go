@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/containers/image/v5/docker"
 	"github.com/containers/image/v5/manifest"
+	"github.com/containers/image/v5/types"
 	specsgov1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 )
@@ -108,6 +110,67 @@ func ImageHasLabels(expectedLabels map[string]string) ImageCheck {
 			}
 
 			return errors.Join(errs...)
+		},
+	}
+}
+
+// RequiredPlatforms is a list of platforms that are required for the image to be considered valid.
+var RequiredPlatforms = []specsgov1.Platform{
+	{OS: "linux", Architecture: "amd64"},
+	{OS: "linux", Architecture: "arm64"},
+	{OS: "linux", Architecture: "ppc64le"},
+	{OS: "linux", Architecture: "s390x"},
+}
+
+// ImageSupportsMultiArch verifies multi-arch support by inspecting the remote image manifest
+// list directly. We don’t use extract.UnpackImage and the check interfaces here because it picks
+// one platform based on OSChoice. On macOS, this fails if the image doesn’t support darwin/arm64
+// or darwin/amd64 and to make easier develop and test on macOS we keep the check independent of
+// the unpacking logic where we set OSChoice = "linux" to avoid OS mismatch errors.
+func ImageSupportsMultiArch(imageRef string, expected []specsgov1.Platform, sysCtx *types.SystemContext) ImageCheck {
+	return ImageCheck{
+		Name: "ImageSupportsMultiArch",
+		// Do not use the unpacked image, but pull the manifest list directly from the remote.
+		Fn: func(ctx context.Context, _ specsgov1.Descriptor, _ oras.ReadOnlyTarget) error {
+			ref, err := docker.ParseReference("//" + imageRef)
+			if err != nil {
+				return fmt.Errorf("parse image ref: %w", err)
+			}
+
+			src, err := ref.NewImageSource(ctx, sysCtx)
+			if err != nil {
+				return fmt.Errorf("new image source: %w", err)
+			}
+			defer src.Close()
+
+			manifestBytes, _, err := src.GetManifest(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("get manifest: %w", err)
+			}
+
+			mf, err := manifest.Schema2ListFromManifest(manifestBytes)
+			if err != nil {
+				return fmt.Errorf("parse multiarch list: %w", err)
+			}
+
+			found := map[string]struct{}{}
+			for _, desc := range mf.Manifests {
+				key := fmt.Sprintf("%s/%s", desc.Platform.OS, desc.Platform.Architecture)
+				found[key] = struct{}{}
+			}
+
+			var missing []string
+			for _, p := range expected {
+				key := fmt.Sprintf("%s/%s", p.OS, p.Architecture)
+				if _, ok := found[key]; !ok {
+					missing = append(missing, key)
+				}
+			}
+
+			if len(missing) > 0 {
+				return fmt.Errorf("missing required platforms: %v", missing)
+			}
+			return nil
 		},
 	}
 }
