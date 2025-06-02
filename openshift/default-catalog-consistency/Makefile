@@ -23,10 +23,26 @@ help: #HELP Display essential help.
 
 #SECTION Tests
 
+# Set the Ginkgo binary path. Assumes it's installed via `go install`
+GOBIN ?= $(shell go env GOBIN)
+ifeq ($(GOBIN),)
+  GOBIN := $(shell go env GOPATH)/bin
+endif
+
+TOOLS_BIN_DIR := $(CURDIR)/bin
+GINKGO := $(TOOLS_BIN_DIR)/ginkgo
+
+.PHONY: install-tools
+install-tools: $(GINKGO) #HELP Build vendored CLI tools
+
+$(GINKGO): vendor/modules.txt
+	go build -mod=vendor -o $(GINKGO) ./vendor/github.com/onsi/ginkgo/v2/ginkgo
+
 .PHONY: test-catalog
-test-catalog: #HELP Run the set of tests to validate the quality of catalogs
-	E2E_GINKGO_OPTS="$(if $(ARTIFACT_DIR),--output-dir='$(ARTIFACT_DIR)') --junit-report junit_e2e.xml" \
-	go test -count=1 -v ./test/validate/...;
+test-catalog: install-tools $(GINKGO) #HELP Run the set of tests to validate the quality of catalogs
+	$(GINKGO) $(if $(ARTIFACT_DIR),--output-dir='$(ARTIFACT_DIR)') \
+		--junit-report=junit_olm.xml ./test/validate/...
+
 
 #SECTION Development
 
