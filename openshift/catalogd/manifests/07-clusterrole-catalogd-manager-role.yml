@@ -5,6 +5,14 @@ metadata:
   name: catalogd-manager-role
 rules:
   - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - olm.operatorframework.io
     resources:
       - clustercatalogs
