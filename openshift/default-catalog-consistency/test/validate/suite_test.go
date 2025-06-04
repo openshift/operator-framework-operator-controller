@@ -18,7 +18,7 @@ import (
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Validate Catalog Test Suite")
+	RunSpecs(t, "OLM-Catalog-Validation")
 }
 
 // images is a list of image references to be validated.
@@ -29,7 +29,7 @@ var images = []string{
 	"registry.redhat.io/redhat/redhat-operator-index:v4.18",
 }
 
-var _ = Describe("Check Catalog Consistency", func() {
+var _ = Describe("OLM-Catalog-Validation", func() {
 	authPath := os.Getenv("REGISTRY_AUTH_FILE")
 
 	// Force image resolution to Linux to avoid OS mismatch errors on macOS,
