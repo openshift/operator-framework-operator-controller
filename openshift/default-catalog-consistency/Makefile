@@ -22,13 +22,6 @@ help: #HELP Display essential help.
 	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
 
 #SECTION Tests
-
-# Set the Ginkgo binary path. Assumes it's installed via `go install`
-GOBIN ?= $(shell go env GOBIN)
-ifeq ($(GOBIN),)
-  GOBIN := $(shell go env GOPATH)/bin
-endif
-
 TOOLS_BIN_DIR := $(CURDIR)/bin
 GINKGO := $(TOOLS_BIN_DIR)/ginkgo
 
