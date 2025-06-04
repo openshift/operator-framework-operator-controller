@@ -5,8 +5,6 @@ func AllChecks() Checks {
 	return Checks{
 		ImageChecks:      AllImageChecks(),
 		FilesystemChecks: AllFilesystemChecks(),
-		// TODO: Enable those tests when community-operator-index and certified-operator-index
-		// have the issues fixed, see: https://issues.redhat.com/browse/CLOUDWF-11022
-		// CatalogChecks: AllCatalogChecks(),
+		CatalogChecks:    AllCatalogChecks(),
 	}
 }
