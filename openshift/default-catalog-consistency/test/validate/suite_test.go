@@ -19,10 +19,10 @@ import (
 
 func TestSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Validate Catalog Test Suite")
+	RunSpecs(t, "OLM-Catalog-Validation")
 }
 
-var _ = Describe("Check Catalog Consistency", func() {
+var _ = Describe("OLM-Catalog-Validation", func() {
 	catalogsPath := "../../../catalogd/kustomize/overlays/openshift/catalogs"
 	images, err := utils.ParseImageRefsFromCatalog(catalogsPath)
 	Expect(err).ToNot(HaveOccurred())
