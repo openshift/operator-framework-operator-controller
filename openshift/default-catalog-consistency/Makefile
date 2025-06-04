@@ -22,11 +22,20 @@ help: #HELP Display essential help.
 	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
 
 #SECTION Tests
+TOOLS_BIN_DIR := $(CURDIR)/bin
+GINKGO := $(TOOLS_BIN_DIR)/ginkgo
+
+.PHONY: install-tools
+install-tools: $(GINKGO) #HELP Build vendored CLI tools
+
+$(GINKGO): vendor/modules.txt
+	go build -mod=vendor -o $(GINKGO) ./vendor/github.com/onsi/ginkgo/v2/ginkgo
 
 .PHONY: test-catalog
-test-catalog: #HELP Run the set of tests to validate the quality of catalogs
-	E2E_GINKGO_OPTS="$(if $(ARTIFACT_DIR),--output-dir='$(ARTIFACT_DIR)') --junit-report junit_e2e.xml" \
-	go test -count=1 -v ./test/validate/...;
+test-catalog: install-tools $(GINKGO) #HELP Run the set of tests to validate the quality of catalogs
+	$(GINKGO) $(if $(ARTIFACT_DIR),--output-dir='$(ARTIFACT_DIR)') \
+		--junit-report=junit_olm.xml ./test/validate/...
+
 
 #SECTION Development
 
