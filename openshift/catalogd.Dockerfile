@@ -1,4 +1,7 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19 AS builder
+
+ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
+
 WORKDIR /build
 COPY . .
 RUN make go-build-local
