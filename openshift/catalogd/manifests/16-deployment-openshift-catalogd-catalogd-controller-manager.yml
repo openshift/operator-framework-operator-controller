@@ -77,10 +77,13 @@ spec:
             capabilities:
               drop:
                 - ALL
+            readOnlyRootFilesystem: true
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /var/cache/
               name: cache
+            - mountPath: /tmp
+              name: tmp
             - mountPath: /var/certs
               name: catalogserver-certs
             - mountPath: /var/ca-certs
@@ -118,6 +121,8 @@ spec:
       volumes:
         - emptyDir: {}
           name: cache
+        - emptyDir: {}
+          name: tmp
         - name: catalogserver-certs
           secret:
             items:
