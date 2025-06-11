@@ -3,7 +3,7 @@ FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.20 AS 
 ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
 WORKDIR /build
 COPY . .
-RUN make go-build-local && \
+RUN make -f openshift/Makefile go-build-local && \
     # Build the OLMv1 Test Extension binary.
     # This is used by openshift/origin to allow us to register the OLMv1 test extension
     # The binary needs to be added in the component image and OCP image
