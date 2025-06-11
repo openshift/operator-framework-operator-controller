@@ -37,3 +37,8 @@ test-e2e: ## Run the e2e tests.
 	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/...;
+
+export GIT_COMMIT := ${SOURCE_GIT_COMMIT}
+PHONY: go-build-local
+go-build-local:
+	$(MAKE) -n -f Makefile go-build-local
