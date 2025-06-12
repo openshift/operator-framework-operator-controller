@@ -1,8 +1,5 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19 AS builder
 
-ARG SOURCE_GIT_COMMIT
-ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
-
 WORKDIR /build
 COPY . .
 # TODO Modify upstream Makefile to separate the 'go build' commands
