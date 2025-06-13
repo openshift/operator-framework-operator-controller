@@ -1,4 +1,5 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19 AS builder
+
 WORKDIR /build
 COPY . .
 # TODO Modify upstream Makefile to separate the 'go build' commands
