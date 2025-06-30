@@ -65,6 +65,27 @@ var denyAllPolicySpec = allowedPolicyDefinition{
 	denyAllEgressJustification:  "Denies all egress traffic from pods selected by this policy by default, unless explicitly allowed by other policy rules, minimizing potential exfiltration paths.",
 }
 
+var prometheuSpec = allowedPolicyDefinition{
+	selector:    metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "prometheus"}},
+	policyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress},
+	ingressRule: ingressRule{
+		ports: []portWithJustification{
+			{
+				port:          nil,
+				justification: "Allows access to the prometheus pod",
+			},
+		},
+	},
+	egressRule: egressRule{
+		ports: []portWithJustification{
+			{
+				port:          nil,
+				justification: "Allows prometheus to access other pods",
+			},
+		},
+	},
+}
+
 // Ref: https://docs.google.com/document/d/1bHEEWzA65u-kjJFQRUY1iBuMIIM1HbPy4MeDLX4NI3o/edit?usp=sharing
 var allowedNetworkPolicies = map[string]allowedPolicyDefinition{
 	"catalogd-controller-manager": {
@@ -163,6 +184,8 @@ func TestNetworkPolicyJustifications(t *testing.T) {
 	} else {
 		t.Log("Detected single-namespace configuration, expecting one 'default-deny-all-traffic' policy.")
 		allowedNetworkPolicies["default-deny-all-traffic"] = denyAllPolicySpec
+		t.Log("Detected single-namespace configuration, expecting 'prometheus' policy.")
+		allowedNetworkPolicies["prometheus"] = prometheuSpec
 	}
 
 	validatedRegistryPolicies := make(map[string]bool)
@@ -228,7 +251,7 @@ func TestNetworkPolicyJustifications(t *testing.T) {
 	}
 
 	// 5. Ensure all policies in the registry were found in the cluster
-	assert.Equal(t, len(allowedNetworkPolicies), len(validatedRegistryPolicies),
+	assert.Len(t, validatedRegistryPolicies, len(allowedNetworkPolicies),
 		"Mismatch between number of expected policies in registry (%d) and number of policies found & validated in cluster (%d). Missing policies from registry: %v", len(allowedNetworkPolicies), len(validatedRegistryPolicies), missingPolicies(allowedNetworkPolicies, validatedRegistryPolicies))
 }
 
