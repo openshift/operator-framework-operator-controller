@@ -41,7 +41,7 @@ func ParseImageRefsFromCatalog(catalogsPath string) ([]string, error) {
 			return nil
 		}
 
-		if catalog.TypeMeta.Kind != "ClusterCatalog" {
+		if catalog.Kind != "ClusterCatalog" {
 			return nil
 		}
 
