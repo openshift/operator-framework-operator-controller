@@ -40,14 +40,8 @@ endif
 # Ensure ENVTEST_VERSION follows correct "X.Y.x" format
 ENVTEST_VERSION := $(K8S_VERSION).x
 
-# Not guaranteed to have patch releases available and node image tags are full versions (i.e v1.28.0 - no v1.28, v1.29, etc.)
-# The K8S_VERSION is set by getting the version of the k8s.io/client-go dependency from the go.mod
-# and sets major version to "1" and the patch version to "0". For example, a client-go version of v0.28.5
-# will map to a K8S_VERSION of 1.28.0
-KIND_CLUSTER_IMAGE := kindest/node:v$(K8S_VERSION).0
-
 # Define dependency versions (use go.mod if we also use Go code from dependency)
-export CERT_MGR_VERSION := v1.17.1
+export CERT_MGR_VERSION := v1.18.1
 export WAIT_TIMEOUT := 60s
 
 # Install default ClusterCatalogs
@@ -77,7 +71,10 @@ else
 $(warning Could not find docker or podman in path! This may result in targets requiring a container runtime failing!)
 endif
 
-KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
+KUSTOMIZE_STANDARD_OVERLAY := config/overlays/standard
+KUSTOMIZE_STANDARD_E2E_OVERLAY := config/overlays/standard-e2e
+KUSTOMIZE_EXPERIMENTAL_OVERLAY := config/overlays/experimental
+KUSTOMIZE_EXPERIMENTAL_E2E_OVERLAY := config/overlays/experimental-e2e
 
 export RELEASE_MANIFEST := operator-controller.yaml
 export RELEASE_INSTALL := install.sh
@@ -86,7 +83,13 @@ export RELEASE_CATALOGS := default-catalogs.yaml
 # List of manifests that are checked in
 MANIFEST_HOME := ./manifests
 STANDARD_MANIFEST := ./manifests/standard.yaml
+STANDARD_E2E_MANIFEST := ./manifests/standard-e2e.yaml
+EXPERIMENTAL_MANIFEST := ./manifests/experimental.yaml
+EXPERIMENTAL_E2E_MANIFEST := ./manifests/experimental-e2e.yaml
 CATALOGS_MANIFEST := ./manifests/default-catalogs.yaml
+
+# Manifest used by kind-deploy, which may be overridden by other targets
+SOURCE_MANIFEST := $(STANDARD_MANIFEST)
 
 # Disable -j flag for make
 .NOTPARALLEL:
@@ -109,7 +112,7 @@ CATALOGS_MANIFEST := ./manifests/default-catalogs.yaml
 
 .PHONY: help
 help: #HELP Display essential help.
-	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-21s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
 
 .PHONY: help-extended
 help-extended: #HELP Display extended help.
@@ -138,20 +141,14 @@ tidy:
 	go mod tidy
 
 .PHONY: manifests
-KUSTOMIZE_CATD_CRDS_DIR := config/base/catalogd/crd/bases
 KUSTOMIZE_CATD_RBAC_DIR := config/base/catalogd/rbac
 KUSTOMIZE_CATD_WEBHOOKS_DIR := config/base/catalogd/manager/webhook
-KUSTOMIZE_OPCON_CRDS_DIR := config/base/operator-controller/crd/bases
 KUSTOMIZE_OPCON_RBAC_DIR := config/base/operator-controller/rbac
-CRD_WORKING_DIR := crd_work_dir
 # Due to https://github.com/kubernetes-sigs/controller-tools/issues/837 we can't specify individual files
 # So we have to generate them together and then move them into place
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) #EXHELP Generate WebhookConfiguration, ClusterRole, and CustomResourceDefinition objects.
-	mkdir $(CRD_WORKING_DIR)
-	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) crd paths="./api/v1/..." output:crd:artifacts:config=$(CRD_WORKING_DIR)
-	mv $(CRD_WORKING_DIR)/olm.operatorframework.io_clusterextensions.yaml $(KUSTOMIZE_OPCON_CRDS_DIR)
-	mv $(CRD_WORKING_DIR)/olm.operatorframework.io_clustercatalogs.yaml $(KUSTOMIZE_CATD_CRDS_DIR)
-	rmdir $(CRD_WORKING_DIR)
+	# Generate CRDs via our own generator
+	hack/tools/update-crds.sh
 	# Generate the remaining operator-controller manifests
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) rbac:roleName=manager-role paths="./internal/operator-controller/..." output:rbac:artifacts:config=$(KUSTOMIZE_OPCON_RBAC_DIR)
 	# Generate the remaining catalogd manifests
@@ -159,14 +156,17 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) #EXHELP Generate WebhookConfiguration,
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) webhook paths="./internal/catalogd/..." output:webhook:artifacts:config=$(KUSTOMIZE_CATD_WEBHOOKS_DIR)
 	# Generate manifests stored in source-control
 	mkdir -p $(MANIFEST_HOME)
-	$(KUSTOMIZE) build $(KUSTOMIZE_BUILD_DIR) > $(STANDARD_MANIFEST)
+	$(KUSTOMIZE) build $(KUSTOMIZE_STANDARD_OVERLAY) > $(STANDARD_MANIFEST)
+	$(KUSTOMIZE) build $(KUSTOMIZE_STANDARD_E2E_OVERLAY) > $(STANDARD_E2E_MANIFEST)
+	$(KUSTOMIZE) build $(KUSTOMIZE_EXPERIMENTAL_OVERLAY) > $(EXPERIMENTAL_MANIFEST)
+	$(KUSTOMIZE) build $(KUSTOMIZE_EXPERIMENTAL_E2E_OVERLAY) > $(EXPERIMENTAL_E2E_MANIFEST)
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: k8s-pin fmt generate manifests crd-ref-docs generate-test-data #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
+verify: k8s-pin kind-verify-versions fmt generate manifests crd-ref-docs generate-test-data #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
 	git diff --exit-code
 
 # Renders registry+v1 bundles in test/convert
@@ -193,8 +193,8 @@ bingo-upgrade: $(BINGO) #EXHELP Upgrade tools
 .PHONY: verify-crd-compatibility
 CRD_DIFF_ORIGINAL_REF := git://main?path=
 CRD_DIFF_UPDATED_REF := file://
-CRD_DIFF_OPCON_SOURCE := config/base/operator-controller/crd/bases/olm.operatorframework.io_clusterextensions.yaml
-CRD_DIFF_CATD_SOURCE := config/base/catalogd/crd/bases/olm.operatorframework.io_clustercatalogs.yaml
+CRD_DIFF_OPCON_SOURCE := config/base/operator-controller/crd/standard/olm.operatorframework.io_clusterextensions.yaml
+CRD_DIFF_CATD_SOURCE := config/base/catalogd/crd/standard/olm.operatorframework.io_clustercatalogs.yaml
 CRD_DIFF_CONFIG := crd-diff-config.yaml
 verify-crd-compatibility: $(CRD_DIFF) manifests
 	$(CRD_DIFF) --config="${CRD_DIFF_CONFIG}" "${CRD_DIFF_ORIGINAL_REF}${CRD_DIFF_OPCON_SOURCE}" ${CRD_DIFF_UPDATED_REF}${CRD_DIFF_OPCON_SOURCE}
@@ -208,6 +208,10 @@ test: manifests generate fmt lint test-unit test-e2e #HELP Run all tests.
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
 	go test -count=1 -v ./test/e2e/...
+
+.PHONY: experimental-e2e
+experimental-e2e: #EXHELP Run the experimental e2e tests.
+	go test -count=1 -v ./test/experimental-e2e/...
 
 E2E_REGISTRY_NAME := docker-registry
 E2E_REGISTRY_NAMESPACE := operator-controller-e2e
@@ -259,13 +263,35 @@ image-registry: ## Build the testdata catalog used for e2e tests and push it to 
 #
 # for example: ARTIFACT_PATH=/tmp/artifacts make test-e2e
 .PHONY: test-e2e
+test-e2e: SOURCE_MANIFEST := $(STANDARD_E2E_MANIFEST)
 test-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
-test-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/e2e
 test-e2e: GO_BUILD_EXTRA_FLAGS := -cover
-test-e2e: run image-registry e2e e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
+test-e2e: run image-registry prometheus e2e e2e-metrics e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
+
+.PHONY: test-experimental-e2e
+test-experimental-e2e: SOURCE_MANIFEST := $(EXPERIMENTAL_E2E_MANIFEST)
+test-experimental-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
+test-experimental-e2e: GO_BUILD_EXTRA_FLAGS := -cover
+test-experimental-e2e: run image-registry prometheus experimental-e2e e2e-metrics e2e-coverage kind-clean #HELP Run experimental e2e test suite on local kind cluster
+
+.PHONY: prometheus
+prometheus: PROMETHEUS_NAMESPACE := olmv1-system
+prometheus: PROMETHEUS_VERSION := v0.83.0
+prometheus: #EXHELP Deploy Prometheus into specified namespace
+	./hack/test/setup-monitoring.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(KUSTOMIZE)
+
+# The metrics.out file contains raw json data of the metrics collected during a test run.
+# In an upcoming PR, this query will be replaced with one that checks for alerts from
+# prometheus. Prometheus will gather metrics we currently query for over the test run, 
+# and provide alerts from the metrics based on the rules that we set.
+.PHONY: e2e-metrics
+e2e-metrics: #EXHELP Request metrics from prometheus; place in ARTIFACT_PATH if set
+	curl -X POST \
+	-H "Content-Type: application/x-www-form-urlencoded" \
+	--data 'query={pod=~"operator-controller-controller-manager-.*|catalogd-controller-manager-.*"}' \
+	http://localhost:30900/api/v1/query > $(if $(ARTIFACT_PATH),$(ARTIFACT_PATH),.)/metrics.out
 
 .PHONY: extension-developer-e2e
-extension-developer-e2e: KUSTOMIZE_BUILD_DIR := config/overlays/cert-manager
 extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e
 extension-developer-e2e: export INSTALL_DEFAULT_CATALOGS := false
 extension-developer-e2e: run image-registry test-ext-dev-e2e kind-clean #EXHELP Run extension-developer e2e on local kind cluster
@@ -303,19 +329,25 @@ kind-load: $(KIND) #EXHELP Loads the currently constructed images into the KIND 
 kind-deploy: export MANIFEST := $(RELEASE_MANIFEST)
 kind-deploy: export DEFAULT_CATALOG := $(RELEASE_CATALOGS)
 kind-deploy: manifests
-	sed "s/cert-git-version/cert-$(VERSION)/g" $(STANDARD_MANIFEST) > $(MANIFEST)
+	@echo -e "\n\U1F4D8 Using $(SOURCE_MANIFEST) as source manifest\n"
+	sed "s/cert-git-version/cert-$(VERSION)/g" $(SOURCE_MANIFEST) > $(MANIFEST)
 	cp $(CATALOGS_MANIFEST) $(DEFAULT_CATALOG)
 	envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh | bash -s
 
 .PHONY: kind-cluster
-kind-cluster: $(KIND) #EXHELP Standup a kind cluster.
+kind-cluster: $(KIND) kind-verify-versions #EXHELP Standup a kind cluster.
 	-$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
-	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --image $(KIND_CLUSTER_IMAGE) --config ./kind-config.yaml
+	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-config.yaml
 	$(KIND) export kubeconfig --name $(KIND_CLUSTER_NAME)
 
 .PHONY: kind-clean
 kind-clean: $(KIND) #EXHELP Delete the kind cluster.
 	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-verify-versions
+kind-verify-versions:
+	env K8S_VERSION=v$(K8S_VERSION) KIND=$(KIND) GOBIN=$(GOBIN) hack/tools/validate_kindest_node.sh
+
 
 #SECTION Build
 
@@ -367,6 +399,10 @@ go-build-linux: $(BINARIES)
 
 .PHONY: run
 run: docker-build kind-cluster kind-load kind-deploy wait #HELP Build the operator-controller then deploy it into a new kind cluster.
+
+.PHONY: run-experimental
+run-experimental: SOURCE_MANIFEST := $(EXPERIMENTAL_MANIFEST)
+run-experimental: run #HELP Build the operator-controller then deploy it with the experimental manifest into a new kind cluster.
 
 CATD_NAMESPACE := olmv1-system
 wait:
@@ -431,8 +467,12 @@ deploy-docs: venv
 	mkdocs gh-deploy --force
 
 # The demo script requires to install asciinema with: brew install asciinema to run on mac os envs.
-.PHONY: demo-update #EXHELP build demo
-demo-update:
-	./hack/demo/generate-asciidemo.sh -u -n catalogd-demo catalogd-demo-script.sh
+# Please ensure that all demos are named with the demo name and the suffix -demo-script.sh
+.PHONY: update-demos #EXHELP Update and upload the demos.
+update-demos:
+	@for script in hack/demo/*-demo-script.sh; do \
+	  nm=$$(basename $$script -script.sh); \
+	  ./hack/demo/generate-asciidemo.sh -u -n $$nm $$(basename $$script); \
+	done
 
 include Makefile.venv
