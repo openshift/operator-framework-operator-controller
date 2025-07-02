@@ -4,42 +4,10 @@ namespace: OPENSHIFT-NAMESPACE
 namePrefix: catalogd-
 
 resources:
-- ../../../../../../config/base/catalogd/crd
 - ../../../../../../config/base/catalogd/rbac
 - ../../../../../../config/base/catalogd/manager
 - ../../../../../../config/base/common
 - metrics
-- trusted-ca/catalogd_trusted_ca_configmap.yaml
-
-patches:
-- path: patches/manager_namespace_privileged.yaml
-- path: patches/manager_namespace_monitored.yaml
-- path: patches/manager_namespace_annotations.yaml
-- target:
-    kind: Service
-    name: service
-  path: patches/manager_service.yaml
-- target:
-    kind: MutatingWebhookConfiguration
-    name: mutating-webhook-configuration
-  path: patches/mutating_webhook_config.yaml
-- target:
-    kind: ClusterRole
-    name: manager-role
-  path: patches/manager_role.yaml
-- target:
-    kind: Deployment
-    name: controller-manager
-  path: patches/manager_deployment_certs.yaml
-- target:
-    kind: Deployment
-    name: controller-manager
-  path: patches/manager_deployment_mount_etc_containers.yaml
-- target:
-    kind: Deployment
-    name: controller-manager
-  path: patches/manager_deployment_log_verbosity.yaml
-- target:
-    kind: Deployment
-    name: controller-manager
-  path: patches/manager_deployment_node_selection.yaml
+- trusted-ca
+components:
+- patches
