@@ -43,87 +43,97 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Source bingo so we can use kustomize and yq
 . "${REPO_ROOT}/openshift/.bingo/variables.env"
 
-# We're going to do file manipulation, so let's work in a temp dir
-TMP_ROOT="$(mktemp -p . -d 2>/dev/null || mktemp -d ./tmpdir.XXXXXXX)"
-# Make sure to delete the temp dir when we exit
-trap 'rm -rf $TMP_ROOT' EXIT
+# This function generates the manifests
+generate () {
+    INPUT_DIR=${1}
+    OUTPUT_DIR=${2}
+    # We're going to do file manipulation, so let's work in a temp dir
+    TMP_ROOT="$(mktemp -p . -d 2>/dev/null || mktemp -d ./tmpdir.XXXXXXX)"
+    # Make sure to delete the temp dir when we exit
+    trap 'rm -rf $TMP_ROOT' EXIT
 
-# Copy all kustomize files into a temp dir
-cp -a "${REPO_ROOT}/config" "${TMP_ROOT}/config"
-mkdir -p "${TMP_ROOT}/openshift/operator-controller/"
-cp -a "${REPO_ROOT}/openshift/operator-controller/kustomize" "${TMP_ROOT}/openshift/operator-controller/kustomize"
+    # Copy all kustomize files into a temp dir
+    cp -a "${REPO_ROOT}/config" "${TMP_ROOT}/config"
+    mkdir -p "${TMP_ROOT}/openshift/operator-controller/"
+    cp -a "${REPO_ROOT}/openshift/operator-controller/kustomize" "${TMP_ROOT}/openshift/operator-controller/kustomize"
 
-# Override OPENSHIFT-NAMESPACE to ${NAMESPACE}
-find "${TMP_ROOT}" -name "*.yaml" -exec sed -i'.bak' "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
-find "${TMP_ROOT}" -name "*.bak" -exec rm {} \;
+    # Override OPENSHIFT-NAMESPACE to ${NAMESPACE}
+    find "${TMP_ROOT}" -name "*.yaml" -exec sed -i'.bak' "s/OPENSHIFT-NAMESPACE/${NAMESPACE}/g" {} \;
+    find "${TMP_ROOT}" -name "*.bak" -exec rm {} \;
 
-# Create a temp dir for manifests
-TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"
-mkdir -p "$TMP_MANIFEST_DIR"
+    # Create a temp dir for manifests
+    TMP_MANIFEST_DIR="${TMP_ROOT}/manifests"
+    mkdir -p "$TMP_MANIFEST_DIR"
 
-# Run kustomize, which emits a single yaml file
-TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
-$KUSTOMIZE build "${TMP_ROOT}/openshift/operator-controller/kustomize/overlays/openshift" -o "$TMP_KUSTOMIZE_OUTPUT"
+    # Run kustomize, which emits a single yaml file
+    TMP_KUSTOMIZE_OUTPUT="${TMP_MANIFEST_DIR}/temp.yaml"
+    $KUSTOMIZE build "${TMP_ROOT}/openshift/operator-controller/kustomize/overlays/${INPUT_DIR}" -o "$TMP_KUSTOMIZE_OUTPUT"
 
-for container_name in "${!IMAGE_MAPPINGS[@]}"; do
-  placeholder="${IMAGE_MAPPINGS[$container_name]}"
-  $YQ -i "(select(.kind == \"Deployment\")|.spec.template.spec.containers[]|select(.name==\"$container_name\")|.image) = \"$placeholder\"" "$TMP_KUSTOMIZE_OUTPUT"
-  $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"target.workload.openshift.io/management": "{\"effect\": \"PreferredDuringScheduling\"}"}' "$TMP_KUSTOMIZE_OUTPUT"
-  $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "privileged"}' "$TMP_KUSTOMIZE_OUTPUT"
-  $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"
-done
+    for container_name in "${!IMAGE_MAPPINGS[@]}"; do
+        placeholder="${IMAGE_MAPPINGS[$container_name]}"
+        $YQ -i "(select(.kind == \"Deployment\")|.spec.template.spec.containers[]|select(.name==\"$container_name\")|.image) = \"$placeholder\"" "$TMP_KUSTOMIZE_OUTPUT"
+        $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"target.workload.openshift.io/management": "{\"effect\": \"PreferredDuringScheduling\"}"}' "$TMP_KUSTOMIZE_OUTPUT"
+        $YQ -i 'select(.kind == "Deployment").spec.template.metadata.annotations += {"openshift.io/required-scc": "privileged"}' "$TMP_KUSTOMIZE_OUTPUT"
+        $YQ -i 'select(.kind == "Deployment").spec.template.spec += {"priorityClassName": "system-cluster-critical"}' "$TMP_KUSTOMIZE_OUTPUT"
+    done
 
-# Loop through any flag updates that need to be made to the manager container
-for flag_name in "${!FLAG_MAPPINGS[@]}"; do
-  flagval="${FLAG_MAPPINGS[$flag_name]}"
+    # Loop through any flag updates that need to be made to the manager container
+    for flag_name in "${!FLAG_MAPPINGS[@]}"; do
+        flagval="${FLAG_MAPPINGS[$flag_name]}"
 
-  # First, update the flag if it exists
-  $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args[] | select(. | contains(\"--$flag_name=\")) | .) = \"--$flag_name=$flagval\"" "$TMP_KUSTOMIZE_OUTPUT"
+        # First, update the flag if it exists
+        $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args[] | select(. | contains(\"--$flag_name=\")) | .) = \"--$flag_name=$flagval\"" "$TMP_KUSTOMIZE_OUTPUT"
 
-  # Then, append the flag if it doesn't exist
-  $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args) |= (select(.[] | contains(\"--$flag_name=\")) | .) // . + [\"--$flag_name=$flagval\"]" "$TMP_KUSTOMIZE_OUTPUT"
-done
+        # Then, append the flag if it doesn't exist
+        $YQ -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[] | select(.name == \"manager\") | .args) |= (select(.[] | contains(\"--$flag_name=\")) | .) // . + [\"--$flag_name=$flagval\"]" "$TMP_KUSTOMIZE_OUTPUT"
+    done
 
-# Use yq to split the single yaml file into 1 per document.
-# Naming convention: $index-$kind-$namespace-$name. If $namespace is empty, just use the empty string.
-(
-  cd "$TMP_MANIFEST_DIR"
+    # Use yq to split the single yaml file into 1 per document.
+    # Naming convention: $index-$kind-$namespace-$name. If $namespace is empty, just use the empty string.
+    (
+        cd "$TMP_MANIFEST_DIR"
 
-  # shellcheck disable=SC2016
-  ${YQ} -s '$index +"-"+ (.kind|downcase) +"-"+ (.metadata.namespace // "") +"-"+ .metadata.name' temp.yaml
-)
+        # shellcheck disable=SC2016
+        ${YQ} -s '$index +"-"+ (.kind|downcase) +"-"+ (.metadata.namespace // "") +"-"+ .metadata.name' temp.yaml
+    )
 
-# Delete the single yaml file
-rm "$TMP_KUSTOMIZE_OUTPUT"
+    # Delete the single yaml file
+    rm "$TMP_KUSTOMIZE_OUTPUT"
 
-# Delete and recreate the actual manifests directory
-MANIFEST_DIR="${REPO_ROOT}/openshift/operator-controller/manifests"
-rm -rf "${MANIFEST_DIR}"
-mkdir -p "${MANIFEST_DIR}"
+    # Delete and recreate the actual manifests directory
+    MANIFEST_DIR="${REPO_ROOT}/openshift/operator-controller/${OUTPUT_DIR}"
+    rm -rf "${MANIFEST_DIR}"
+    mkdir -p "${MANIFEST_DIR}"
 
-# Copy everything we just generated and split into the actual manifests directory
-cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
+    # Copy everything we just generated and split into the actual manifests directory
+    cp "$TMP_MANIFEST_DIR"/* "$MANIFEST_DIR"/
 
-# Update file names to be in the format nn-$kind-$namespace-$name
-(
-  cd "$MANIFEST_DIR"
+    # Update file names to be in the format nn-$kind-$namespace-$name
+    (
+        cd "$MANIFEST_DIR"
 
-  for f in *; do
-    # Get the numeric prefix from the filename
-    index=$(echo "$f" | cut -d '-' -f 1)
-    # Keep track of the full file name without the leading number and dash
-    name_without_index=${f#$index-}
-    # Fix the double dash in cluster-scoped names
-    name_without_index=${name_without_index//--/-}
-    # Reformat the name so the leading number is always padded to 2 digits
-    new_name=$(printf "%02d" "$index")-$name_without_index
-    # Some file names (namely CRDs) don't end in .yml - make them
-    if ! [[ "$new_name" =~ yml$ ]]; then
-      new_name="${new_name}".yml
-    fi
-    if [[ "$f" != "$new_name" ]]; then
-      # Rename
-      mv "$f" "${new_name}"
-    fi
-  done
-)
+        for f in *; do
+            # Get the numeric prefix from the filename
+            index=$(echo "$f" | cut -d '-' -f 1)
+            # Keep track of the full file name without the leading number and dash
+            name_without_index=${f#$index-}
+            # Fix the double dash in cluster-scoped names
+            name_without_index=${name_without_index//--/-}
+            # Reformat the name so the leading number is always padded to 2 digits
+            new_name=$(printf "%02d" "$index")-$name_without_index
+            # Some file names (namely CRDs) don't end in .yml - make them
+            if ! [[ "$new_name" =~ yml$ ]]; then
+                new_name="${new_name}".yml
+            fi
+            if [[ "$f" != "$new_name" ]]; then
+                # Rename
+                mv "$f" "${new_name}"
+            fi
+        done
+    )
+    rm -rf "$TMP_ROOT"
+}
+
+#Generate the manifests
+generate openshift manifests
+generate openshift-experimental manifests-experimental

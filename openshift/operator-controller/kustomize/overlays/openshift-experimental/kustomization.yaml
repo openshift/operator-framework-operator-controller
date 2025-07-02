@@ -1,0 +1,10 @@
+resources:
+  - ../../../../../config/base/operator-controller/crd/experimental
+  - ../openshift/olmv1-ns
+  - ../openshift/openshift-config
+
+# Only those components that are part of operator-controller TechPreview should be listed here
+components:
+  - ../../../../../config/components/features/preflight-permissions
+  - ../../../../../config/components/features/single-own-namespace
+  - ../../../../../config/components/features/webhook-provider-openshift-serviceca
