@@ -1,39 +1,13 @@
 # Adds namespace to all resources.
 namespace: OPENSHIFT-NAMESPACE
+namePrefix: operator-controller-
 
 resources:
-  - ../../../../../../config/base/operator-controller/crd
   - ../../../../../../config/base/operator-controller/rbac
   - ../../../../../../config/base/operator-controller/manager
   - ../../../../../../config/base/common
   - metrics
-  - trusted-ca/operator_controller_trusted_ca_configmap.yaml
+  - trusted-ca
 
-patches:
-  - path: patches/manager_namespace_privileged.yaml
-  - path: patches/manager_namespace_monitored.yaml
-  - path: patches/manager_namespace_annotations.yaml
-  - target:
-      kind: Service
-      name: service
-    path: patches/manager_service.yaml
-  - target:
-      kind: ClusterRole
-      name: manager-role
-    path: patches/manager_role.yaml
-  - target:
-      kind: Deployment
-      name: controller-manager
-    path: patches/manager_deployment_certs.yaml
-  - target:
-      kind: Deployment
-      name: controller-manager
-    path: patches/manager_deployment_mount_etc_containers.yaml
-  - target:
-      kind: Deployment
-      name: controller-manager
-    path: patches/manager_deployment_log_verbosity.yaml
-  - target:
-      kind: Deployment
-      name: controller-manager
-    path: patches/manager_deployment_node_selection.yaml
+components:
+  - patches
