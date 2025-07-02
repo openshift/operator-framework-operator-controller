@@ -6,7 +6,9 @@ RUN make go-build-local
 FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
+COPY openshift/operator-controller/cp-manifests /cp-manifests
 COPY openshift/operator-controller/manifests /openshift/manifests
+COPY openshift/operator-controller/manifests-experimental /openshift/manifests-experimental
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller" \
   io.k8s.description="This is a component of OpenShift Container Platform that allows operator installation."
