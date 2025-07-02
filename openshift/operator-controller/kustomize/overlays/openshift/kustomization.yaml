@@ -1,5 +1,4 @@
-namePrefix: operator-controller-
-
 resources:
+  - ../../../../../config/base/operator-controller/crd/standard
   - olmv1-ns
   - openshift-config
