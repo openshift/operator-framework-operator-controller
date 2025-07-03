@@ -89,7 +89,7 @@ github.com/blang/semver/v4
 # github.com/cenkalti/backoff/v5 v5.0.2
 ## explicit; go 1.23
 github.com/cenkalti/backoff/v5
-# github.com/cert-manager/cert-manager v1.18.1
+# github.com/cert-manager/cert-manager v1.18.2
 ## explicit; go 1.23.0
 github.com/cert-manager/cert-manager/pkg/apis/acme
 github.com/cert-manager/cert-manager/pkg/apis/acme/v1
@@ -717,10 +717,6 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runtime-spec v1.2.1
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11
-## explicit; go 1.20
-github.com/openshift/crd-schema-checker/pkg/manifestcomparators
-github.com/openshift/crd-schema-checker/pkg/resourceread
 # github.com/operator-framework/api v0.32.0
 ## explicit; go 1.24.3
 github.com/operator-framework/api/pkg/constraints
@@ -2045,6 +2041,19 @@ sigs.k8s.io/controller-tools/pkg/genall
 sigs.k8s.io/controller-tools/pkg/loader
 sigs.k8s.io/controller-tools/pkg/markers
 sigs.k8s.io/controller-tools/pkg/version
+# sigs.k8s.io/crdify v0.4.1-0.20250613143457-398e4483fb58
+## explicit; go 1.24.0
+sigs.k8s.io/crdify/pkg/config
+sigs.k8s.io/crdify/pkg/runner
+sigs.k8s.io/crdify/pkg/slices
+sigs.k8s.io/crdify/pkg/validations
+sigs.k8s.io/crdify/pkg/validations/crd/existingfieldremoval
+sigs.k8s.io/crdify/pkg/validations/crd/scope
+sigs.k8s.io/crdify/pkg/validations/crd/storedversionremoval
+sigs.k8s.io/crdify/pkg/validations/property
+sigs.k8s.io/crdify/pkg/validators/crd
+sigs.k8s.io/crdify/pkg/validators/version/same
+sigs.k8s.io/crdify/pkg/validators/version/served
 # sigs.k8s.io/gateway-api v1.1.0
 ## explicit; go 1.22.0
 sigs.k8s.io/gateway-api/apis/v1
