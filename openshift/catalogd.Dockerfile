@@ -1,9 +1,10 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.20 AS builder
 
+ARG SOURCE_GIT_COMMIT
 ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
 WORKDIR /build
 COPY . .
-RUN make -f openshift/Makefile go-build-local
+RUN make go-build-local
 
 FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
 USER 1001
