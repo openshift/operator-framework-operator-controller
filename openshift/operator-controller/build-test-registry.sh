@@ -51,12 +51,8 @@ spec:
     spec:
       containers:
       - name: registry
-        image: ${image}
+        image: registry:3
         imagePullPolicy: IfNotPresent
-        command:
-        - /registry
-        args:
-        - "--registry-address=:5000"
         volumeMounts:
         - mountPath: /var/certs
           name: operator-controller-e2e-certs
