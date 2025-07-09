@@ -7,6 +7,16 @@ include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/,
 
 include $(DIR)/.bingo/Variables.mk
 
+# Prefer the upstream source commit that the Dockerfile passes in via
+# `ENV GIT_COMMIT=<sha>`. If that variable is not already defined fall back to
+# the commit recorded by the OpenShift image build pipeline.
+ifeq ($(origin GIT_COMMIT), undefined)
+GIT_COMMIT := $(OPENSHIFT_BUILD_COMMIT)   # populated by OpenShift build machinery
+endif
+export GIT_COMMIT
+VERSION_PATH            := github.com/operator-framework/operator-controller/internal/shared/version
+export GO_BUILD_LDFLAGS := -s -w -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)'
+
 .PHONY: verify
 verify: ## Run downstream-specific verify
 	$(MAKE) tidy fmt generate -C $(DIR)/../
@@ -46,7 +56,6 @@ test-experimental-e2e: ## Run the experimental e2e tests.
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS) ./test/experimental-e2e/...;
 
-export GIT_COMMIT := ${SOURCE_GIT_COMMIT}
 PHONY: go-build-local
 go-build-local:
-	$(MAKE) -n -f Makefile go-build-local
+	$(MAKE) -f Makefile go-build-local
