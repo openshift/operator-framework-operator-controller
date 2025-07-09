@@ -7,6 +7,10 @@ include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/,
 
 include $(DIR)/.bingo/Variables.mk
 
+export GIT_COMMIT       := $(OPENSHIFT_BUILD_COMMIT)   # from OpenShift image build (https://docs.openshift.com/container-platform/3.11/dev_guide/builds/build_output.html)
+VERSION_PATH            := github.com/operator-framework/operator-controller/internal/shared/version
+export GO_BUILD_LDFLAGS := -s -w -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)'  #
+
 .PHONY: verify
 verify: ## Run downstream-specific verify
 	$(MAKE) tidy fmt generate -C $(DIR)/../
@@ -46,7 +50,6 @@ test-experimental-e2e: ## Run the experimental e2e tests.
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS) ./test/experimental-e2e/...;
 
-export GIT_COMMIT := ${SOURCE_GIT_COMMIT}
 PHONY: go-build-local
 go-build-local:
-	$(MAKE) -n -f Makefile go-build-local
+	$(MAKE) -f Makefile go-build-local
