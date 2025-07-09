@@ -3,12 +3,10 @@ WORKDIR /build
 COPY . .
 # TODO Modify upstream Makefile to separate the 'go build' commands
 # from 'image-registry' target so we don't need these
-RUN go build -o ./registry ./testdata/registry/registry.go
 RUN go build -o ./push     ./testdata/push/push.go
 
 FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
 USER 1001
-COPY --from=builder /build/registry /registry
 COPY --from=builder /build/push /push
 COPY openshift/operator-controller/manifests /openshift/manifests
 COPY testdata/images /images
