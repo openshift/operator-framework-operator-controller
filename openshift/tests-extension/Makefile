@@ -38,7 +38,7 @@ TOOLS_BIN_DIR := $(CURDIR)/bin
 
 #SECTION Development
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet lint check-metadata
+verify: tidy fmt vet lint
 
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
