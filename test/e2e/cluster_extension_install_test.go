@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -152,6 +153,23 @@ func createClusterRoleAndBindingForSA(ctx context.Context, name string, sa *core
 					"watch",
 					"bind",
 					"escalate",
+				},
+			},
+			{
+				APIGroups: []string{
+					"networking.k8s.io",
+				},
+				Resources: []string{
+					"networkpolicies",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"patch",
+					"delete",
 				},
 			},
 		},
@@ -383,6 +401,11 @@ func TestClusterExtensionInstallRegistry(t *testing.T) {
 			require.NoError(t, c.Get(context.Background(), types.NamespacedName{Namespace: ns.Name, Name: "test-configmap"}, &cm))
 			require.Contains(t, cm.Annotations, "shouldNotTemplate")
 			require.Contains(t, cm.Annotations["shouldNotTemplate"], "{{ $labels.namespace }}")
+			t.Log("By eventually creating the NetworkPolicy named 'test-operator-network-policy'")
+			require.EventuallyWithT(t, func(ct *assert.CollectT) {
+				var np networkingv1.NetworkPolicy
+				assert.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: "test-operator-network-policy", Namespace: ns.Name}, &np))
+			}, pollDuration, pollInterval)
 		})
 	}
 }
