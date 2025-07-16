@@ -7,7 +7,13 @@ include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/,
 
 include $(DIR)/.bingo/Variables.mk
 
-export GIT_COMMIT       := $(OPENSHIFT_BUILD_COMMIT)   # from OpenShift image build (https://docs.openshift.com/container-platform/3.11/dev_guide/builds/build_output.html)
+# Prefer the upstream source commit that the Dockerfile passes in via
+# `ENV GIT_COMMIT=<sha>`. If that variable is not already defined fall back to
+# the commit recorded by the OpenShift image build pipeline.
+ifeq ($(origin GIT_COMMIT), undefined)
+GIT_COMMIT := $(OPENSHIFT_BUILD_COMMIT)   # populated by OpenShift build machinery
+endif
+export GIT_COMMIT
 VERSION_PATH            := github.com/operator-framework/operator-controller/internal/shared/version
 export GO_BUILD_LDFLAGS := -s -w -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)'  #
 
