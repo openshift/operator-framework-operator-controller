@@ -1361,13 +1361,6 @@ rules:
   verbs:
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - groups
-  - users
-  verbs:
-  - impersonate
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1774,10 +1767,10 @@ spec:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=:8443
         - --leader-elect
-        - --feature-gates=SyntheticPermissions=true
         - --feature-gates=WebhookProviderCertManager=true
         - --feature-gates=SingleOwnNamespaceInstallSupport=true
         - --feature-gates=PreflightPermissions=true
+        - --feature-gates=HelmChartSupport=true
         - --catalogd-cas-dir=/var/certs
         - --pull-cas-dir=/var/certs
         - --tls-cert=/var/certs/tls.cert
