@@ -1,0 +1,5 @@
+namespace: OPENSHIFT-NAMESPACE
+resources:
+  - ../../../../../../config/base/operator-controller/rbac/experimental
+components:
+  - ../../openshift/rbac/patches
