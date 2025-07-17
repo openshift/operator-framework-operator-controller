@@ -105,6 +105,38 @@ func main() {
 		}
 	})
 
+	// To handle renames and preserve test ID by setting the original-name.
+	// This logic looks for a custom Ginkgo label in the format:
+	//   Label("original-name:<full old test name>")
+	// When found, it sets spec.OriginalName = <old name>.
+	// **Example**
+	// It("should pass a renamed sanity check",
+	//		Label("original-name:[sig-olmv1] OLMv1 should pass a trivial sanity check"),
+	//  	func(ctx context.Context) {
+	//  		Expect(len("test")).To(BeNumerically(">", 0))
+	// 	    })
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		for label := range spec.Labels {
+			if strings.HasPrefix(label, "original-name:") {
+				parts := strings.SplitN(label, "original-name:", 2)
+				if len(parts) > 1 {
+					spec.OriginalName = parts[1]
+				}
+			}
+		}
+	})
+
+	// To delete tests you must mark them as obsolete.
+	// These tests will be excluded from metadata validation during OTE update.
+	// 1 - To get the full name of the test you want to remove run: make list-test-names
+	// 2 - Add the test name here to avoid validation errors
+	// 3 - Remove the test in your test file.
+	// 4 - Run make build-update
+	ext.IgnoreObsoleteTests(
+	// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
+	// Add more removed test names below
+	)
+
 	// TODO: Init test framework for cluster-aware cases
 	// --------------------------------------------------
 	// The external binary doesn't currently init the test framework (e.g., kubeconfig, REST client).
