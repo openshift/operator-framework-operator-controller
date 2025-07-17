@@ -1,0 +1,6 @@
+namespace: OPENSHIFT-NAMESPACE
+resources:
+- ../../../../../../config/base/catalogd/rbac/experimental
+- ../../../../../../config/base/catalogd/webhook/experimental
+components:
+- ../../openshift/rbac/patches
