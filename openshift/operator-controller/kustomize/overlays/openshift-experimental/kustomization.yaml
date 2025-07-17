@@ -1,5 +1,6 @@
 resources:
   - ../../../../../config/base/operator-controller/crd/experimental
+  - rbac
   - ../openshift/olmv1-ns
   - ../openshift/openshift-config
 

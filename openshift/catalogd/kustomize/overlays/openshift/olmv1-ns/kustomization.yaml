@@ -4,7 +4,6 @@ namespace: OPENSHIFT-NAMESPACE
 namePrefix: catalogd-
 
 resources:
-- ../../../../../../config/base/catalogd/rbac
 - ../../../../../../config/base/catalogd/manager
 - ../../../../../../config/base/common
 - metrics

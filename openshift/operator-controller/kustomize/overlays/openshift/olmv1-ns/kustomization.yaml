@@ -3,7 +3,6 @@ namespace: OPENSHIFT-NAMESPACE
 namePrefix: operator-controller-
 
 resources:
-  - ../../../../../../config/base/operator-controller/rbac
   - ../../../../../../config/base/operator-controller/manager
   - ../../../../../../config/base/common
   - metrics
