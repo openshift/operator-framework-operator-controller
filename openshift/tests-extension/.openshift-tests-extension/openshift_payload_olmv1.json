@@ -1,0 +1,12 @@
+[
+  {
+    "name": "[sig-olmv1] OLMv1 should pass a trivial sanity check",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  }
+]
