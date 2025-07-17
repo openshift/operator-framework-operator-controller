@@ -104,7 +104,7 @@ spec:
           type: spc_t
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: operator-controller-operator-controller-controller-manager
+      serviceAccountName: operator-controller-controller-manager
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
