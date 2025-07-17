@@ -14,6 +14,6 @@ fi
 
 if [ -d /openshift/manifests-experimental ]; then
     mkdir -p "${DEST}/experimental/catalogd"
-    cp -a /openshift/manifests "${DEST}/experimental/catalogd"
+    cp -a /openshift/manifests-experimental "${DEST}/experimental/catalogd"
 fi
 
