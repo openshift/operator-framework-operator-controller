@@ -1,0 +1,6 @@
+namespace: OPENSHIFT-NAMESPACE
+resources:
+- ../../../../../../config/base/catalogd/rbac/standard
+- ../../../../../../config/base/catalogd/webhook/standard
+components:
+- patches

@@ -9,10 +9,6 @@ patches:
       name: service
     path: manager_service.yaml
   - target:
-      kind: ClusterRole
-      name: manager-role
-    path: manager_role.yaml
-  - target:
       kind: Deployment
       name: controller-manager
     path: manager_deployment_certs.yaml

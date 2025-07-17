@@ -1,15 +1,14 @@
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/name: catalogd
     app.kubernetes.io/part-of: olm
   name: catalogd-manager-rolebinding
-  namespace: openshift-config
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: catalogd-manager-role
 subjects:
   - kind: ServiceAccount

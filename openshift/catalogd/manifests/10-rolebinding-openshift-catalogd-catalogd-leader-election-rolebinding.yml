@@ -5,12 +5,12 @@ metadata:
   labels:
     app.kubernetes.io/name: catalogd
     app.kubernetes.io/part-of: olm
-  name: catalogd-manager-rolebinding
-  namespace: openshift-config
+  name: catalogd-leader-election-rolebinding
+  namespace: openshift-catalogd
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: catalogd-manager-role
+  name: catalogd-leader-election-role
 subjects:
   - kind: ServiceAccount
     name: catalogd-controller-manager
