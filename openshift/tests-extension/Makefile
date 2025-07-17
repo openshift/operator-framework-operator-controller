@@ -15,6 +15,9 @@ LDFLAGS := -X '$(GO_PKG_NAME)/pkg/version.CommitFromGit=$(GIT_COMMIT)' \
            -X '$(GO_PKG_NAME)/pkg/version.BuildDate=$(BUILD_DATE)' \
            -X '$(GO_PKG_NAME)/pkg/version.GitTreeState=$(GIT_TREE_STATE)'
 
+
+METADATA := $(shell pwd)/.openshift-tests-extension/openshift_payload_olmv1.json
+
 #SECTION General
 
 # The help target prints out all targets with their descriptions organized
@@ -67,3 +70,64 @@ fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
 build: #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
 	GO_COMPLIANCE_POLICY="exempt_all" go build -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
+
+.PHONY: update-metadata
+update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
+	$(TOOLS_BIN_DIR)/olmv1-tests-ext update --component openshift:payload:olmv1
+	$(MAKE) clean-metadata
+
+
+# Ensure TestID is unique over time.
+# TestID is built over Product:Type:ComponentName:TestDescription
+# (i.e. openshift:payload:olmv1:TestName)
+# Details:
+# - https://github.com/openshift/enhancements/blob/master/enhancements/testing/openshift-tests-extension.md#test-id
+# - https://github.com/openshift-eng/ci-test-mapping
+#──────────────────────────────────────────────────────────────
+# How to rename a test?
+# 1. Run: make list-test-names
+# 2. Find the current full test name (e.g. "[sig-abc] My test does XYZ")
+# 3. Add a Ginkgo label: ginkgo.Label("original-name:[sig-abc] My test does XYZ")
+# 4. Change the test name string and run: make build-update
+# **Example**
+# It("should pass a renamed sanity check",
+# 	Label("original-name:[sig-olmv1] OLMv1 should pass a trivial sanity check"),
+# 	func(ctx context.Context) {
+# 		Expect(len("test")).To(BeNumerically(">", 0))
+# 	})
+# Note: You only add the label once. Do not update it after future renames.
+#──────────────────────────────────────────────────────────────
+# How to delete a test?
+# 1. Run: make list-test-names
+# 2. In main.go add:
+#    ext.IgnoreObsoleteTests(
+#        "[sig-olmv1] My removed test name",
+#    )
+# 3. Delete the test code in your suite file (e.g. olmv1.go)
+# 4. Run: make build-update.
+# This will regenerate the metadata without the test entry.
+#────────────────────────────────────────────────────────────────────
+.PHONY: build-update
+build-update: build update-metadata #HELP Build and update metadata and sanitize output
+
+#SECTION Metadata
+
+.PHONY: list-test-names
+list-test-names: #HELP Show current full test names
+	@$(TOOLS_BIN_DIR)/olmv1-tests-ext list -o names
+
+# Remove 'codeLocations' to avoid absolute paths like:
+# "/Users/$(USER)/go/src/.../olmv1.go:12"
+# These are machine-specific and make the metadata non-idempotent.
+# More info: https://issues.redhat.com/browse/TRT-2186
+.PHONY: clean-metadata
+clean-metadata: #HELP Remove 'codeLocations' from metadata JSON
+	@echo "Cleaning metadata (removing codeLocations)..."
+	@jq 'map(del(.codeLocations))' $(METADATA) > $(METADATA).tmp && mv $(METADATA).tmp $(METADATA)
+
+.PHONY: verify-metadata #HELP To verify that the metadata was properly update
+verify-metadata: update-metadata
+	@if ! git diff --exit-code $(METADATA); then \
+		echo "ERROR: Metadata is out of date. Please run 'make build-update' and commit the result."; \
+		exit 1; \
+	fi
