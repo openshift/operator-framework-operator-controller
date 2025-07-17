@@ -104,7 +104,7 @@ spec:
           type: spc_t
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: catalogd-catalogd-controller-manager
+      serviceAccountName: catalogd-controller-manager
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
