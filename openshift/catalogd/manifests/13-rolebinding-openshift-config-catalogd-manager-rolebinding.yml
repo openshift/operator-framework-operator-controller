@@ -13,5 +13,5 @@ roleRef:
   name: catalogd-manager-role
 subjects:
   - kind: ServiceAccount
-    name: catalogd-catalogd-controller-manager
+    name: catalogd-controller-manager
     namespace: openshift-catalogd
