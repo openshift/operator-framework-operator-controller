@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: catalogd
     app.kubernetes.io/part-of: olm
   name: catalogd-manager-rolebinding
-  namespace: openshift-config
+  namespace: openshift-catalogd
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
