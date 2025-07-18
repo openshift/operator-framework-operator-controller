@@ -2,6 +2,6 @@ $patch: merge
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: system
+  name: olmv1-system
   labels:
     openshift.io/cluster-monitoring: "true"

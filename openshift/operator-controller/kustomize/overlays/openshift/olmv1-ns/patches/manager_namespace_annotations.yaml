@@ -2,7 +2,7 @@ $patch: merge
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: system
+  name: olmv1-system
   annotations:
     workload.openshift.io/allowed: "management"
     openshift.io/node-selector: ""

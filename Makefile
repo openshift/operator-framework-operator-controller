@@ -142,18 +142,23 @@ tidy:
 
 .PHONY: manifests
 KUSTOMIZE_CATD_RBAC_DIR := config/base/catalogd/rbac
-KUSTOMIZE_CATD_WEBHOOKS_DIR := config/base/catalogd/manager/webhook
+KUSTOMIZE_CATD_WEBHOOKS_DIR := config/base/catalogd/webhook
 KUSTOMIZE_OPCON_RBAC_DIR := config/base/operator-controller/rbac
 # Due to https://github.com/kubernetes-sigs/controller-tools/issues/837 we can't specify individual files
 # So we have to generate them together and then move them into place
 manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) #EXHELP Generate WebhookConfiguration, ClusterRole, and CustomResourceDefinition objects.
 	# Generate CRDs via our own generator
 	hack/tools/update-crds.sh
-	# Generate the remaining operator-controller manifests
-	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) rbac:roleName=manager-role paths="./internal/operator-controller/..." output:rbac:artifacts:config=$(KUSTOMIZE_OPCON_RBAC_DIR)
-	# Generate the remaining catalogd manifests
-	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) rbac:roleName=manager-role paths="./internal/catalogd/..." output:rbac:artifacts:config=$(KUSTOMIZE_CATD_RBAC_DIR)
-	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) webhook paths="./internal/catalogd/..." output:webhook:artifacts:config=$(KUSTOMIZE_CATD_WEBHOOKS_DIR)
+	# Generate the remaining operator-controller standard manifests
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS),standard rbac:roleName=manager-role paths="./internal/operator-controller/..." output:rbac:artifacts:config=$(KUSTOMIZE_OPCON_RBAC_DIR)/standard
+	# Generate the remaining operator-controller experimental manifests
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) rbac:roleName=manager-role paths="./internal/operator-controller/..." output:rbac:artifacts:config=$(KUSTOMIZE_OPCON_RBAC_DIR)/experimental
+	# Generate the remaining catalogd standard manifests
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS),standard rbac:roleName=manager-role paths="./internal/catalogd/..." output:rbac:artifacts:config=$(KUSTOMIZE_CATD_RBAC_DIR)/standard
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS),standard webhook paths="./internal/catalogd/..." output:webhook:artifacts:config=$(KUSTOMIZE_CATD_WEBHOOKS_DIR)/standard
+	# Generate the remaining catalogd experimental manifests
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) rbac:roleName=manager-role paths="./internal/catalogd/..." output:rbac:artifacts:config=$(KUSTOMIZE_CATD_RBAC_DIR)/experimental
+	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) webhook paths="./internal/catalogd/..." output:webhook:artifacts:config=$(KUSTOMIZE_CATD_WEBHOOKS_DIR)/experimental
 	# Generate manifests stored in source-control
 	mkdir -p $(MANIFEST_HOME)
 	$(KUSTOMIZE) build $(KUSTOMIZE_STANDARD_OVERLAY) > $(STANDARD_MANIFEST)
@@ -278,18 +283,13 @@ test-experimental-e2e: run image-registry prometheus experimental-e2e e2e e2e-me
 prometheus: PROMETHEUS_NAMESPACE := olmv1-system
 prometheus: PROMETHEUS_VERSION := v0.83.0
 prometheus: #EXHELP Deploy Prometheus into specified namespace
-	./hack/test/setup-monitoring.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(KUSTOMIZE)
+	./hack/test/install-prometheus.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(KUSTOMIZE) $(VERSION)
 
-# The metrics.out file contains raw json data of the metrics collected during a test run.
-# In an upcoming PR, this query will be replaced with one that checks for alerts from
-# prometheus. Prometheus will gather metrics we currently query for over the test run, 
-# and provide alerts from the metrics based on the rules that we set.
+# The output alerts.out file contains any alerts, pending or firing, collected during a test run in json format.
 .PHONY: e2e-metrics
+e2e-metrics: ALERTS_FILE_PATH := $(if $(ARTIFACT_PATH),$(ARTIFACT_PATH),.)/alerts.out
 e2e-metrics: #EXHELP Request metrics from prometheus; place in ARTIFACT_PATH if set
-	curl -X POST \
-	-H "Content-Type: application/x-www-form-urlencoded" \
-	--data 'query={pod=~"operator-controller-controller-manager-.*|catalogd-controller-manager-.*"}' \
-	http://localhost:30900/api/v1/query > $(if $(ARTIFACT_PATH),$(ARTIFACT_PATH),.)/metrics.out
+	curl -X GET http://localhost:30900/api/v1/alerts | jq 'if (.data.alerts | length) > 0 then .data.alerts.[] else empty end' > $(ALERTS_FILE_PATH)
 
 .PHONY: extension-developer-e2e
 extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e

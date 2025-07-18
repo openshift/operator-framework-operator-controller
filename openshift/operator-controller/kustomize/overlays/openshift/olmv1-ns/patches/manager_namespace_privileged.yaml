@@ -2,7 +2,7 @@ $patch: merge
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: system
+  name: olmv1-system
   labels:
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/audit-version: latest
