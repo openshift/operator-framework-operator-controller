@@ -17,8 +17,26 @@ var (
 	}
 )
 
+// isUnset returns true when the provided string should be treated as an
+// "unset" value. Builds that inject ldflags such as "-X var=" will set the
+// variable to the empty string, which previously prevented the runtime build
+// information gathered via debug.ReadBuildInfo from populating the field. For
+// the purposes of version reporting we treat both the empty string and the
+// literal "unknown" as unset.
+func isUnset(s string) bool {
+	return s == "" || s == "unknown"
+}
+
 func String() string {
-	return fmt.Sprintf("version: %q, commit: %q, date: %q, state: %q", version, gitCommit, commitDate, repoState)
+	return fmt.Sprintf("version: %q, commit: %q, date: %q, state: %q",
+		valueOrUnknown(version), valueOrUnknown(gitCommit), valueOrUnknown(commitDate), valueOrUnknown(repoState))
+}
+
+func valueOrUnknown(v string) string {
+	if v == "" {
+		return "unknown"
+	}
+	return v
 }
 
 func init() {
@@ -29,18 +47,20 @@ func init() {
 	for _, setting := range info.Settings {
 		switch setting.Key {
 		case "vcs.revision":
-			if gitCommit == "unknown" {
+			if isUnset(gitCommit) {
 				gitCommit = setting.Value
 			}
 		case "vcs.time":
-			commitDate = setting.Value
+			if isUnset(commitDate) {
+				commitDate = setting.Value
+			}
 		case "vcs.modified":
 			if v, ok := stateMap[setting.Value]; ok {
 				repoState = v
 			}
 		}
 	}
-	if version == "unknown" {
+	if isUnset(version) {
 		version = info.Main.Version
 	}
 }
