@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	// The import below is necessary to ensure that the OLMv1 tests are registered with the extension.
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/clusterinit"
 	_ "github/operator-framework-operator-controller/openshift/tests-extension/test"
 )
 
@@ -133,9 +134,13 @@ func main() {
 	// 3 - Remove the test in your test file.
 	// 4 - Run make build-update
 	ext.IgnoreObsoleteTests(
-	// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
-	// Add more removed test names below
+		// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
+		// Add more removed test names below
 	)
+
+	if err := clusterinit.InitCluster(); err != nil {
+		panic(fmt.Sprintf("Failed to init cluster: %+v", err))
+	}
 
 	// TODO: Init test framework for cluster-aware cases
 	// --------------------------------------------------
