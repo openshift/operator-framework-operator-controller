@@ -52,9 +52,12 @@ func init() {
 // getRestConfig returns a high-QPS *rest.Config, preferring admin credentials
 func getRestConfig() *rest.Config {
 	paths := []string{
-		"/etc/origin/admin.kubeconfig",
-		"/etc/kubernetes/kubeconfig",
 		os.Getenv("KUBECONFIG"),
+		// If not set, fall back to common locations
+		"/etc/origin/admin.kubeconfig",
+		"/var/run/secrets/ci.openshift.io/cluster-profile/kubeconfig",
+		"/etc/ci-kubeconfigs/tests-extension/kubeconfig",
+		"/etc/kubernetes/kubeconfig",
 	}
 
 	for _, path := range paths {
