@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	// The import below is necessary to ensure that the OLMv1 tests are registered with the extension.
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/clusterinit"
 	_ "github/operator-framework-operator-controller/openshift/tests-extension/test"
 )
 
@@ -104,6 +105,10 @@ func main() {
 			)
 		}
 	})
+
+	if err := clusterinit.InitCluster(); err != nil {
+		panic(fmt.Sprintf("Failed to init cluster: %+v", err))
+	}
 
 	// TODO: Init test framework for cluster-aware cases
 	// --------------------------------------------------
