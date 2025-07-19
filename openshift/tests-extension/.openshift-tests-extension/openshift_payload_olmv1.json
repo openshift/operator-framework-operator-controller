@@ -8,5 +8,15 @@
     "source": "openshift:payload:olmv1",
     "lifecycle": "blocking",
     "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs should verify required CRDs are installed and active",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
   }
 ]
