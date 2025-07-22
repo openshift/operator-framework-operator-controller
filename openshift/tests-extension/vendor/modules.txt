@@ -77,7 +77,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift-eng/openshift-tests-extension v0.0.0-20250522124649-4ffcd156ec7c
+# github.com/openshift-eng/openshift-tests-extension v0.0.0-20250722101414-8083129ab8f9
 ## explicit; go 1.23.0
 github.com/openshift-eng/openshift-tests-extension/pkg/cmd
 github.com/openshift-eng/openshift-tests-extension/pkg/cmd/cmdimages
@@ -90,6 +90,7 @@ github.com/openshift-eng/openshift-tests-extension/pkg/extension
 github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests
 github.com/openshift-eng/openshift-tests-extension/pkg/flags
 github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo
+github.com/openshift-eng/openshift-tests-extension/pkg/junit
 github.com/openshift-eng/openshift-tests-extension/pkg/util/sets
 github.com/openshift-eng/openshift-tests-extension/pkg/version
 # github.com/pkg/errors v0.9.1
