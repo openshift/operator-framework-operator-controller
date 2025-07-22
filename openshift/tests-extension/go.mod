@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
-	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250522124649-4ffcd156ec7c
+	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250722101414-8083129ab8f9
 	github.com/spf13/cobra v1.8.1
 )
 
