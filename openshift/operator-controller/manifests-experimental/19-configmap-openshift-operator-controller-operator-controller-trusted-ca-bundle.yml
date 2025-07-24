@@ -1,8 +1,0 @@
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    config.openshift.io/inject-trusted-cabundle: "true"
-  name: operator-controller-trusted-ca-bundle
-  namespace: openshift-operator-controller
