@@ -1,0 +1,27 @@
+# Default values for OLMv1.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# List of components to include
+options:
+  catalogd:
+    enabled: true
+    deployment:
+      image: ${CATALOGD_IMAGE}
+  operatorController:
+    enabled: false
+  openshift:
+    enabled: true
+
+# The set of namespaces
+namespaces:
+  olmv1:
+    name: openshift-catalogd
+
+# Deployment values for catalogd
+deployments:
+  templateSpec:
+    priorityClassName: system-cluster-critical
+    securityContext:
+      seLinuxOptions:
+        type: spc_t
