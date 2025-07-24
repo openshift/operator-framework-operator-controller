@@ -24,9 +24,8 @@ verify: ## Run downstream-specific verify
 	git diff --exit-code
 
 .PHONY: manifests
-manifests: $(KUSTOMIZE) $(YQ)
-	$(DIR)/operator-controller/generate-manifests.sh
-	$(DIR)/catalogd/generate-manifests.sh
+manifests: $(KUSTOMIZE) $(YQ) $(HELM)
+	$(DIR)/helm/generate-manifests.sh
 
 .PHONY: verify-manifests
 verify-manifests: manifests
