@@ -137,22 +137,6 @@ func main() {
 	// Add more removed test names below
 	)
 
-	// TODO: Init test framework for cluster-aware cases
-	// --------------------------------------------------
-	// The external binary doesn't currently init the test framework (e.g., kubeconfig, REST client).
-	// That's fine for now since our tests don't access the cluster.
-	// However, any test that does will fail when run with this binary.
-	//
-	// openshift-tests handles this via:
-	// - SuiteWithKubeTestInitializationPreSuite()
-	//   -> calls DecodeProvider() and InitializeTestFramework()
-	//
-	// We'll need to add similar logic when we start add the tests here.
-	//
-	// References:
-	// - https://github.com/openshift/origin/blob/main/pkg/cmd/openshift-tests/run/flags.go#L53
-	// - https://github.com/openshift/origin/blob/main/pkg/clioptions/clusterdiscovery/provider.go#L100
-
 	ext.AddSpecs(specs)
 	registry.Register(ext)
 
