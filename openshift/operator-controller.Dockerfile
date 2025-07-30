@@ -12,14 +12,18 @@ RUN make -f openshift/Makefile go-build-local && \
        make build && \
        mkdir -p /tmp/build && \
        cp ./bin/olmv1-tests-ext /tmp/build/olmv1-tests-ext && \
-       gzip -f /tmp/build/olmv1-tests-ext
+       gzip -f /tmp/build/olmv1-tests-ext && \
+       mkdir -p /tmp/build/testdata && \
+       cp -r ./testdata /tmp/build/testdata
 
 FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
 COPY --from=builder /tmp/build/olmv1-tests-ext.gz /usr/bin/olmv1-tests-ext.gz
+COPY --from=builder /tmp/build/testdata /testdata
 COPY openshift/operator-controller/cp-manifests /cp-manifests
 COPY openshift/operator-controller/manifests /openshift/manifests
+COPY openshift/operator-controller/manifests-experimental /openshift/manifests-experimental
 COPY openshift/operator-controller/manifests-experimental /openshift/manifests-experimental
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller" \
