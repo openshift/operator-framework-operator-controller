@@ -19,6 +19,7 @@ LDFLAGS := -X '$(GO_PKG_NAME)/pkg/version.CommitFromGit=$(GIT_COMMIT)' \
 
 METADATA := $(shell pwd)/.openshift-tests-extension/openshift_payload_olmv1.json
 
+
 #SECTION General
 
 # The help target prints out all targets with their descriptions organized
@@ -92,7 +93,6 @@ build: #HELP Build the extended tests binary
 update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
 	$(TOOLS_BIN_DIR)/olmv1-tests-ext update --component openshift:payload:olmv1
 	$(MAKE) clean-metadata
-
 
 # Ensure TestID is unique over time.
 # TestID is built over Product:Type:ComponentName:TestDescription
