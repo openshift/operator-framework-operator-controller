@@ -1,5 +1,115 @@
 [
   {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 Catalogs should be installed",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 New Catalog Install should fail to install if it has an invalid reference",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {services} are not specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {create} verb is not specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {ClusterRoleBindings} are not specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {ConfigMap:resourceNames} are not all specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {clusterextension/finalizer} is not specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {escalate, bind} is not specified",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] should install a cluster extension successfully",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] should install a cluster extension successfully",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] should fail to install a cluster extension successfully",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
     "name": "[sig-olmv1] OLMv1 should pass a trivial sanity check",
     "labels": {},
     "resources": {
@@ -11,6 +121,36 @@
   },
   {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs should be installed",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should install a cluster extension",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should fail to install a non-existing cluster extension",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
     "labels": {},
     "resources": {
       "isolation": {}

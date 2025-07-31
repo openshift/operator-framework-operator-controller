@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/test/extlogs"
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
 )
 
 // TestEnv holds the test environment state, including the Kubernetes REST config,
