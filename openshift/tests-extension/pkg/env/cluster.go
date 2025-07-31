@@ -5,6 +5,9 @@ import (
 	"os"
 
 	configv1 "github.com/openshift/api/config/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -13,7 +16,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/test/extlogs"
+	olmv1 "github.com/operator-framework/operator-controller/api/v1"
+
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
 )
 
 // TestEnv holds the test environment state, including the Kubernetes REST config,
@@ -63,12 +68,17 @@ func Init() *TestEnv {
 //		})
 func initTestEnv() *TestEnv {
 	cfg := getRestConfig()
-
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
 	isOcp := detectOpenShift(discoveryClient)
 
+	// Create the runtime scheme and register all necessary types
 	scheme := runtime.NewScheme()
+	utilruntime.Must(corev1.AddToScheme(scheme))
+	utilruntime.Must(rbacv1.AddToScheme(scheme))
+	utilruntime.Must(batchv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+	utilruntime.Must(olmv1.AddToScheme(scheme))
+
 	if isOcp {
 		utilruntime.Must(configv1.AddToScheme(scheme))
 	}
