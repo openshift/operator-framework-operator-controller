@@ -18,8 +18,6 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/onsi/gomega v1.35.1 h1:Cwbd75ZBPxFSuZ6T+rN/WCb/gOc6YgFBXLlZLhC7Ds4=
 github.com/onsi/gomega v1.35.1/go.mod h1:PvZbdDc8J6XJEpDK4HCuRBm8a6Fzp9/DmhC9C7yFlog=
-github.com/openshift-eng/openshift-tests-extension v0.0.0-20250522124649-4ffcd156ec7c h1:R5dI2oOF2RtS1sKtLrhW9KMg0ydzF0XM2Q//ma55nWI=
-github.com/openshift-eng/openshift-tests-extension v0.0.0-20250522124649-4ffcd156ec7c/go.mod h1:6gkP5f2HL0meusT0Aim8icAspcD1cG055xxBZ9yC68M=
 github.com/openshift-eng/openshift-tests-extension v0.0.0-20250722101414-8083129ab8f9 h1:4ZeSM80DVCb5WWB3Q/fyCI9jYXAl9bfrGnFvFONqzN4=
 github.com/openshift-eng/openshift-tests-extension v0.0.0-20250722101414-8083129ab8f9/go.mod h1:6gkP5f2HL0meusT0Aim8icAspcD1cG055xxBZ9yC68M=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20241205171354-8006f302fd12 h1:AKx/w1qpS8We43bsRgf8Nll3CGlDHpr/WAXvuedTNZI=
