@@ -20,8 +20,9 @@ import (
 	"github.com/spf13/cobra"
 
 	// The import below is necessary to ensure that the OLMv1 tests are registered with the extension.
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/commons"
+	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	_ "github/operator-framework-operator-controller/openshift/tests-extension/test"
-	"github/operator-framework-operator-controller/openshift/tests-extension/test/env"
 )
 
 func main() {
@@ -141,6 +142,8 @@ func main() {
 	// Initialize the environment before running any tests.
 	specs.AddBeforeAll(func() {
 		env.Init()
+		// Ensure that OLMv1 is enabled
+		commons.CheckFeatureCapability()
 	})
 
 	ext.AddSpecs(specs)
