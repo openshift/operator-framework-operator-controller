@@ -172,14 +172,8 @@ generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyI
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: k8s-pin kind-verify-versions fmt generate manifests crd-ref-docs generate-test-data #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
+verify: k8s-pin kind-verify-versions fmt generate manifests crd-ref-docs #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
 	git diff --exit-code
-
-# Renders registry+v1 bundles in test/convert
-# Used by CI in verify to catch regressions in the registry+v1 -> plain conversion code
-.PHONY: generate-test-data
-generate-test-data:
-	go run test/convert/generate-manifests.go
 
 .PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT) #EXHELP Fix lint issues
@@ -209,7 +203,7 @@ verify-crd-compatibility: $(CRD_DIFF) manifests
 #SECTION Test
 
 .PHONY: test
-test: manifests generate fmt lint test-unit test-e2e #HELP Run all tests.
+test: manifests generate fmt lint test-unit test-e2e test-regression #HELP Run all tests.
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
@@ -223,14 +217,14 @@ E2E_REGISTRY_NAME := docker-registry
 E2E_REGISTRY_NAMESPACE := operator-controller-e2e
 
 export REG_PKG_NAME := registry-operator
-export LOCAL_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
-export CLUSTER_REGISTRY_HOST := localhost:30000
+export CLUSTER_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
+export LOCAL_REGISTRY_HOST := localhost:30000
 export E2E_TEST_CATALOG_V1 := e2e/test-catalog:v1
 export E2E_TEST_CATALOG_V2 := e2e/test-catalog:v2
-export CATALOG_IMG := $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
+export CATALOG_IMG := $(CLUSTER_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
 .PHONY: test-ext-dev-e2e
-test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension create, upgrade and delete tests.
-	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) $(KIND) $(KIND_CLUSTER_NAME) $(E2E_REGISTRY_NAMESPACE)
+test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) #HELP Run extension create, upgrade and delete tests.
+	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) ${LOCAL_REGISTRY_HOST} ${CLUSTER_REGISTRY_HOST}
 	go test -count=1 -v ./test/extension-developer-e2e/...
 
 UNIT_TEST_DIRS := $(shell go list ./... | grep -v /test/)
@@ -251,6 +245,12 @@ test-unit: $(SETUP_ENVTEST) envtest-k8s-bins #HELP Run the unit tests
                 -count=1 -race -short \
                 $(UNIT_TEST_DIRS) \
                 -test.gocoverdir=$(COVERAGE_UNIT_DIR)
+
+COVERAGE_REGRESSION_DIR := $(ROOT_DIR)/coverage/regression
+.PHONY: test-regression
+test-regression: #HELP Run regression test
+	rm -rf $(COVERAGE_REGRESSION_DIR) && mkdir -p $(COVERAGE_REGRESSION_DIR)
+	go test -count=1 -v ./test/regression/... -cover -coverprofile ${ROOT_DIR}/coverage/regression.out -test.gocoverdir=$(COVERAGE_REGRESSION_DIR)
 
 .PHONY: image-registry
 E2E_REGISTRY_IMAGE=localhost/e2e-test-registry:devel
@@ -274,12 +274,14 @@ image-registry: ## Build the testdata catalog used for e2e tests and push it to 
 test-e2e: SOURCE_MANIFEST := $(STANDARD_E2E_MANIFEST)
 test-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-e2e: GO_BUILD_EXTRA_FLAGS := -cover
+test-e2e: COVERAGE_NAME := e2e
 test-e2e: run image-registry prometheus e2e e2e-metrics e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
 
 .PHONY: test-experimental-e2e
 test-experimental-e2e: SOURCE_MANIFEST := $(EXPERIMENTAL_E2E_MANIFEST)
 test-experimental-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-experimental-e2e: GO_BUILD_EXTRA_FLAGS := -cover
+test-experimental-e2e: COVERAGE_NAME := experimental-e2e
 test-experimental-e2e: run image-registry prometheus experimental-e2e e2e e2e-metrics e2e-coverage kind-clean #HELP Run experimental e2e test suite on local kind cluster
 
 .PHONY: prometheus
@@ -319,7 +321,7 @@ test-upgrade-e2e: kind-cluster run-latest-release image-registry pre-upgrade-set
 
 .PHONY: e2e-coverage
 e2e-coverage:
-	COVERAGE_OUTPUT=./coverage/e2e.out ./hack/test/e2e-coverage.sh
+	COVERAGE_NAME=$(COVERAGE_NAME) ./hack/test/e2e-coverage.sh
 
 #SECTION KIND Cluster Operations
 
