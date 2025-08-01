@@ -8,5 +8,5 @@ spec:
   source:
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/community-operator-index:v4.19
+      ref: registry.redhat.io/redhat/community-operator-index:v4.20
     type: Image
