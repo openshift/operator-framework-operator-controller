@@ -15,15 +15,45 @@ They use the framework: https://github.com/openshift-eng/openshift-tests-extensi
 | `./bin/olmv1-tests-ext run-suite olmv1/all`     | Runs the full OLMv1 test suite.                                          |
 | `./bin/olmv1-tests-ext run-test -n <test-name>` | Runs one specific test. Replace <test-name> with the test's full name.   |
 
-## How to Run the Tests locally
+
+## How to Run the Tests Locally
 
 The tests can be run locally using the `olmv1-tests-ext` binary against an OpenShift cluster or a vanilla Kubernetes cluster.
 Features and checks which are OpenShift-specific will be skipped when running against a vanilla Kubernetes cluster.
 
-Use the environment variable `KUBECONFIG` to point to your cluster configuration file.
+Use the environment variable `KUBECONFIG` to point to your cluster configuration file such as:
 
 ```shell
 KUBECONFIG=path/to/kubeconfig ./bin/olmv1-tests-ext run-test -n <test-name>
+```
+
+To run tests that include tech preview features, 
+you need a cluster with OLMv1 installed and those features enabled.
+
+### Local Test using OLMv1 and OCP
+
+1. Use the `Cluster Bot` to create an OpenShift cluster with OLMv1 installed.
+
+**Example:**
+
+```shell
+launch 4.20 gcp,techpreview
+```
+
+2. Set the `KUBECONFIG` environment variable to point to your OpenShift cluster configuration file.
+
+**Example:**
+
+```shell
+mv ~/Downloads/cluster-bot-2025-08-06-082741.kubeconfig ~/.kube/cluster-bot.kubeconfig
+export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
+```
+
+3. Run the tests using the `olmv1-tests-ext` binary.
+
+**Example:**
+```shell
+./bin/olmv1-tests-ext run-suite olmv1/all
 ```
 
 ### Local Test using OLMv1 and Kind
