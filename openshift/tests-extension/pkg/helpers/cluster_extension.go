@@ -86,3 +86,52 @@ func CreateClusterExtension(packageName, version string) (string, func()) {
 		_ = k8sClient.Delete(ctx, sa)
 	}
 }
+
+// NewServiceAccount creates a new ServiceAccount object in the openshift-operators namespace.
+func NewServiceAccount(name string) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: openshiftOperatorsNs,
+		},
+	}
+}
+
+// NewClusterRoleBinding creates a new ClusterRoleBinding object that binds a ClusterRole to a ServiceAccount.
+func NewClusterRoleBinding(name, roleName, saName string) *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      saName,
+			Namespace: openshiftOperatorsNs,
+		}},
+	}
+}
+
+// NewClusterExtensionObject creates a new ClusterExtension object with the specified package, version, name, and ServiceAccount.
+func NewClusterExtensionObject(pkg, version, ceName, saName string) *ocv1.ClusterExtension {
+	return &ocv1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{Name: ceName},
+		Spec: ocv1.ClusterExtensionSpec{
+			Namespace: openshiftOperatorsNs,
+			ServiceAccount: ocv1.ServiceAccountReference{
+				Name: saName,
+			},
+			Source: ocv1.SourceConfig{
+				SourceType: ocv1.SourceTypeCatalog,
+				Catalog: &ocv1.CatalogFilter{
+					PackageName:             pkg,
+					Version:                 version,
+					Selector:                &metav1.LabelSelector{},
+					UpgradeConstraintPolicy: ocv1.UpgradeConstraintPolicyCatalogProvided,
+				},
+			},
+		},
+	}
+}
