@@ -11,9 +11,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	configv1 "github.com/openshift/api/config/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
@@ -71,37 +73,49 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs", func() {
 })
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
+	var (
+		namespace string
+		k8sClient client.Client
+	)
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		k8sClient = env.Get().K8sClient
+		namespace = "install-test-ns-" + rand.String(4)
+
+		By(fmt.Sprintf("creating namespace %s", namespace))
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		Expect(k8sClient.Create(context.Background(), ns)).To(Succeed(), "failed to create test namespace")
+		DeferCleanup(func() {
+			_ = k8sClient.Delete(context.Background(), ns)
+		})
 	})
+
 	It("should install a cluster extension", func(ctx SpecContext) {
 		if !env.Get().IsOpenShift {
 			Skip("Requires OCP Catalogs: not OpenShift")
 		}
+
+		By("ensuring no ClusterExtension and CRD for quay-operator")
+		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0")
+		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0", namespace)
 		DeferCleanup(cleanup)
 
 		By("waiting for the quay-operator ClusterExtension to be installed")
-		Eventually(func(g Gomega) {
-			k8sClient := env.Get().K8sClient
-			ce := &olmv1.ClusterExtension{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, ce)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
-			g.Expect(progressing).ToNot(BeNil())
-			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue))
-
-			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
-			g.Expect(installed).ToNot(BeNil())
-			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue))
-		}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+		helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
 	})
 
 	It("should fail to install a non-existing cluster extension", func(ctx SpecContext) {
+		By("ensuring no ClusterExtension and CRD for non-existing operator")
+		helpers.EnsureCleanupClusterExtension(context.Background(), "does-not-exist", "") // No CRD expected for non-existing operator
+
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("does-not-exist", "99.99.99")
+		name, cleanup := helpers.CreateClusterExtension("does-not-exist", "99.99.99", namespace)
 		DeferCleanup(cleanup)
 
 		By("waiting for the ClusterExtension to exist")
@@ -135,11 +149,14 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			Skip("Requires OCP Catalogs: not OpenShift")
 		}
 
+		By("ensuring no ClusterExtension no ClusterExtension and CRD for cluster-logging")
+		helpers.EnsureCleanupClusterExtension(context.Background(), "cluster-logging", "clusterloggings.logging.openshift.io")
+
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("cluster-logging", "6.2.2")
+		name, cleanup := helpers.CreateClusterExtension("cluster-logging", "6.2.2", namespace)
 		DeferCleanup(cleanup)
 
-		By("waiting for the function-mesh ClusterExtension to be installed")
+		By("waiting for the cluster-logging ClusterExtension to be installed")
 		Eventually(func(g Gomega) {
 			k8sClient := env.Get().K8sClient
 			ce := &olmv1.ClusterExtension{}
