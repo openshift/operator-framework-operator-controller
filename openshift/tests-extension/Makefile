@@ -1,7 +1,8 @@
 # Get the directory where this Makefile is, so we can use it below for including
 # Include the same Bingo variables used by the project
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
-include $(DIR)/../../.bingo/Variables.mk
+# Use openshift's Bingo variables
+include $(DIR)/../.bingo/Variables.mk
 
 # Definitions for the extended tests
 
@@ -63,11 +64,27 @@ lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
 fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
 	$(GOLANGCI_LINT) run --fix
 
+# Bindata generation
+.PHONY: bindata
+bindata: $(GO_BINDATA)
+
+bindata: pkg/bindata/operator/operator.go
+pkg/bindata/operator/operator.go: $(shell find testdata/operator -type f)
+	mkdir -p $(@D)
+	$(GO_BINDATA) -pkg operator -o $@ -prefix "testdata/operator" testdata/operator/...
+	go fmt ./$(@D)/...
+
+bindata: pkg/bindata/catalog/catalog.go
+pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
+	mkdir -p $(@D)
+	$(GO_BINDATA) -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
+	go fmt ./$(@D)/...
+
 # GO_COMPLIANCE_POLICY="exempt_all" must only be used for test related binaries.
 # It prevents various FIPS compliance policies from being applied to this compilation.
 # Do not set globally.
 .PHONY: build
-build: #HELP Build the extended tests binary
+build: bindata #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
 	GO_COMPLIANCE_POLICY="exempt_all" go build -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
 
