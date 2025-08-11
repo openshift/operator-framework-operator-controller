@@ -1,10 +1,16 @@
 package env
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 
+	bsemver "github.com/blang/semver/v4"
+	buildv1 "github.com/openshift/api/build/v1"
 	configv1 "github.com/openshift/api/config/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -32,6 +38,9 @@ type TestEnv struct {
 
 	// True if the cluster is detected as an OpenShift environment
 	IsOpenShift bool
+
+	// Set to the MAJOR.MINOR version of OpenShift, blank otherwise
+	OpenShiftVersion string
 }
 
 // testEnv is the global shared instance used by all tests.
@@ -80,7 +89,10 @@ func initTestEnv() *TestEnv {
 	utilruntime.Must(olmv1.AddToScheme(scheme))
 
 	if isOcp {
+		utilruntime.Must(buildv1.AddToScheme(scheme))
 		utilruntime.Must(configv1.AddToScheme(scheme))
+		utilruntime.Must(imagev1.AddToScheme(scheme))
+		utilruntime.Must(operatorv1.AddToScheme(scheme))
 	}
 
 	k8sClient, err := crclient.New(cfg, crclient.Options{Scheme: scheme})
@@ -88,15 +100,31 @@ func initTestEnv() *TestEnv {
 		log.Fatalf("failed to create controller-runtime client: %v", err)
 	}
 
+	version := ""
 	if isOcp {
 		extlogs.Infof("[env] Cluster environment initialized (OpenShift: %t)", isOcp)
+		version = getOcpVersion(k8sClient)
 	}
 
 	return &TestEnv{
-		RestCfg:     cfg,
-		K8sClient:   k8sClient,
-		IsOpenShift: isOcp,
+		RestCfg:          cfg,
+		K8sClient:        k8sClient,
+		IsOpenShift:      isOcp,
+		OpenShiftVersion: version,
 	}
+}
+
+func getOcpVersion(c crclient.Client) string {
+	cv := &configv1.ClusterVersion{}
+	err := c.Get(context.Background(), crclient.ObjectKey{Name: "version"}, cv)
+	if err != nil {
+		return ""
+	}
+	v, err := bsemver.Parse(cv.Status.Desired.Version)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
 }
 
 // getRestConfig returns a Kubernetes REST config for the test client.
