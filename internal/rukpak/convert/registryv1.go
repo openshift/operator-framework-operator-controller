@@ -366,6 +366,17 @@ func Convert(in RegistryV1, installNamespace string, targetNamespaces []string) 
 	for _, obj := range in.Others {
 		obj := obj
 		supported, namespaced := registrybundle.IsSupported(obj.GetKind())
+		// NOTE: This is a hack to backport "NetworkPolicy object kind in bundles" support from
+		// https://github.com/operator-framework/operator-registry/pull/1675
+		// The feature was introduced in OCP 4.20 with a operator-registry bump to v1.55.0.
+		// Ref:
+		// 1. operator-registry v1.55.0 release: https://github.com/operator-framework/operator-registry/releases/tag/v1.55.0
+		// 2. operator-registry bump in OCP 4.20: https://github.com/operator-framework/operator-controller/pull/1981
+		// Because the upstream PR is not being backported in operator-registry to older tags (with new z stream releases),
+		// this achieves a downstream-only backport for this feature.
+		if obj.GetKind() == "NetworkPolicy" {
+			supported, namespaced = true, true
+		}
 		if !supported {
 			return nil, fmt.Errorf("bundle contains unsupported resource: Name: %v, Kind: %v", obj.GetName(), obj.GetKind())
 		}
