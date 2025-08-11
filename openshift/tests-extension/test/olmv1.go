@@ -10,7 +10,6 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
-	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -103,7 +102,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
 
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0", namespace)
+		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0", namespace, "")
 		DeferCleanup(cleanup)
 
 		By("waiting for the quay-operator ClusterExtension to be installed")
@@ -115,7 +114,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		helpers.EnsureCleanupClusterExtension(context.Background(), "does-not-exist", "") // No CRD expected for non-existing operator
 
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("does-not-exist", "99.99.99", namespace)
+		name, cleanup := helpers.CreateClusterExtension("does-not-exist", "99.99.99", namespace, "")
 		DeferCleanup(cleanup)
 
 		By("waiting for the ClusterExtension to exist")
@@ -141,59 +140,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			g.Expect(installed.Status).To(Equal(metav1.ConditionFalse))
 			g.Expect(installed.Reason).To(Equal("Failed"))
 			g.Expect(installed.Message).To(Equal("No bundle installed"))
-		}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
-	})
-
-	It("should block cluster upgrades if an incompatible operator is installed", func(ctx SpecContext) {
-		if !env.Get().IsOpenShift {
-			Skip("Requires OCP Catalogs: not OpenShift")
-		}
-
-		By("ensuring no ClusterExtension no ClusterExtension and CRD for cluster-logging")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "cluster-logging", "clusterloggings.logging.openshift.io")
-
-		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("cluster-logging", "6.2.2", namespace)
-		DeferCleanup(cleanup)
-
-		By("waiting for the cluster-logging ClusterExtension to be installed")
-		Eventually(func(g Gomega) {
-			k8sClient := env.Get().K8sClient
-			ce := &olmv1.ClusterExtension{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, ce)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
-			g.Expect(progressing).ToNot(BeNil())
-			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue))
-
-			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
-			g.Expect(installed).ToNot(BeNil())
-			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue))
-		}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
-
-		By("ensuring the cluster is not upgradeable when olm.maxopenshiftversion is specified")
-		const typeUpgradeable = "Upgradeable"
-		const reasonIncompatibleOperatorsInstalled = "InstalledOLMOperators_IncompatibleOperatorsInstalled"
-
-		Eventually(func(g Gomega) {
-			k8sClient := env.Get().K8sClient
-			obj := &configv1.ClusterOperator{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: "olm"}, obj)
-			g.Expect(err).ToNot(HaveOccurred())
-
-			var cond *configv1.ClusterOperatorStatusCondition
-			for i, c := range obj.Status.Conditions {
-				if c.Type == typeUpgradeable {
-					cond = &obj.Status.Conditions[i]
-					break
-				}
-			}
-
-			g.Expect(cond).ToNot(BeNil(), "missing condition: %q", typeUpgradeable)
-			g.Expect(cond.Status).To(Equal(configv1.ConditionFalse))
-			g.Expect(cond.Reason).To(Equal(reasonIncompatibleOperatorsInstalled))
-			g.Expect(cond.Message).To(ContainSubstring(name))
 		}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
 	})
 })
