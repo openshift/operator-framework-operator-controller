@@ -26,10 +26,12 @@ import (
 
 // CreateClusterExtension creates a ServiceAccount, ClusterRoleBinding, and ClusterExtension using typed APIs.
 // It returns the unique suffix and a cleanup function.
-func CreateClusterExtension(packageName, version, namespace string) (string, func()) {
+func CreateClusterExtension(packageName, version, namespace, unique string) (string, func()) {
 	ctx := context.TODO()
 	k8sClient := env.Get().K8sClient
-	unique := rand.String(4)
+	if unique == "" {
+		unique = rand.String(4)
+	}
 
 	saName := "install-test-sa-" + unique
 	crbName := "install-test-crb-" + unique
@@ -54,6 +56,7 @@ func CreateClusterExtension(packageName, version, namespace string) (string, fun
 
 	// Cleanup closure
 	return ceName, func() {
+		By("deleting CluserExtension, ClusterRoleBinding and ServiceAccount")
 		_ = k8sClient.Delete(ctx, ce)
 		_ = k8sClient.Delete(ctx, crb)
 		_ = k8sClient.Delete(ctx, sa)
