@@ -76,8 +76,10 @@ KUSTOMIZE_STANDARD_E2E_OVERLAY := config/overlays/standard-e2e
 KUSTOMIZE_EXPERIMENTAL_OVERLAY := config/overlays/experimental
 KUSTOMIZE_EXPERIMENTAL_E2E_OVERLAY := config/overlays/experimental-e2e
 
-export RELEASE_MANIFEST := operator-controller.yaml
-export RELEASE_INSTALL := install.sh
+export STANDARD_RELEASE_MANIFEST := operator-controller.yaml
+export STANDARD_RELEASE_INSTALL := install.sh
+export EXPERIMENTAL_RELEASE_MANIFEST := operator-controller-experimental.yaml
+export EXPERIMENTAL_RELEASE_INSTALL := install-experimental.sh
 export RELEASE_CATALOGS := default-catalogs.yaml
 
 # List of manifests that are checked in
@@ -172,14 +174,8 @@ generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyI
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: k8s-pin kind-verify-versions fmt generate manifests crd-ref-docs generate-test-data #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
+verify: k8s-pin kind-verify-versions fmt generate manifests crd-ref-docs #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
 	git diff --exit-code
-
-# Renders registry+v1 bundles in test/convert
-# Used by CI in verify to catch regressions in the registry+v1 -> plain conversion code
-.PHONY: generate-test-data
-generate-test-data:
-	go run test/convert/generate-manifests.go
 
 .PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT) #EXHELP Fix lint issues
@@ -209,7 +205,7 @@ verify-crd-compatibility: $(CRD_DIFF) manifests
 #SECTION Test
 
 .PHONY: test
-test: manifests generate fmt lint test-unit test-e2e #HELP Run all tests.
+test: manifests generate fmt lint test-unit test-e2e test-regression #HELP Run all tests.
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
@@ -223,14 +219,14 @@ E2E_REGISTRY_NAME := docker-registry
 E2E_REGISTRY_NAMESPACE := operator-controller-e2e
 
 export REG_PKG_NAME := registry-operator
-export LOCAL_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
-export CLUSTER_REGISTRY_HOST := localhost:30000
+export CLUSTER_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
+export LOCAL_REGISTRY_HOST := localhost:30000
 export E2E_TEST_CATALOG_V1 := e2e/test-catalog:v1
 export E2E_TEST_CATALOG_V2 := e2e/test-catalog:v2
-export CATALOG_IMG := $(LOCAL_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
-.PHONY: test-ext-dev-e2e
-test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension create, upgrade and delete tests.
-	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) $(KIND) $(KIND_CLUSTER_NAME) $(E2E_REGISTRY_NAMESPACE)
+export CATALOG_IMG := $(CLUSTER_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
+.PHONY: extension-developer-e2e
+extension-developer-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) #EXHELP Run extension create, upgrade and delete tests.
+	test/extension-developer-e2e/setup.sh $(OPERATOR_SDK) $(CONTAINER_RUNTIME) $(KUSTOMIZE) ${LOCAL_REGISTRY_HOST} ${CLUSTER_REGISTRY_HOST}
 	go test -count=1 -v ./test/extension-developer-e2e/...
 
 UNIT_TEST_DIRS := $(shell go list ./... | grep -v /test/)
@@ -251,6 +247,12 @@ test-unit: $(SETUP_ENVTEST) envtest-k8s-bins #HELP Run the unit tests
                 -count=1 -race -short \
                 $(UNIT_TEST_DIRS) \
                 -test.gocoverdir=$(COVERAGE_UNIT_DIR)
+
+COVERAGE_REGRESSION_DIR := $(ROOT_DIR)/coverage/regression
+.PHONY: test-regression
+test-regression: #HELP Run regression test
+	rm -rf $(COVERAGE_REGRESSION_DIR) && mkdir -p $(COVERAGE_REGRESSION_DIR)
+	go test -count=1 -v ./test/regression/... -cover -coverprofile ${ROOT_DIR}/coverage/regression.out -test.gocoverdir=$(COVERAGE_REGRESSION_DIR)
 
 .PHONY: image-registry
 E2E_REGISTRY_IMAGE=localhost/e2e-test-registry:devel
@@ -274,13 +276,15 @@ image-registry: ## Build the testdata catalog used for e2e tests and push it to 
 test-e2e: SOURCE_MANIFEST := $(STANDARD_E2E_MANIFEST)
 test-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-e2e: GO_BUILD_EXTRA_FLAGS := -cover
-test-e2e: run image-registry prometheus e2e e2e-metrics e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
+test-e2e: COVERAGE_NAME := e2e
+test-e2e: run image-registry prometheus e2e e2e-coverage kind-clean #HELP Run e2e test suite on local kind cluster
 
 .PHONY: test-experimental-e2e
 test-experimental-e2e: SOURCE_MANIFEST := $(EXPERIMENTAL_E2E_MANIFEST)
 test-experimental-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-experimental-e2e: GO_BUILD_EXTRA_FLAGS := -cover
-test-experimental-e2e: run image-registry prometheus experimental-e2e e2e e2e-metrics e2e-coverage kind-clean #HELP Run experimental e2e test suite on local kind cluster
+test-experimental-e2e: COVERAGE_NAME := experimental-e2e
+test-experimental-e2e: run image-registry prometheus experimental-e2e e2e e2e-coverage kind-clean #HELP Run experimental e2e test suite on local kind cluster
 
 .PHONY: prometheus
 prometheus: PROMETHEUS_NAMESPACE := olmv1-system
@@ -288,20 +292,14 @@ prometheus: PROMETHEUS_VERSION := v0.83.0
 prometheus: #EXHELP Deploy Prometheus into specified namespace
 	./hack/test/install-prometheus.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(KUSTOMIZE) $(VERSION)
 
-# The output alerts.out file contains any alerts, pending or firing, collected during a test run in json format.
-.PHONY: e2e-metrics
-e2e-metrics: ALERTS_FILE_PATH := $(if $(ARTIFACT_PATH),$(ARTIFACT_PATH),.)/alerts.out
-e2e-metrics: #EXHELP Request metrics from prometheus; place in ARTIFACT_PATH if set
-	curl -X GET http://localhost:30900/api/v1/alerts | jq 'if (.data.alerts | length) > 0 then .data.alerts.[] else empty end' > $(ALERTS_FILE_PATH)
-
-.PHONY: extension-developer-e2e
-extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e
-extension-developer-e2e: export INSTALL_DEFAULT_CATALOGS := false
-extension-developer-e2e: run image-registry test-ext-dev-e2e kind-clean #EXHELP Run extension-developer e2e on local kind cluster
+.PHONY: test-extension-developer-e2e
+test-extension-developer-e2e: KIND_CLUSTER_NAME := operator-controller-ext-dev-e2e
+test-extension-developer-e2e: export INSTALL_DEFAULT_CATALOGS := false
+test-extension-developer-e2e: run image-registry extension-developer-e2e kind-clean #HELP Run extension-developer e2e on local kind cluster
 
 .PHONY: run-latest-release
 run-latest-release:
-	curl -L -s https://github.com/operator-framework/operator-controller/releases/latest/download/$(notdir $(RELEASE_INSTALL)) | bash -s
+	curl -L -s https://github.com/operator-framework/operator-controller/releases/latest/download/$(notdir $(STANDARD_RELEASE_INSTALL)) | bash -s
 
 .PHONY: pre-upgrade-setup
 pre-upgrade-setup:
@@ -319,7 +317,7 @@ test-upgrade-e2e: kind-cluster run-latest-release image-registry pre-upgrade-set
 
 .PHONY: e2e-coverage
 e2e-coverage:
-	COVERAGE_OUTPUT=./coverage/e2e.out ./hack/test/e2e-coverage.sh
+	COVERAGE_NAME=$(COVERAGE_NAME) ./hack/test/e2e-coverage.sh
 
 #SECTION KIND Cluster Operations
 
@@ -329,7 +327,7 @@ kind-load: $(KIND) #EXHELP Loads the currently constructed images into the KIND 
 	$(CONTAINER_RUNTIME) save $(CATD_IMG) | $(KIND) load image-archive /dev/stdin --name $(KIND_CLUSTER_NAME)
 
 .PHONY: kind-deploy
-kind-deploy: export MANIFEST := $(RELEASE_MANIFEST)
+kind-deploy: export MANIFEST := $(STANDARD_RELEASE_MANIFEST)
 kind-deploy: export DEFAULT_CATALOG := $(RELEASE_CATALOGS)
 kind-deploy: manifests
 	@echo -e "\n\U1F4D8 Using $(SOURCE_MANIFEST) as source manifest\n"
@@ -436,13 +434,16 @@ release: $(GORELEASER) #EXHELP Runs goreleaser for the operator-controller. By d
 	OPCON_IMAGE_REPO=$(OPCON_IMAGE_REPO) CATD_IMAGE_REPO=$(CATD_IMAGE_REPO) $(GORELEASER) $(GORELEASER_ARGS)
 
 .PHONY: quickstart
-quickstart: export MANIFEST := "https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/$(notdir $(RELEASE_MANIFEST))"
+quickstart: export STANDARD_MANIFEST_URL := "https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/$(notdir $(STANDARD_RELEASE_MANIFEST))"
+quickstart: export EXPERIMENTAL_MANIFEST_URL := "https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/$(notdir $(EXPERIMENTAL_RELEASE_MANIFEST))"
 quickstart: export DEFAULT_CATALOG := "https://github.com/operator-framework/operator-controller/releases/download/$(VERSION)/$(notdir $(RELEASE_CATALOGS))"
 quickstart: manifests #EXHELP Generate the unified installation release manifests and scripts.
 	# Update the stored standard manifests for distribution
-	sed "s/:devel/:$(VERSION)/g" $(STANDARD_MANIFEST) | sed "s/cert-git-version/cert-$(VERSION)/g" > $(RELEASE_MANIFEST)
+	sed "s/:devel/:$(VERSION)/g" $(STANDARD_MANIFEST) | sed "s/cert-git-version/cert-$(VERSION)/g" > $(STANDARD_RELEASE_MANIFEST)
+	sed "s/:devel/:$(VERSION)/g" $(EXPERIMENTAL_MANIFEST) | sed "s/cert-git-version/cert-$(VERSION)/g" > $(EXPERIMENTAL_RELEASE_MANIFEST)
 	cp $(CATALOGS_MANIFEST) $(RELEASE_CATALOGS)
-	envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > $(RELEASE_INSTALL)
+	MANIFEST=$(STANDARD_MANIFEST_URL) envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > $(STANDARD_RELEASE_INSTALL)
+	MANIFEST=$(EXPERIMENTAL_MANIFEST_URL) envsubst '$$DEFAULT_CATALOG,$$CERT_MGR_VERSION,$$INSTALL_DEFAULT_CATALOGS,$$MANIFEST' < scripts/install.tpl.sh > $(EXPERIMENTAL_RELEASE_INSTALL)
 
 ##@ Docs
 

@@ -21,8 +21,10 @@ cover.out
 # Release output
 /dist/**
 /operator-controller.yaml
+/operator-controller-experimental.yaml
 /default-catalogs.yaml
 /install.sh
+/install-experimental.sh
 
 # vendored files
 vendor/
@@ -42,3 +44,6 @@ site
 .tiltbuild/
 .catalogd-tmp/
 .vscode
+
+# Tmporary files and directories
+/test/regression/convert/testdata/tmp/*
