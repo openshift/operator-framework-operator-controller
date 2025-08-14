@@ -1,16 +1,20 @@
+---
+# Source: olmv1/templates/namespace.yml
 apiVersion: v1
 kind: Namespace
 metadata:
   annotations:
+    olm.operatorframework.io/feature-set: standard
     openshift.io/node-selector: ""
     workload.openshift.io/allowed: management
   labels:
-    app.kubernetes.io/part-of: olm
-    openshift.io/cluster-monitoring: "true"
+    app.kubernetes.io/name: operator-controller
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/audit-version: latest
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: privileged
     pod-security.kubernetes.io/warn-version: latest
+    app.kubernetes.io/part-of: olm
+    openshift.io/cluster-monitoring: "true"
   name: openshift-operator-controller

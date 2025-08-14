@@ -12,6 +12,9 @@ COPY --from=builder /build/bin/catalogd /catalogd
 COPY openshift/catalogd/cp-manifests /cp-manifests
 COPY openshift/catalogd/manifests /openshift/manifests
 COPY openshift/catalogd/manifests-experimental /openshift/manifests-experimental
+COPY helm/olmv1 /openshift/helm/olmv1
+COPY openshift/helm/experimental.yaml /openshift/helm
+COPY openshift/helm/catalogd.yaml /openshift/helm/openshift.yaml
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Catalog Controller" \
       io.k8s.description="This is a component of OpenShift Container Platform that provides operator catalog support."
