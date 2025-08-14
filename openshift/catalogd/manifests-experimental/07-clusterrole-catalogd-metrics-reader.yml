@@ -1,0 +1,16 @@
+---
+# Source: olmv1/templates/rbac/clusterrole-common-metrics-reader.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  name: catalogd-metrics-reader
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get

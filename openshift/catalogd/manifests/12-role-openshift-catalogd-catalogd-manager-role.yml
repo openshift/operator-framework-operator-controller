@@ -1,0 +1,22 @@
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-catalogd-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: catalogd-manager-role
+  namespace: openshift-catalogd
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+      - serviceaccounts
+    verbs:
+      - get
+      - list
+      - watch

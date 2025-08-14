@@ -1,0 +1,46 @@
+---
+# Source: olmv1/templates/rbac/clusterrole-catalogd-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: catalogd-manager-role
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+rules:
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clustercatalogs
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clustercatalogs/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clustercatalogs/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - security.openshift.io
+    resources:
+      - securitycontextconstraints
+    resourceNames:
+      - privileged
+    verbs:
+      - use

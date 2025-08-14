@@ -1,0 +1,22 @@
+---
+# Source: olmv1/templates/openshift/role-openshift-config-manager-role.yml
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  name: catalogd-manager-role
+  namespace: openshift-config
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
