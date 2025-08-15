@@ -46,13 +46,11 @@ spec:
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
             - --catalogd-cas-dir=/var/ca-certs
+            - --pull-cas-dir=/var/ca-certs
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - /operator-controller
-          env:
-            - name: SSL_CERT_DIR
-              value: /var/ca-certs
           image: ${OPERATOR_CONTROLLER_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
