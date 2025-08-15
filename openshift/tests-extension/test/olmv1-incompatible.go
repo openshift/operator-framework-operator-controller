@@ -37,14 +37,23 @@ import (
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
+	var unique, nsName, ccName, rbName, opName string
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		unique = rand.String(8)
+		nsName = "install-test-ns-" + unique
+		ccName = "install-test-cc-" + unique
+		rbName = "install-test-rb-" + unique
+		opName = "install-test-op-" + unique
 	})
-	unique := rand.String(8)
-	nsName := "install-test-ns-" + unique
-	ccName := "install-test-cc-" + unique
-	rbName := "install-test-rb-" + unique
-	opName := "install-test-op-" + unique
+
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping for debugging")
+			helpers.DescribeAllClusterCatalogs(context.Background())
+			helpers.DescribeAllClusterExtensions(context.Background(), nsName)
+		}
+	})
 	It("should block cluster upgrades if an incompatible operator is installed", func(ctx SpecContext) {
 		if !env.Get().IsOpenShift {
 			Skip("Requires OCP APIs: not OpenShift")
@@ -316,6 +325,15 @@ func waitForBuildToFinish(ctx SpecContext, name, namespace string) {
 		g.Expect(cond).ToNot(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
 	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+
+	DeferCleanup(func() {
+		if CurrentSpecReport().Failed() {
+			if CurrentSpecReport().Failed() {
+				helpers.RunAndPrint(context.Background(), "get", "build", name, "-n", namespace, "-oyaml")
+				helpers.RunAndPrint(context.Background(), "logs", fmt.Sprintf("build/%s", name), "-n", namespace, "--tail=200")
+			}
+		}
+	})
 }
 
 func waitForClusterCatalogServing(ctx context.Context, name string) {

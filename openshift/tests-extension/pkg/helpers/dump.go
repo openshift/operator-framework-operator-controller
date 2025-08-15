@@ -105,9 +105,9 @@ func DescribeAllClusterExtensions(ctx context.Context, namespace string) {
 		return
 	}
 
-	for _, n := range names {
-		subHeader("describe %s", n)
-		RunAndPrint(ctx, "describe", "clusterextension", strings.TrimPrefix(n, "clusterextension/"), "-n", namespace)
+	for _, nm := range names {
+		subHeader("describe %s", nm)
+		RunAndPrint(ctx, "describe", nm, "-n", namespace)
 	}
 	fmt.Fprintln(GinkgoWriter)
 }
