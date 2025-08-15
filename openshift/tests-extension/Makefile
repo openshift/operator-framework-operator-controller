@@ -42,7 +42,7 @@ TOOLS_BIN_DIR := $(CURDIR)/bin
 
 #SECTION Development
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet lint verify-bindata
+verify: tidy fmt vet lint verify-metadata
 
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
@@ -84,12 +84,12 @@ pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 # It prevents various FIPS compliance policies from being applied to this compilation.
 # Do not set globally.
 .PHONY: build
-build: bindata #HELP Build the extended tests binary
+build: #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
 	GO_COMPLIANCE_POLICY="exempt_all" go build -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
 
 .PHONY: update-metadata
-update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
+update-metadata: build bindata #HELP Build and run 'update-metadata' to generate test metadata
 	$(TOOLS_BIN_DIR)/olmv1-tests-ext update --component openshift:payload:olmv1
 	$(MAKE) clean-metadata
 
@@ -142,16 +142,10 @@ clean-metadata: #HELP Remove 'codeLocations' from metadata JSON
 	@echo "Cleaning metadata (removing codeLocations)..."
 	@jq 'map(del(.codeLocations))' $(METADATA) > $(METADATA).tmp && mv $(METADATA).tmp $(METADATA)
 
-.PHONY: verify-metadata #HELP To verify that the metadata was properly update
+.PHONY: verify-metadata #HELP To verify that the metadata and bindata was properly update
 verify-metadata: update-metadata
-	@if ! git diff --exit-code $(METADATA); then \
+	@if ! git diff --exit-code >&/dev/null; then \
 		echo "ERROR: Metadata is out of date. Please run 'make build-update' and commit the result."; \
 		exit 1; \
 	fi
 
-.PHONY: verify-bindata #HELP To verify that the bindata was properly update
-verify-bindata: build bindata
-	@if ! git diff --exit-code $(METADATA); then \
-		echo "ERROR: bindata is out of date. Please run 'make build-update' and commit the result."; \
-		exit 1; \
-	fi
