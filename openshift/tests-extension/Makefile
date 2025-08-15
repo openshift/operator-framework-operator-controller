@@ -42,7 +42,7 @@ TOOLS_BIN_DIR := $(CURDIR)/bin
 
 #SECTION Development
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet lint
+verify: tidy fmt vet lint verify-bindata
 
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
@@ -146,5 +146,12 @@ clean-metadata: #HELP Remove 'codeLocations' from metadata JSON
 verify-metadata: update-metadata
 	@if ! git diff --exit-code $(METADATA); then \
 		echo "ERROR: Metadata is out of date. Please run 'make build-update' and commit the result."; \
+		exit 1; \
+	fi
+
+.PHONY: verify-bindata #HELP To verify that the bindata was properly update
+verify-bindata: build bindata
+	@if ! git diff --exit-code $(METADATA); then \
+		echo "ERROR: bindata is out of date. Please run 'make build-update' and commit the result."; \
 		exit 1; \
 	fi
