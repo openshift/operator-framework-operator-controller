@@ -21,6 +21,7 @@ export GO_BUILD_LDFLAGS := -s -w -X '$(VERSION_PATH).gitCommit=$(GIT_COMMIT)'
 verify: ## Run downstream-specific verify
 	$(MAKE) tidy fmt generate -C $(DIR)/../
 	$(MAKE) manifests
+	$(MAKE) -C tests-extension verify
 	git diff --exit-code
 
 .PHONY: manifests

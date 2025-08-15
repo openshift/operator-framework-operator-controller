@@ -42,7 +42,8 @@ TOOLS_BIN_DIR := $(CURDIR)/bin
 
 #SECTION Development
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet lint
+verify: bindata tidy fmt vet lint
+	git diff --exit-code
 
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
