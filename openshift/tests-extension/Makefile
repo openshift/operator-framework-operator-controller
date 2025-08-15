@@ -18,6 +18,7 @@ LDFLAGS := -X '$(GO_PKG_NAME)/pkg/version.CommitFromGit=$(GIT_COMMIT)' \
 
 
 METADATA := $(shell pwd)/.openshift-tests-extension/openshift_payload_olmv1.json
+GOTOOLCHAIN := go1.24.4
 
 #SECTION General
 
