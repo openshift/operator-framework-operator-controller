@@ -37,14 +37,32 @@ import (
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
+	var unique, nsName, ccName, rbName, opName string
+
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		unique = rand.String(8)
+		nsName = "install-test-ns-" + unique
+		ccName = "install-test-cc-" + unique
+		rbName = "install-test-rb-" + unique
+		opName = "install-test-op-" + unique
 	})
-	unique := rand.String(8)
-	nsName := "install-test-ns-" + unique
-	ccName := "install-test-cc-" + unique
-	rbName := "install-test-rb-" + unique
-	opName := "install-test-op-" + unique
+
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping for debugging")
+			helpers.DescribePods(ctx, nsName)
+			helpers.GetAllPodLogs(ctx, nsName)
+			helpers.DescribeClusterCatalogs(ctx)
+			helpers.DescribeAllClusterExtensions(ctx, nsName)
+
+			By("dumping specific resources")
+			helpers.RunAndPrint(ctx, "get", "imagestream.image.openshift.io", "-n", nsName, "-oyaml")
+			helpers.RunAndPrint(ctx, "get", "buildconfig.build.openshift.io", "-n", nsName, "-oyaml")
+			helpers.RunAndPrint(ctx, "get", "build.build.openshift.io", "-n", nsName, "-oyaml")
+			helpers.RunAndPrint(ctx, "get", "clustercatalogs.olm.operatorframework.io", "-oyaml")
+		}
+	})
 	It("should block cluster upgrades if an incompatible operator is installed", func(ctx SpecContext) {
 		if !env.Get().IsOpenShift {
 			Skip("Requires OCP APIs: not OpenShift")
@@ -59,10 +77,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			"VERSION":     testVersion,
 		}
 		By(fmt.Sprintf("testing against OCP %s", testVersion))
-
-		By("finding a k8s client")
-		cmdLine, err := getK8sCommandLineClient()
-		Expect(err).To(Succeed())
 
 		By("creating a new Namespace")
 		nsCleanup := createNamespace(nsName)
@@ -85,7 +99,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		DeferCleanup(fileCleanup)
 		By(fmt.Sprintf("created operator tarball %q", fileOperator))
 
-		By(fmt.Sprintf("starting the operator build with %q via RAW URL", cmdLine))
+		By("starting the operator build via RAW URL")
 		opArgs := []string{
 			"create",
 			"--raw",
@@ -96,7 +110,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			"-f",
 			fileOperator,
 		}
-		buildOperator := startBuild(cmdLine, opArgs...)
+		buildOperator := startBuild(opArgs...)
 
 		By(fmt.Sprintf("waiting for the build %q to finish", buildOperator.Name))
 		waitForBuildToFinish(ctx, buildOperator.Name, nsName)
@@ -114,7 +128,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		DeferCleanup(fileCleanup)
 		By(fmt.Sprintf("created catalog tarball %q", fileCatalog))
 
-		By(fmt.Sprintf("starting the catalog build with %q via RAW URL", cmdLine))
+		By("starting the catalog build via RAW URL")
 		catalogArgs := []string{
 			"create",
 			"--raw",
@@ -125,7 +139,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			"-f",
 			fileCatalog,
 		}
-		buildCatalog := startBuild(cmdLine, catalogArgs...)
+		buildCatalog := startBuild(catalogArgs...)
 
 		By(fmt.Sprintf("waiting for the build %q to finish", buildCatalog.Name))
 		waitForBuildToFinish(ctx, buildCatalog.Name, nsName)
@@ -320,6 +334,14 @@ func waitForBuildToFinish(ctx SpecContext, name, namespace string) {
 		g.Expect(cond).ToNot(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
 	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+
+	DeferCleanup(func() {
+		if CurrentSpecReport().Failed() {
+			helpers.RunAndPrint(context.Background(), "get", "build", name, "-n", namespace, "-oyaml")
+			helpers.RunAndPrint(context.Background(), "get", "pods", "-n", namespace, "-l", fmt.Sprintf("build=%s", name), "-owide")
+			helpers.RunAndPrint(context.Background(), "logs", fmt.Sprintf("build/%s", name), "-n", namespace, "--tail=200")
+		}
+	})
 }
 
 func waitForClusterCatalogServing(ctx context.Context, name string) {
@@ -386,18 +408,10 @@ func waitForClusterOperatorUpgradable(ctx SpecContext, name string) {
 	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
 }
 
-func getK8sCommandLineClient() (string, error) {
-	s, err := exec.LookPath("kubectl")
-	if err != nil {
-		s, err = exec.LookPath("oc")
-	}
-	return s, err
-}
-
-func startBuild(cmdLine string, args ...string) *buildv1.Build {
-	cmd := exec.Command(cmdLine, args...)
-	output, err := cmd.Output()
+func startBuild(args ...string) *buildv1.Build {
+	output, err := helpers.RunK8sCommand(context.Background(), args...)
 	Expect(err).To(Succeed(), printExitError(err))
+
 	/* The output is JSON of a build.build.openshift.io resource */
 	build := &buildv1.Build{}
 	Expect(json.Unmarshal(output, build)).To(Succeed(), "failed to unmarshal build")
