@@ -76,11 +76,11 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		namespace string
 		k8sClient client.Client
 	)
+
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		k8sClient = env.Get().K8sClient
 		namespace = "install-test-ns-" + rand.String(4)
-
 		By(fmt.Sprintf("creating namespace %s", namespace))
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -89,8 +89,17 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		}
 		Expect(k8sClient.Create(context.Background(), ns)).To(Succeed(), "failed to create test namespace")
 		DeferCleanup(func() {
+			By(fmt.Sprintf("deleting namespace %s", namespace))
 			_ = k8sClient.Delete(context.Background(), ns)
 		})
+	})
+
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping for debugging")
+			helpers.DescribeAllClusterCatalogs(context.Background())
+			helpers.DescribeAllClusterExtensions(context.Background(), namespace)
+		}
 	})
 
 	It("should install a cluster extension", func(ctx SpecContext) {
