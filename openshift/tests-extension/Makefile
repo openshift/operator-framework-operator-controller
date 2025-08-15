@@ -84,7 +84,7 @@ pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 # It prevents various FIPS compliance policies from being applied to this compilation.
 # Do not set globally.
 .PHONY: build
-build: bindata #HELP Build the extended tests binary
+build: #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
 	GO_COMPLIANCE_POLICY="exempt_all" go build -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
 
@@ -125,7 +125,7 @@ update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
 # This will regenerate the metadata without the test entry.
 #────────────────────────────────────────────────────────────────────
 .PHONY: build-update
-build-update: build update-metadata #HELP Build and update metadata and sanitize output
+build-update: bindata build update-metadata #HELP Build and update metadata and sanitize output
 
 #SECTION Metadata
 
