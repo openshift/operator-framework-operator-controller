@@ -60,10 +60,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		}
 		By(fmt.Sprintf("testing against OCP %s", testVersion))
 
-		By("finding a k8s client")
-		cmdLine, err := getK8sCommandLineClient()
-		Expect(err).To(Succeed())
-
 		By("creating a new Namespace")
 		nsCleanup := createNamespace(nsName)
 		DeferCleanup(nsCleanup)
@@ -85,7 +81,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		DeferCleanup(fileCleanup)
 		By(fmt.Sprintf("created operator tarball %q", fileOperator))
 
-		By(fmt.Sprintf("starting the operator build with %q via RAW URL", cmdLine))
+		By("starting the operator build via RAW URL")
 		opArgs := []string{
 			"create",
 			"--raw",
@@ -96,7 +92,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			"-f",
 			fileOperator,
 		}
-		buildOperator := startBuild(cmdLine, opArgs...)
+		buildOperator := startBuild(opArgs...)
 
 		By(fmt.Sprintf("waiting for the build %q to finish", buildOperator.Name))
 		waitForBuildToFinish(ctx, buildOperator.Name, nsName)
@@ -114,7 +110,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		DeferCleanup(fileCleanup)
 		By(fmt.Sprintf("created catalog tarball %q", fileCatalog))
 
-		By(fmt.Sprintf("starting the catalog build with %q via RAW URL", cmdLine))
+		By("starting the catalog build via RAW URL")
 		catalogArgs := []string{
 			"create",
 			"--raw",
@@ -125,7 +121,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			"-f",
 			fileCatalog,
 		}
-		buildCatalog := startBuild(cmdLine, catalogArgs...)
+		buildCatalog := startBuild(catalogArgs...)
 
 		By(fmt.Sprintf("waiting for the build %q to finish", buildCatalog.Name))
 		waitForBuildToFinish(ctx, buildCatalog.Name, nsName)
@@ -386,18 +382,10 @@ func waitForClusterOperatorUpgradable(ctx SpecContext, name string) {
 	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
 }
 
-func getK8sCommandLineClient() (string, error) {
-	s, err := exec.LookPath("kubectl")
-	if err != nil {
-		s, err = exec.LookPath("oc")
-	}
-	return s, err
-}
-
-func startBuild(cmdLine string, args ...string) *buildv1.Build {
-	cmd := exec.Command(cmdLine, args...)
-	output, err := cmd.Output()
+func startBuild(args ...string) *buildv1.Build {
+	output, err := helpers.RunK8sCommand(context.Background(), args...)
 	Expect(err).To(Succeed(), printExitError(err))
+
 	/* The output is JSON of a build.build.openshift.io resource */
 	build := &buildv1.Build{}
 	Expect(json.Unmarshal(output, build)).To(Succeed(), "failed to unmarshal build")
