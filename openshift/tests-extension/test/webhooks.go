@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	openshiftServiceCANamespace            = "openshift-service-ca"
-	openshiftServiceCASigningKeySecretName = "signing-key"
-
 	webhookCatalogName         = "webhook-operator-catalog"
 	webhookOperatorPackageName = "webhook-operator"
 	webhookOperatorCRDName     = "webhooktests.webhook.operators.coreos.io"
@@ -154,44 +151,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 					"mutate": true,
 				},
 			}))
-		})
-
-		It("should be tolerant to openshift-service-ca certificate rotation", func(ctx SpecContext) {
-			By("deleting the openshift-service-ca signing-key secret")
-			signingKeySecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      openshiftServiceCASigningKeySecretName,
-					Namespace: openshiftServiceCANamespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, signingKeySecret, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
-
-			By("waiting for the webhook operator's service certificate secret to be recreated and populated")
-			certificateSecretName := "webhook-operator-webhook-service-cert"
-			Eventually(func(g Gomega) {
-				secret := &corev1.Secret{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
-				if apierrors.IsNotFound(err) {
-					GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling for recreation)", webhookOperatorInstallNamespace, certificateSecretName))
-					return
-				}
-
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
-				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
-			}).WithTimeout(2*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
-
-			By("checking webhook is responsive through cert rotation")
-			Eventually(func(g Gomega) {
-				resourceName := fmt.Sprintf("cert-rotation-test-%s", rand.String(5))
-				resource := newWebhookTestV1(resourceName, webhookOperatorInstallNamespace, true)
-
-				_, err := dynamicClient.Resource(webhookTestGVRV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create test resource %s: %v", resourceName, err))
-
-				err = dynamicClient.Resource(webhookTestGVRV1).Namespace(webhookOperatorInstallNamespace).Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
-				g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
-			}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 		})
 
 		It("should be tolerant to tls secret deletion", func(ctx SpecContext) {

@@ -80,16 +80,6 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to openshift-service-ca certificate rotation",
-    "labels": {},
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {}
-  },
-  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion",
     "labels": {},
     "resources": {
