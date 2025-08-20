@@ -1,20 +1,92 @@
+---
+# Source: olmv1/templates/namespace.yml
 apiVersion: v1
 kind: Namespace
 metadata:
   annotations:
+    olm.operatorframework.io/feature-set: standard
     openshift.io/node-selector: ""
     workload.openshift.io/allowed: management
   labels:
-    app.kubernetes.io/part-of: olm
-    openshift.io/cluster-monitoring: "true"
+    app.kubernetes.io/name: operator-controller
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/audit-version: latest
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: privileged
     pod-security.kubernetes.io/warn-version: latest
+    app.kubernetes.io/part-of: olm
+    openshift.io/cluster-monitoring: "true"
   name: openshift-operator-controller
 ---
+# Source: olmv1/templates/networkpolicy/networkpolicy-olmv1-system-default-deny-all-traffic.yml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-default-deny-all-traffic
+  namespace: openshift-operator-controller
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: olmv1/templates/networkpolicy/networkpolicy-olmv1-system-operator-controller-controller-manager.yml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+spec:
+  egress:
+    - {}
+  ingress:
+    - ports:
+        - port: 8443
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: operator-controller
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: olmv1/templates/serviceaccount-olmv1-system-common-controller-manager.yml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/openshift/configmap-trusted-ca.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-trusted-ca-bundle
+  namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/crds/customresourcedefinition-clusterextensions.olm.operatorframework.io.yml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -586,118 +658,55 @@ spec:
       subresources:
         status: {}
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: operator-controller-controller-manager
-  namespace: openshift-operator-controller
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  labels:
-    app.kubernetes.io/name: catalogd
-    app.kubernetes.io/part-of: olm
-  name: operator-controller-manager-role
-  namespace: openshift-config
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: operator-controller-leader-election-role
-  namespace: openshift-operator-controller
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - coordination.k8s.io
-    resources:
-      - leases
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
-      - ""
-    resources:
-      - events
-    verbs:
-      - create
-      - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: operator-controller-manager-role
-  namespace: openshift-operator-controller
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - create
-      - delete
-      - deletecollection
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - serviceaccounts
-    verbs:
-      - get
-      - list
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  labels:
-    control-plane: operator-controller-controller-manager
-  name: operator-controller-metrics-monitor-role
-  namespace: openshift-operator-controller
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - services
-      - endpoints
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
----
+# Source: olmv1/templates/rbac/clusterrole-common-metrics-reader.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-reader
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+---
+# Source: olmv1/templates/rbac/clusterrole-common-proxy-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-proxy-role
+rules:
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+---
+# Source: olmv1/templates/rbac/clusterrole-operator-controller-clusterextension-editor-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-clusterextension-editor-role
 rules:
   - apiGroups:
@@ -713,9 +722,15 @@ rules:
       - update
       - watch
 ---
+# Source: olmv1/templates/rbac/clusterrole-operator-controller-clusterextension-viewer-role.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-clusterextension-viewer-role
 rules:
   - apiGroups:
@@ -727,10 +742,16 @@ rules:
       - list
       - watch
 ---
+# Source: olmv1/templates/rbac/clusterrole-operator-controller-manager-role.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: operator-controller-manager-role
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
 rules:
   - apiGroups:
       - ""
@@ -787,46 +808,182 @@ rules:
       - watch
   - apiGroups:
       - security.openshift.io
-    resourceNames:
-      - privileged
     resources:
       - securitycontextconstraints
+    resourceNames:
+      - privileged
     verbs:
       - use
 ---
+# Source: olmv1/templates/rbac/clusterrolebinding-common-manager-rolebinding.yml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: ClusterRoleBinding
 metadata:
-  name: operator-controller-metrics-reader
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operator-controller-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/rbac/clusterrolebinding-common-proxy-rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: operator-controller-proxy-role
+subjects:
+  - kind: ServiceAccount
+    name: operator-controller-controller-manager
+    namespace: openshift-operator-controller
+---
+# Source: olmv1/templates/openshift/role-openshift-config-manager-role.yml
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-manager-role
+  namespace: openshift-config
 rules:
-  - nonResourceURLs:
-      - /metrics
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
     verbs:
       - get
+      - list
+      - watch
 ---
+# Source: olmv1/templates/rbac/role-olmv1-system-common-leader-election-role.yml
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: operator-controller-proxy-role
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-leader-election-role
+  namespace: openshift-operator-controller
 rules:
   - apiGroups:
-      - authentication.k8s.io
+      - ""
     resources:
-      - tokenreviews
+      - configmaps
     verbs:
+      - get
+      - list
+      - watch
       - create
+      - update
+      - patch
+      - delete
   - apiGroups:
-      - authorization.k8s.io
+      - coordination.k8s.io
     resources:
-      - subjectaccessreviews
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
     verbs:
       - create
+      - patch
 ---
+# Source: olmv1/templates/rbac/role-olmv1-system-metrics-monitor-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  name: operator-controller-metrics-monitor-role
+  namespace: openshift-operator-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-operator-controller-manager-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operator-controller-manager-role
+  namespace: openshift-operator-controller
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+      - delete
+      - deletecollection
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: olmv1/templates/openshift/rolebinding-openshift-config-manager-rolebinding.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
   labels:
-    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/name: operator-controller
     app.kubernetes.io/part-of: olm
   name: operator-controller-manager-rolebinding
   namespace: openshift-config
@@ -839,9 +996,15 @@ subjects:
     name: operator-controller-controller-manager
     namespace: openshift-operator-controller
 ---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-common-leader-election-rolebinding.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-leader-election-rolebinding
   namespace: openshift-operator-controller
 roleRef:
@@ -853,9 +1016,15 @@ subjects:
     name: operator-controller-controller-manager
     namespace: openshift-operator-controller
 ---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-common-manager-rolebinding.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-manager-rolebinding
   namespace: openshift-operator-controller
 roleRef:
@@ -867,11 +1036,15 @@ subjects:
     name: operator-controller-controller-manager
     namespace: openshift-operator-controller
 ---
+# Source: olmv1/templates/rbac/rolebinding-olmv1-system-metrics-monitor-rolebinding.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
   labels:
-    control-plane: operator-controller-controller-manager
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-metrics-monitor-rolebinding
   namespace: openshift-operator-controller
 roleRef:
@@ -883,65 +1056,37 @@ subjects:
     name: prometheus-k8s
     namespace: openshift-monitoring
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: operator-controller-manager-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: operator-controller-manager-role
-subjects:
-  - kind: ServiceAccount
-    name: operator-controller-controller-manager
-    namespace: openshift-operator-controller
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: operator-controller-proxy-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: operator-controller-proxy-role
-subjects:
-  - kind: ServiceAccount
-    name: operator-controller-controller-manager
-    namespace: openshift-operator-controller
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    config.openshift.io/inject-trusted-cabundle: "true"
-  name: operator-controller-trusted-ca-bundle
-  namespace: openshift-operator-controller
----
+# Source: olmv1/templates/service-olmv1-system-operator-controller-service.yml
 apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    olm.operatorframework.io/feature-set: standard
     service.beta.openshift.io/serving-cert-secret-name: operator-controller-cert
   labels:
-    control-plane: operator-controller-controller-manager
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-service
   namespace: openshift-operator-controller
 spec:
   ports:
-    - name: https
+    - name: metrics
       port: 8443
       protocol: TCP
       targetPort: 8443
   selector:
-    control-plane: operator-controller-controller-manager
+    app.kubernetes.io/name: operator-controller
 ---
+# Source: olmv1/templates/deployment-olmv1-system-operator-controller-controller-manager.yml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
     kubectl.kubernetes.io/default-logs-container: manager
+    olm.operatorframework.io/feature-set: standard
   labels:
-    control-plane: operator-controller-controller-manager
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-controller-manager
   namespace: openshift-operator-controller
 spec:
@@ -953,27 +1098,14 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        olm.operatorframework.io/feature-set: standard
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
         openshift.io/required-scc: privileged
       labels:
+        app.kubernetes.io/name: operator-controller
         control-plane: operator-controller-controller-manager
+        app.kubernetes.io/part-of: olm
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/arch
-                    operator: In
-                    values:
-                      - amd64
-                      - arm64
-                      - ppc64le
-                      - s390x
-                  - key: kubernetes.io/os
-                    operator: In
-                    values:
-                      - linux
       containers:
         - args:
             - --health-probe-bind-address=:8081
@@ -982,20 +1114,21 @@ spec:
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
             - --catalogd-cas-dir=/var/ca-certs
-            - --pull-cas-dir=/var/ca-certs
             - --v=${LOG_VERBOSITY}
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - /operator-controller
-          image: ${OPERATOR_CONTROLLER_IMAGE}
-          imagePullPolicy: IfNotPresent
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
+          image: "${OPERATOR_CONTROLLER_IMAGE}"
+          name: manager
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8081
             initialDelaySeconds: 15
             periodSeconds: 20
-          name: manager
           readinessProbe:
             httpGet:
               path: /readyz
@@ -1006,13 +1139,6 @@ spec:
             requests:
               cpu: 10m
               memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            readOnlyRootFilesystem: true
-          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
             - mountPath: /var/cache
               name: cache
@@ -1029,29 +1155,15 @@ spec:
             - mountPath: /etc/docker
               name: etc-docker
               readOnly: true
-      nodeSelector:
-        kubernetes.io/os: linux
-        node-role.kubernetes.io/master: ""
-      securityContext:
-        runAsNonRoot: true
-        seLinuxOptions:
-          type: spc_t
-        seccompProfile:
-          type: RuntimeDefault
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          terminationMessagePolicy: FallbackToLogsOnError
       serviceAccountName: operator-controller-controller-manager
-      terminationGracePeriodSeconds: 10
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        - effect: NoExecute
-          key: node.kubernetes.io/unreachable
-          operator: Exists
-          tolerationSeconds: 120
-        - effect: NoExecute
-          key: node.kubernetes.io/not-ready
-          operator: Exists
-          tolerationSeconds: 120
       volumes:
         - emptyDir: {}
           name: cache
@@ -1089,14 +1201,56 @@ spec:
             path: /etc/docker
             type: Directory
           name: etc-docker
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - arm64
+                      - ppc64le
+                      - s390x
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/control-plane: ""
       priorityClassName: system-cluster-critical
+      securityContext:
+        runAsNonRoot: true
+        seLinuxOptions:
+          type: spc_t
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 10
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 120
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 120
 ---
+# Source: olmv1/templates/servicemonitor-olmv1-system-metrics-monitor.yml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
   labels:
-    control-plane: operator-controller-controller-manager
-    openshift.io/cluster-monitoring: "true"
+    openshift.io/cluster-monitoring: 'true'
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
   name: operator-controller-metrics-monitor
   namespace: openshift-operator-controller
 spec:
@@ -1104,7 +1258,7 @@ spec:
     - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       interval: 30s
       path: /metrics
-      port: https
+      port: metrics
       scheme: https
       tlsConfig:
         caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
@@ -1116,34 +1270,4 @@ spec:
       - openshift-operator-controller
   selector:
     matchLabels:
-      control-plane: operator-controller-controller-manager
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: operator-controller-controller-manager
-  namespace: openshift-operator-controller
-spec:
-  egress:
-    - {}
-  ingress:
-    - ports:
-        - port: 8443
-          protocol: TCP
-  podSelector:
-    matchLabels:
-      control-plane: operator-controller-controller-manager
-  policyTypes:
-    - Ingress
-    - Egress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: operator-controller-default-deny-all-traffic
-  namespace: openshift-operator-controller
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
+      app.kubernetes.io/name: operator-controller
