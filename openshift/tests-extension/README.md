@@ -158,6 +158,14 @@ This ensures compatibility when running tests in non-OpenShift environments such
     - Run `make update-metadata` or `make build-update`
     - Run `make verify` to check formatting, linting, and validation
 
+**IMPORTANT** Ensure that you either test any new test with `/payload-aggregate`
+to avoid issues with Sippy or other tools due flakes. Run at least 5 times.
+
+**Examples**
+
+- For `[Serial]` tests run: `/payload-aggregate periodic-ci-openshift-release-master-ci-4.20-e2e-gcp-ovn-techpreview-serial 5`
+- For others run: `/payload-aggregate periodic-ci-openshift-release-master-ci-4.20-e2e-gcp-ovn-techpreview 5`
+
 ## How to Rename a Test
 
 1. Run `make list-test-names` to see the current test names
