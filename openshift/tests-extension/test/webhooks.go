@@ -240,12 +240,16 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 
 		It("should be tolerant to tls secret deletion", func(ctx SpecContext) {
 			certificateSecretName := webhookServiceCert
-			By("ensuring secret exists before deletion attempt")
+			var oldSecretResourceVersion string
+
+			By("ensuring secret exists before deletion attempt and getting its ResourceVersion")
 			Eventually(func(g Gomega) {
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+				oldSecretResourceVersion = secret.ResourceVersion
+				g.Expect(oldSecretResourceVersion).ToNot(BeEmpty(), "expected secret ResourceVersion to not be empty")
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 			By("checking webhook is responsive through secret recreation after manual deletion")
 			tlsSecret := &corev1.Secret{
@@ -286,6 +290,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 					return
 				}
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
+				g.Expect(secret.ResourceVersion).ToNot(Equal(oldSecretResourceVersion), "expected secret ResourceVersion to be different from the old one")
 				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
 			}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
 
