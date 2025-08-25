@@ -8,13 +8,13 @@ cssselect==1.3.0
 ghp-import==2.1.0
 idna==3.10
 Jinja2==3.1.6
-lxml==6.0.0
+lxml==6.0.1
 Markdown==3.8.2
 markdown2==2.5.4
 MarkupSafe==3.0.2
 mergedeep==1.3.4
 mkdocs==1.6.1
-mkdocs-material==9.6.17
+mkdocs-material==9.6.18
 mkdocs-material-extensions==1.3.1
 packaging==25.0
 paginate==0.5.7
