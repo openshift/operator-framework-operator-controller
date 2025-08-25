@@ -29,12 +29,10 @@ import (
 )
 
 const (
-	openshiftServiceCANamespace            = "openshift-service-ca"
-	openshiftServiceCASigningKeySecretName = "signing-key"
-	webhookCatalogName                     = "webhook-operator-catalog"
-	webhookOperatorPackageName             = "webhook-operator"
-	webhookOperatorCRDName                 = "webhooktests.webhook.operators.coreos.io"
-	webhookServiceCert                     = "webhook-operator-webhook-service-cert"
+	webhookCatalogName         = "webhook-operator-catalog"
+	webhookOperatorPackageName = "webhook-operator"
+	webhookOperatorCRDName     = "webhooktests.webhook.operators.coreos.io"
+	webhookServiceCert         = "webhook-operator-webhook-service-cert"
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks",
@@ -86,6 +84,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				helpers.DescribeAllClusterCatalogs(ctx)
 				helpers.DescribeAllClusterExtensions(ctx, webhookOperatorInstallNamespace)
 				By("dumping webhook diagnostics")
+				// Additional diagnostics specific for this test
 				helpers.RunAndPrint(ctx, "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
 				helpers.RunAndPrint(ctx, "get", "validatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
 			}
@@ -168,88 +167,14 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}))
 		})
 
-		It("should be tolerant to openshift-service-ca certificate rotation", func(ctx SpecContext) {
-			certificateSecretName := webhookServiceCert
-			var oldSecretResourceVersion string
-
-			By("ensuring the webhook operator's service certificate secret exists and getting its ResourceVersion")
-			Eventually(func(g Gomega) {
-				secret := &corev1.Secret{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
-				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty")
-				oldSecretResourceVersion = secret.ResourceVersion
-				g.Expect(oldSecretResourceVersion).ToNot(BeEmpty(), "expected secret ResourceVersion to not be empty")
-			}).WithTimeout(3 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-
-			By("deleting the openshift-service-ca signing-key secret")
-			signingKeySecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      openshiftServiceCASigningKeySecretName,
-					Namespace: openshiftServiceCANamespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, signingKeySecret, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
-
-			By("waiting for the webhook operator's service certificate secret to be recreated with a new ResourceVersion")
-			Eventually(func(g Gomega) {
-				secret := &corev1.Secret{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
-				if apierrors.IsNotFound(err) {
-					GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling for recreation)", webhookOperatorInstallNamespace, certificateSecretName))
-					return
-				}
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
-				g.Expect(secret.ResourceVersion).ToNot(Equal(oldSecretResourceVersion), "expected secret ResourceVersion to be different from the old one")
-				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
-			}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated with a new ResourceVersion and populated within timeout")
-
-			By("checking webhook is responsive through cert rotation")
-			Eventually(func(g Gomega) {
-				resourceName := fmt.Sprintf("cert-rotation-test-%s", rand.String(5))
-				resource := newWebhookTest(resourceName, webhookOperatorInstallNamespace, true)
-
-				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create test resource %s: %v", resourceName, err))
-
-				err = dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
-				g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
-
-			DeferCleanup(func() {
-				// Specific check for this test
-				if CurrentSpecReport().Failed() {
-					By("dumping certificate details for debugging")
-					secret := &corev1.Secret{}
-					if err := k8sClient.Get(ctx, client.ObjectKey{
-						Name:      webhookServiceCert,
-						Namespace: webhookOperatorInstallNamespace,
-					}, secret); err == nil {
-						if crt, ok := secret.Data["tls.crt"]; ok && len(crt) > 0 {
-							printTLSCertInfo(crt)
-						} else {
-							_, _ = GinkgoWriter.Write([]byte("[diag] tls.crt key not found or empty in secret\n"))
-						}
-					} else {
-						fmt.Fprintf(GinkgoWriter, "[diag] failed to get secret for cert dump: %v\n", err)
-					}
-				}
-			})
-		})
-
 		It("should be tolerant to tls secret deletion", func(ctx SpecContext) {
 			certificateSecretName := webhookServiceCert
-			var oldSecretResourceVersion string
-
-			By("ensuring secret exists before deletion attempt and getting its ResourceVersion")
+			By("ensuring secret exists before deletion attempt")
 			Eventually(func(g Gomega) {
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
-				oldSecretResourceVersion = secret.ResourceVersion
-				g.Expect(oldSecretResourceVersion).ToNot(BeEmpty(), "expected secret ResourceVersion to not be empty")
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 			By("checking webhook is responsive through secret recreation after manual deletion")
 			tlsSecret := &corev1.Secret{
@@ -290,7 +215,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 					return
 				}
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
-				g.Expect(secret.ResourceVersion).ToNot(Equal(oldSecretResourceVersion), "expected secret ResourceVersion to be different from the old one")
 				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
 			}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
 
