@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
@@ -202,7 +203,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 	})
 	It("should fail to install if it has an invalid reference", func(ctx SpecContext) {
-		catName := "bad-catalog"
+		unique := rand.String(4)
+		catName := "bad-catalog-" + unique
 		imageRef := "example.com/does-not-exist:latest"
 
 		By("creating the malformed catalog with an invalid image ref")
