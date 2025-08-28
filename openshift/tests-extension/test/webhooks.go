@@ -95,6 +95,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}
 		})
 
+		AfterAll(func(ctx SpecContext) {
+			helpers.EnsureCleanupClusterCatalog(ctx, webhookCatalogName)
+		})
+
 		It("should have a working validating webhook", func(ctx SpecContext) {
 			By("creating a webhook test resource that will be rejected by the validating webhook")
 			Eventually(func() error {
