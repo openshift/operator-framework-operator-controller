@@ -143,6 +143,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/control-plane: ""
+        node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
       securityContext:
         runAsNonRoot: true
@@ -154,6 +155,9 @@ spec:
       tolerations:
         - effect: NoSchedule
           key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
           operator: Exists
         - effect: NoExecute
           key: node.kubernetes.io/unreachable
