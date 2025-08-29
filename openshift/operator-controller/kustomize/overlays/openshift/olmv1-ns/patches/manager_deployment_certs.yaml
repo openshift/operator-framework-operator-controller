@@ -20,8 +20,8 @@
   path: /spec/template/spec/containers/0/args/-
   value: "--catalogd-cas-dir=/var/ca-certs"
 - op: add
-  path: /spec/template/spec/containers/0/args/-
-  value: "--pull-cas-dir=/var/ca-certs"
+  path: /spec/template/spec/containers/0/env
+  value: [{"name":"SSL_CERT_DIR", "value":"/var/ca-certs"}]
 - op: add
   path: /spec/template/spec/securityContext/seLinuxOptions
   value: {"type":"spc_t"}

@@ -46,12 +46,14 @@ spec:
             - --external-address=catalogd-service.openshift-catalogd.svc
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
-            - --pull-cas-dir=/var/ca-certs
             - --v=${LOG_VERBOSITY}
             - --feature-gates=APIV1MetasHandler=true
             - --global-pull-secret=openshift-config/pull-secret
           command:
             - ./catalogd
+          env:
+            - name: SSL_CERT_DIR
+              value: /var/ca-certs
           image: ${CATALOGD_IMAGE}
           imagePullPolicy: IfNotPresent
           livenessProbe:
