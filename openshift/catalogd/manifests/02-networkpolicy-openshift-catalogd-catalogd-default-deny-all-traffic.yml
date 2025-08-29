@@ -1,0 +1,17 @@
+---
+# Source: olmv1/templates/networkpolicy/networkpolicy-olmv1-system-default-deny-all-traffic.yml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  name: catalogd-default-deny-all-traffic
+  namespace: openshift-catalogd
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
