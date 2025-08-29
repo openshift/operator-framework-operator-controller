@@ -1114,7 +1114,6 @@ spec:
             - --feature-gates=WebhookProviderOpenshiftServiceCA=true
             - --feature-gates=SingleOwnNamespaceInstallSupport=true
             - --feature-gates=PreflightPermissions=true
-            - --feature-gates=HelmChartSupport=true
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
             - --catalogd-cas-dir=/var/ca-certs
@@ -1224,6 +1223,7 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/control-plane: ""
+        node-role.kubernetes.io/master: ""
       priorityClassName: system-cluster-critical
       securityContext:
         runAsNonRoot: true
@@ -1234,7 +1234,7 @@ spec:
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
+          key: node-role.kubernetes.io/master
           operator: Exists
         - effect: NoExecute
           key: node.kubernetes.io/unreachable
