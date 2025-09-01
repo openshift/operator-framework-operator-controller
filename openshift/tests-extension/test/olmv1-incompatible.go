@@ -30,10 +30,10 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
-	catalogdata "github/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/catalog"
-	operatordata "github/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/operator"
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
+	catalogdata "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/catalog"
+	operatordata "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/operator"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
