@@ -24,7 +24,7 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
 )
 
 // TestEnv holds the test environment state, including the Kubernetes REST config,
@@ -102,7 +102,7 @@ func initTestEnv() *TestEnv {
 
 	version := ""
 	if isOcp {
-		extlogs.Infof("[env] Cluster environment initialized (OpenShift: %t)", isOcp)
+		extlogs.Infof("[env] Cluster environment initialized (OpenShift: %t)\n", isOcp)
 		version = getOcpVersion(k8sClient)
 	}
 
@@ -138,10 +138,10 @@ func getRestConfig() *rest.Config {
 		if err != nil {
 			log.Fatalf("Failed to load kubeconfig from %s: %v", kubeconfig, err)
 		}
-		extlogs.Infof("[env] Using kubeconfig: %s", kubeconfig)
+		extlogs.Infof("[env] Using kubeconfig: %s\n", kubeconfig)
 		return configureQPS(cfg)
 	}
-	extlogs.Infof("[env] Using in-cluster configuration: %s", kubeconfig)
+	extlogs.Infof("[env] Using in-cluster configuration: %s\n", kubeconfig)
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("Failed to load in-cluster config: %v", err)
