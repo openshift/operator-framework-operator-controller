@@ -12,8 +12,8 @@ import (
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
 )
 
 // RequireOLMv1CapabilityOnOpenshift checks if the OpenShift cluster has

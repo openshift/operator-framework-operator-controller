@@ -80,6 +80,14 @@ pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 	$(GO_BINDATA) -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
 	go fmt ./$(@D)/...
 
+bindata: test/extended/testdata/bindata.go
+test/extended/testdata/bindata.go: $(shell find test/extended/testdata -type f ! -name 'bindata.go')
+	mkdir -p $(@D)
+	$(GO_BINDATA) -nocompress -nometadata \
+		-pkg testdata -o $@ -prefix "testextended" \
+		-ignore "test/extended/testdata/bindata.go" test/extended/testdata/...
+	gofmt -s -w $@
+
 # GO_COMPLIANCE_POLICY="exempt_all" must only be used for test related binaries.
 # It prevents various FIPS compliance policies from being applied to this compilation.
 # Do not set globally.
