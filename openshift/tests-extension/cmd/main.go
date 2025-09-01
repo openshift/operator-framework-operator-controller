@@ -19,8 +19,10 @@ import (
 	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/spf13/cobra"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
-	_ "github/operator-framework-operator-controller/openshift/tests-extension/test"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
+	_ "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test"
+	_ "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/specs"
+	exutil "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util"
 )
 
 func main() {
@@ -48,11 +50,13 @@ func main() {
 	// Contains fast, parallel-safe test cases only.
 	// Excludes any tests labeled [Serial] or [Slow].
 	// Note: Tests with [Serial] and [Slow] cannot run with openshift/conformance/parallel.
+	// Note: It includes the extended cases which match the openshift-tests.
 	ext.AddSuite(e.Suite{
 		Name:    "olmv1/parallel",
 		Parents: []string{"openshift/conformance/parallel"},
 		Qualifiers: []string{
-			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
+			`((!labels.exists(l, l=="Extended")) || (labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate"))) &&
+			!(name.contains("[Serial]") || name.contains("[Slow]"))`,
 		},
 	})
 
@@ -60,11 +64,14 @@ func main() {
 	// ---------------------------------------------------------------
 	// Contains tests explicitly labeled [Serial].
 	// These tests are typically disruptive and must run one at a time.
+	// Note: It includes the extended cases which match the openshift-tests.
 	ext.AddSuite(e.Suite{
 		Name:    "olmv1/serial",
 		Parents: []string{"openshift/conformance/serial"},
 		Qualifiers: []string{
-			`name.contains("[Serial]")`,
+			`((!labels.exists(l, l=="Extended")) || (labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate"))) &&
+			(name.contains("[Serial]") && !name.contains("[Disruptive]") && !name.contains("[Slow]"))`,
+			// refer to https://github.com/openshift/origin/blob/main/pkg/testsuites/standard_suites.go#L456
 		},
 	})
 
@@ -72,25 +79,116 @@ func main() {
 	// 	// ---------------------------------------------------------------
 	// Contains tests labeled [Slow], which take significant time to run.
 	// These are not allowed in fast/parallel suites, and should run in optional/slow jobs.
+	// Note: It includes the extended cases which match the openshift-tests.
 	ext.AddSuite(e.Suite{
 		Name:    "olmv1/slow",
 		Parents: []string{"openshift/optional/slow"},
 		Qualifiers: []string{
-			`name.contains("[Slow]")`,
+			`((!labels.exists(l, l=="Extended")) || (labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate"))) &&
+			name.contains("[Slow]")`,
 		},
 	})
 
 	// Suite: olmv1/all
 	// ---------------------------------------------------------------
 	// All tests in one suite: includes [Serial], [Slow], [Disruptive], etc.
+	// Note: It includes the extended cases which match the openshift-tests.
 	ext.AddSuite(e.Suite{
 		Name: "olmv1/all",
+		Qualifiers: []string{
+			`(!labels.exists(l, l=="Extended")) || (labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate"))`,
+		},
+	})
+
+	// Extended Suite: All extended tests
+	// Contains all extended tests migrated from tests-private repository
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended",
+		Qualifiers: []string{
+			`labels.exists(l, l=="Extended")`,
+		},
+	})
+
+	// Extended ReleaseGate Suite: extended tests that meet OpenShift CI requirements
+	// Contains extended tests marked as release gate for openshift-tests
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/releasegate",
+		Qualifiers: []string{
+			`labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate")`,
+		},
+	})
+
+	// Extended Candidate Suite: Extended tests that don't meet OpenShift CI requirements
+	// Contains extended tests that are not for openshift-tests (run in custom periodic jobs only)
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate",
+		Qualifiers: []string{
+			`labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate")`,
+		},
+	})
+
+	// Extended Candidate Suite Parallel Suite: extended tests that can run in parallel
+	// Contains extended tests that can run concurrently (excludes Serial, Slow, and StressTest)
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate/parallel",
+		Qualifiers: []string{
+			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
+			!(name.contains("[Serial]") || name.contains("[Slow]"))`,
+		},
+	})
+	// Extended Candidate Serial Suite: extended tests that must run one at a time
+	// Contains extended tests marked as [Serial] (includes Disruptive tests since not used for openshift-tests)
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate/serial",
+		Qualifiers: []string{
+			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
+			(name.contains("[Serial]") && !name.contains("[Slow]"))`,
+			// it is not used for openshift-tests, so it does not exclude Disruptive, so that we could use
+			// olmv1/extended/candidate/serial to run all serial case including Disruptive cases
+		},
+	})
+	// Extended Candidate Slow Suite: extended tests that take significant time to run
+	// Contains extended tests marked as [Slow] (long-running tests not suitable for fast CI)
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate/slow",
+		Qualifiers: []string{
+			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
+			name.contains("[Slow]")`,
+		},
+	})
+	// Extended Candidate Stress Suite: extended stress tests
+	// Contains extended tests designed for stress testing and resource exhaustion scenarios
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate/stress",
+		Qualifiers: []string{
+			`labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && labels.exists(l, l=="StressTest")`,
+		},
 	})
 
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
 	}
+
+	// Automatically identify and label extended tests: select all tests from the specs directory and add the "Extended" label
+	specs.Select(exutil.Olmv1QeTestsOnly()).AddLabel("Extended")
+	// Process all test specs to apply extended-specific transformations and topology exclusions
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		if spec.Labels.Has("Extended") {
+			// Change blocking tests to informing unless marked as ReleaseGate
+			if !spec.Labels.Has("ReleaseGate") && spec.Lifecycle == "blocking" {
+				spec.Lifecycle = "informing"
+			}
+			// Exclude External topology for NonHyperShiftHOST tests
+			if spec.Labels.Has("NonHyperShiftHOST") {
+				spec.Exclude(et.TopologyEquals("External"))
+			}
+			// Include External Connecttivity for Disconnected only tests
+			if strings.Contains(spec.Name, "[Skipped:Connected]") {
+				spec.Include(et.ExternalConnectivityEquals("Disconnected"))
+			}
+		}
+	})
 
 	// Ensure `[Disruptive]` tests are always also marked `[Serial]`.
 	// This prevents them from running in parallel suites, which could cause flaky failures
@@ -140,6 +238,7 @@ func main() {
 	// Initialize the environment before running any tests.
 	specs.AddBeforeAll(func() {
 		env.Init()
+		exutil.InitClusterEnv()
 	})
 
 	ext.AddSpecs(specs)
