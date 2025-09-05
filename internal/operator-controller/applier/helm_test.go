@@ -3,6 +3,7 @@ package applier_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,6 +28,7 @@ import (
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/authorization"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/features"
+	registryv1Bundle "github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/convert"
 )
@@ -557,8 +560,8 @@ func TestApply_InstallationWithSingleOwnNamespaceInstallSupportEnabled(t *testin
 				},
 			},
 			BundleToHelmChartConverter: &fakeBundleToHelmChartConverter{
-				fn: func(bundle source.BundleSource, installNamespace string, watchNamespace string) (*chart.Chart, error) {
-					require.Equal(t, expectedWatchNamespace, watchNamespace)
+				fn: func(bundle source.BundleSource, installNamespace string, config map[string]interface{}) (*chart.Chart, error) {
+					require.Equal(t, expectedWatchNamespace, config[registryv1Bundle.BundleConfigWatchNamespaceKey])
 					return nil, nil
 				},
 			},
@@ -567,8 +570,13 @@ func TestApply_InstallationWithSingleOwnNamespaceInstallSupportEnabled(t *testin
 		testExt := &ocv1.ClusterExtension{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "testExt",
-				Annotations: map[string]string{
-					applier.AnnotationClusterExtensionWatchNamespace: expectedWatchNamespace,
+			},
+			Spec: ocv1.ClusterExtensionSpec{
+				Config: &ocv1.ClusterExtensionConfig{
+					ConfigType: ocv1.ClusterExtensionConfigTypeInline,
+					Inline: &apiextensionsv1.JSON{
+						Raw: []byte(fmt.Sprintf(`{"%s":"%s"}`, registryv1Bundle.BundleConfigWatchNamespaceKey, expectedWatchNamespace)),
+					},
 				},
 			},
 		}
@@ -590,8 +598,8 @@ func TestApply_RegistryV1ToChartConverterIntegration(t *testing.T) {
 				},
 			},
 			BundleToHelmChartConverter: &fakeBundleToHelmChartConverter{
-				fn: func(bundle source.BundleSource, installNamespace string, watchNamespace string) (*chart.Chart, error) {
-					require.Equal(t, expectedWatchNamespace, watchNamespace)
+				fn: func(bundle source.BundleSource, installNamespace string, config map[string]interface{}) (*chart.Chart, error) {
+					require.Equal(t, expectedWatchNamespace, config[registryv1Bundle.BundleConfigWatchNamespaceKey])
 					return nil, nil
 				},
 			},
@@ -610,7 +618,7 @@ func TestApply_RegistryV1ToChartConverterIntegration(t *testing.T) {
 				},
 			},
 			BundleToHelmChartConverter: &fakeBundleToHelmChartConverter{
-				fn: func(bundle source.BundleSource, installNamespace string, watchNamespace string) (*chart.Chart, error) {
+				fn: func(bundle source.BundleSource, installNamespace string, config map[string]interface{}) (*chart.Chart, error) {
 					return nil, errors.New("some error")
 				},
 			},
@@ -622,9 +630,9 @@ func TestApply_RegistryV1ToChartConverterIntegration(t *testing.T) {
 }
 
 type fakeBundleToHelmChartConverter struct {
-	fn func(source.BundleSource, string, string) (*chart.Chart, error)
+	fn func(source.BundleSource, string, map[string]interface{}) (*chart.Chart, error)
 }
 
-func (f fakeBundleToHelmChartConverter) ToHelmChart(bundle source.BundleSource, installNamespace string, watchNamespace string) (*chart.Chart, error) {
-	return f.fn(bundle, installNamespace, watchNamespace)
+func (f fakeBundleToHelmChartConverter) ToHelmChart(bundle source.BundleSource, installNamespace string, config map[string]interface{}) (*chart.Chart, error) {
+	return f.fn(bundle, installNamespace, config)
 }
