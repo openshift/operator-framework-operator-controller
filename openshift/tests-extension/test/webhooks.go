@@ -32,7 +32,7 @@ const (
 	webhookCatalogName         = "webhook-operator-catalog"
 	webhookOperatorPackageName = "webhook-operator"
 	webhookOperatorCRDName     = "webhooktests.webhook.operators.coreos.io"
-	webhookServiceCert         = "webhook-operator-webhook-service-cert"
+	webhookServiceCert         = "webhook-operator-controller-manager-service-cert"
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks",
@@ -63,7 +63,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			err = k8sClient.Get(ctx, client.ObjectKey{Name: webhookCatalogName}, catalog)
 			if apierrors.IsNotFound(err) {
 				By(fmt.Sprintf("creating the webhook-operator catalog with name %s", webhookCatalogName))
-				catalog = helpers.NewClusterCatalog(webhookCatalogName, "quay.io/operator-framework/webhook-operator-index:0.0.3")
+				catalog = helpers.NewClusterCatalog(webhookCatalogName, "quay.io/operator-framework/webhook-operator-index:0.0.4")
 				err = k8sClient.Create(ctx, catalog)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -286,7 +286,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	helpers.ExpectClusterRoleBindingExists(ctx, operatorClusterRoleBindingName)
 
 	ceName := webhookOperatorInstallNamespace
-	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.1", ceName, saName, webhookOperatorInstallNamespace)
+	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.4", ceName, saName, webhookOperatorInstallNamespace)
 	ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"olm.operatorframework.io/metadata.name": webhookCatalogName,
@@ -299,7 +299,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
 
 	By("waiting for the webhook operator's service to be ready")
-	serviceName := "webhook-operator-webhook-service" // Standard name for the service created by the operator
+	serviceName := "webhook-operator-controller-manager-service" // Standard name for the service created by the operator
 	Eventually(func(g Gomega) {
 		svc := &corev1.Service{}
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: serviceName, Namespace: webhookOperatorInstallNamespace}, svc)
@@ -309,19 +309,18 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	}).WithTimeout(1*time.Minute).WithPolling(5*time.Second).Should(Succeed(), "webhook service did not become ready within timeout")
 
 	By("waiting for the webhook operator's service certificate secret to exist and be populated")
-	certificateSecretName := "webhook-operator-webhook-service-cert" // Fixed to use the static name
 	Eventually(func(g Gomega) {
 		secret := &corev1.Secret{}
 		// Force bypassing the client cache for this Get operation
-		err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret) // Removed client.WithCacheDisabled
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookServiceCert, Namespace: webhookOperatorInstallNamespace}, secret) // Removed client.WithCacheDisabled
 
 		if apierrors.IsNotFound(err) {
-			GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling)", webhookOperatorInstallNamespace, certificateSecretName))
+			GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling)", webhookOperatorInstallNamespace, webhookServiceCert))
 			return // Keep polling if not found
 		}
 
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v",
-			webhookOperatorInstallNamespace, certificateSecretName, err))
+			webhookOperatorInstallNamespace, webhookServiceCert, err))
 		g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty")
 	}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(Succeed(), "webhook service certificate secret did not become available within timeout")
 
