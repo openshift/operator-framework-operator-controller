@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -92,10 +93,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			})
 
-			By("creating ClusterExtension with the watch-namespace annotation")
+			By("creating ClusterExtension with the watch-namespace configured")
 			ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, namespace)
-			ce.Annotations = map[string]string{
-				"olm.operatorframework.io/watch-namespace": namespace,
+			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
+				ConfigType: "Inline",
+				Inline: &apiextensionsv1.JSON{
+					Raw: []byte(fmt.Sprintf(`{"watchNamespace": "%s"}`, namespace)),
+				},
 			}
 			Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension %q", ceName)
 			By("registering cleanup for ClusterExtension")
@@ -181,10 +185,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			})
 
-			By("creating ClusterExtension with the watch-namespace annotation")
+			By("creating ClusterExtension with the watch-namespace configured")
 			ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, namespace)
-			ce.Annotations = map[string]string{
-				"olm.operatorframework.io/watch-namespace": namespace,
+			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
+				ConfigType: "Inline",
+				Inline: &apiextensionsv1.JSON{
+					Raw: []byte(fmt.Sprintf(`{"watchNamespace": "%s"}`, namespace)),
+				},
 			}
 			Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension %q", ceName)
 			By("registering cleanup for ClusterExtension")
@@ -270,10 +277,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			})
 
-			By("creating ClusterExtension with the watch-namespace annotation")
+			By("creating ClusterExtension with the watch-namespace configured")
 			ce := helpers.NewClusterExtensionObject("openshift-pipelines-operator-rh", "1.17.1", ceName, saName, namespace)
-			ce.Annotations = map[string]string{
-				"olm.operatorframework.io/watch-namespace": namespace,
+			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
+				ConfigType: "Inline",
+				Inline: &apiextensionsv1.JSON{
+					Raw: []byte(fmt.Sprintf(`{"watchNamespace": "%s"}`, namespace)),
+				},
 			}
 			Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension %q", ceName)
 			By("registering cleanup for ClusterExtension")
