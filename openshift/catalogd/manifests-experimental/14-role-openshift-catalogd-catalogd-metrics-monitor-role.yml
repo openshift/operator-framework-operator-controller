@@ -1,0 +1,23 @@
+---
+# Source: olmv1/templates/rbac/role-olmv1-system-metrics-monitor-role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  annotations:
+    olm.operatorframework.io/feature-set: experimental
+  labels:
+    app.kubernetes.io/name: catalogd
+    app.kubernetes.io/part-of: olm
+  name: catalogd-metrics-monitor-role
+  namespace: openshift-catalogd
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
