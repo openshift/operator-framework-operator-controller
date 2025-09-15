@@ -378,16 +378,49 @@ github.com/go-logr/logr/funcr
 # github.com/go-logr/stdr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/stdr
-# github.com/go-openapi/jsonpointer v0.21.2
+# github.com/go-openapi/jsonpointer v0.22.0
 ## explicit; go 1.20
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.21.0
+# github.com/go-openapi/jsonreference v0.21.1
 ## explicit; go 1.20
 github.com/go-openapi/jsonreference
 github.com/go-openapi/jsonreference/internal
-# github.com/go-openapi/swag v0.23.1
-## explicit; go 1.20
+# github.com/go-openapi/swag v0.24.1
+## explicit; go 1.20.0
 github.com/go-openapi/swag
+# github.com/go-openapi/swag/cmdutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/cmdutils
+# github.com/go-openapi/swag/conv v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/conv
+# github.com/go-openapi/swag/fileutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/fileutils
+# github.com/go-openapi/swag/jsonname v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/jsonname
+# github.com/go-openapi/swag/jsonutils v0.24.0
+## explicit; go 1.20
+github.com/go-openapi/swag/jsonutils
+# github.com/go-openapi/swag/loading v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/loading
+# github.com/go-openapi/swag/mangling v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/mangling
+# github.com/go-openapi/swag/netutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/netutils
+# github.com/go-openapi/swag/stringutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/stringutils
+# github.com/go-openapi/swag/typeutils v0.24.0
+## explicit; go 1.20.0
+github.com/go-openapi/swag/typeutils
+# github.com/go-openapi/swag/yamlutils v0.24.0
+## explicit; go 1.20
+github.com/go-openapi/swag/yamlutils
 # github.com/gobuffalo/flect v1.0.3
 ## explicit; go 1.16
 github.com/gobuffalo/flect
@@ -599,6 +632,7 @@ github.com/lib/pq/scram
 github.com/liggitt/tabwriter
 # github.com/mailru/easyjson v0.9.0
 ## explicit; go 1.20
+github.com/mailru/easyjson
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -811,7 +845,7 @@ github.com/spf13/cast
 # github.com/spf13/cobra v1.10.1
 ## explicit; go 1.15
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.9
+# github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
 github.com/spf13/pflag
 # github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6
@@ -935,8 +969,8 @@ go.yaml.in/yaml/v2
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/crypto v0.41.0
-## explicit; go 1.23.0
+# golang.org/x/crypto v0.42.0
+## explicit; go 1.24.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -967,8 +1001,8 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.43.0
-## explicit; go 1.23.0
+# golang.org/x/net v0.44.0
+## explicit; go 1.24.0
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
@@ -982,8 +1016,8 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/trace
 golang.org/x/net/websocket
-# golang.org/x/oauth2 v0.30.0
-## explicit; go 1.23.0
+# golang.org/x/oauth2 v0.31.0
+## explicit; go 1.24.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.17.0
@@ -991,18 +1025,18 @@ golang.org/x/oauth2/internal
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.35.0
-## explicit; go 1.23.0
+# golang.org/x/sys v0.36.0
+## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.34.0
-## explicit; go 1.23.0
+# golang.org/x/term v0.35.0
+## explicit; go 1.24.0
 golang.org/x/term
-# golang.org/x/text v0.28.0
-## explicit; go 1.23.0
+# golang.org/x/text v0.29.0
+## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
@@ -1026,11 +1060,11 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.12.0
-## explicit; go 1.23.0
+# golang.org/x/time v0.13.0
+## explicit; go 1.24.0
 golang.org/x/time/rate
-# golang.org/x/tools v0.36.0
-## explicit; go 1.23.0
+# golang.org/x/tools v0.37.0
+## explicit; go 1.24.0
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/analysis/analysistest
 golang.org/x/tools/go/analysis/checker
@@ -1055,6 +1089,7 @@ golang.org/x/tools/internal/facts
 golang.org/x/tools/internal/gcimporter
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/goroot
+golang.org/x/tools/internal/moreiters
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/stdlib
@@ -1145,7 +1180,7 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.36.8
+# google.golang.org/protobuf v1.36.9
 ## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
@@ -1928,7 +1963,7 @@ oras.land/oras-go/v2/registry/remote/credentials/trace
 oras.land/oras-go/v2/registry/remote/errcode
 oras.land/oras-go/v2/registry/remote/internal/errutil
 oras.land/oras-go/v2/registry/remote/retry
-# pkg.package-operator.run/boxcutter v0.6.0
+# pkg.package-operator.run/boxcutter v0.7.0
 ## explicit; go 1.24.0
 pkg.package-operator.run/boxcutter
 pkg.package-operator.run/boxcutter/machinery

@@ -91,30 +91,19 @@ type RevisionStatesGetter interface {
 	GetRevisionStates(ctx context.Context, ext *ocv1.ClusterExtension) (*RevisionStates, error)
 }
 
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/status,verbs=update;patch
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions/finalizers,verbs=update
-//+kubebuilder:rbac:namespace=olmv1-system,groups=core,resources=secrets,verbs=create;update;patch;delete;deletecollection;get;list;watch
-//+kubebuilder:rbac:groups=core,resources=serviceaccounts/token,verbs=create
-//+kubebuilder:rbac:namespace=olmv1-system,groups=core,resources=serviceaccounts,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=list;watch
-
-//+kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=list;watch
-
 // The operator controller needs to watch all the bundle objects and reconcile accordingly. Though not ideal, but these permissions are required.
 // This has been taken from rukpak, and an issue was created before to discuss it: https://github.com/operator-framework/rukpak/issues/800.
 func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx).WithName("cluster-extension")
 	ctx = log.IntoContext(ctx, l)
 
-	l.Info("reconcile starting")
-	defer l.Info("reconcile ending")
-
 	existingExt := &ocv1.ClusterExtension{}
 	if err := r.Get(ctx, req.NamespacedName, existingExt); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	l.Info("reconcile starting")
+	defer l.Info("reconcile ending")
 
 	reconciledExt := existingExt.DeepCopy()
 	res, reconcileErr := r.reconcile(ctx, reconciledExt)
@@ -124,7 +113,7 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	updateFinalizers := !equality.Semantic.DeepEqual(existingExt.Finalizers, reconciledExt.Finalizers)
 
 	// If any unexpected fields have changed, panic before updating the resource
-	unexpectedFieldsChanged := checkForUnexpectedFieldChange(*existingExt, *reconciledExt)
+	unexpectedFieldsChanged := checkForUnexpectedClusterExtensionFieldChange(*existingExt, *reconciledExt)
 	if unexpectedFieldsChanged {
 		panic("spec or metadata changed by reconciler")
 	}
@@ -169,7 +158,7 @@ func ensureAllConditionsWithReason(ext *ocv1.ClusterExtension, reason v1alpha1.C
 }
 
 // Compare resources - ignoring status & metadata.finalizers
-func checkForUnexpectedFieldChange(a, b ocv1.ClusterExtension) bool {
+func checkForUnexpectedClusterExtensionFieldChange(a, b ocv1.ClusterExtension) bool {
 	a.Status, b.Status = ocv1.ClusterExtensionStatus{}, ocv1.ClusterExtensionStatus{}
 	a.Finalizers, b.Finalizers = []string{}, []string{}
 	return !equality.Semantic.DeepEqual(a, b)
