@@ -1,0 +1,12 @@
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterCatalog
+metadata:
+  name: openshift-redhat-marketplace
+spec:
+  priority: -300
+  source:
+    image:
+      pollIntervalMinutes: 10
+      ref: registry.redhat.io/redhat/redhat-marketplace-index:v4.20
+    type: Image

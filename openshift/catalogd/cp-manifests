@@ -17,8 +17,3 @@ if [ -d /openshift/manifests-experimental ]; then
     cp -a /openshift/manifests-experimental "${DEST}/experimental/catalogd"
 fi
 
-if [ -d /openshift/helm ]; then
-    mkdir -p "${DEST}/helm/catalogd"
-    cp -a /openshift/helm "${DEST}/helm/catalogd"
-fi
-

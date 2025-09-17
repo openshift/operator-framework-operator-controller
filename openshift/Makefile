@@ -24,13 +24,9 @@ verify: ## Run downstream-specific verify
 	git diff --exit-code
 
 .PHONY: manifests
-manifests: $(YQ) $(HELM)
-	$(DIR)/helm/generate-manifests.sh
-	# Make a single file of each manifest for comparison purposes
-	cat $(DIR)/operator-controller/manifests/*.yml > $(DIR)/operator-controller/manifests.yaml
-	cat $(DIR)/operator-controller/manifests-experimental/*.yml > $(DIR)/operator-controller/manifests-experimental.yaml
-	cat $(DIR)/catalogd/manifests/*.yml > $(DIR)/catalogd/manifests.yaml
-	cat $(DIR)/catalogd/manifests-experimental/*.yml > $(DIR)/catalogd/manifests-experimental.yaml
+manifests: $(KUSTOMIZE) $(YQ)
+	$(DIR)/operator-controller/generate-manifests.sh
+	$(DIR)/catalogd/generate-manifests.sh
 
 .PHONY: verify-manifests
 verify-manifests: manifests

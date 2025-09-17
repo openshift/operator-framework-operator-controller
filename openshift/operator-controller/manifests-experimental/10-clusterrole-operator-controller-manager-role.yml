@@ -1,14 +1,8 @@
 ---
-# Source: olmv1/templates/rbac/clusterrole-operator-controller-manager-role.yml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: operator-controller-manager-role
-  labels:
-    app.kubernetes.io/name: operator-controller
-    app.kubernetes.io/part-of: olm
-  annotations:
-    olm.operatorframework.io/feature-set: experimental
 rules:
   - apiGroups:
       - ""
@@ -33,8 +27,10 @@ rules:
   - apiGroups:
       - olm.operatorframework.io
     resources:
-      - clusterextensions
+      - clusterextensionrevisions
     verbs:
+      - create
+      - delete
       - get
       - list
       - patch
@@ -43,16 +39,28 @@ rules:
   - apiGroups:
       - olm.operatorframework.io
     resources:
+      - clusterextensionrevisions/finalizers
       - clusterextensions/finalizers
     verbs:
       - update
   - apiGroups:
       - olm.operatorframework.io
     resources:
+      - clusterextensionrevisions/status
       - clusterextensions/status
     verbs:
       - patch
       - update
+  - apiGroups:
+      - olm.operatorframework.io
+    resources:
+      - clusterextensions
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -65,9 +73,9 @@ rules:
       - watch
   - apiGroups:
       - security.openshift.io
-    resources:
-      - securitycontextconstraints
     resourceNames:
       - privileged
+    resources:
+      - securitycontextconstraints
     verbs:
       - use

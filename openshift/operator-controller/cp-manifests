@@ -17,8 +17,3 @@ if [ -d /openshift/manifests-experimental ]; then
     cp -a /openshift/manifests-experimental "${DEST}/experimental/operator-controller"
 fi
 
-if [ -d /openshift/helm ]; then
-    mkdir -p "${DEST}/helm/operator-controller"
-    cp -a /openshift/helm "${DEST}/helm/operator-controller"
-fi
-
