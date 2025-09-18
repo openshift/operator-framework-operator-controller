@@ -14,7 +14,7 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 )
 
 // NewClusterCatalog returns a new ClusterCatalog object.

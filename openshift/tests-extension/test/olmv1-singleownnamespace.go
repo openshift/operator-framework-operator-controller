@@ -19,8 +19,8 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
-	"github/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
+	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for singleNamespace watch mode with quay-operator", Ordered, Serial, func() {
