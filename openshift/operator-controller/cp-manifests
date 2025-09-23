@@ -19,6 +19,6 @@ fi
 
 if [ -d /openshift/helm ]; then
     mkdir -p "${DEST}/helm/operator-controller"
-    cp -a /openshift/helm "${DEST}/helm/operator-controller"
+    cp -a /openshift/helm/* "${DEST}/helm/operator-controller"
 fi
 
