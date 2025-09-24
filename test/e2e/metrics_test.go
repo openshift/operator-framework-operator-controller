@@ -159,7 +159,15 @@ func (c *MetricsTestConfig) validate(t *testing.T, token string) {
 	t.Log("Waiting for the curl pod to be ready")
 	waitCmd := exec.Command(c.client, "wait", "--for=condition=Ready", "pod", c.curlPodName, "--namespace", c.namespace, "--timeout=60s")
 	waitOutput, waitErr := waitCmd.CombinedOutput()
-	require.NoError(t, waitErr, "Error waiting for curl pod to be ready: %s", string(waitOutput))
+	if waitErr != nil {
+		output, err := exec.Command(c.client, "describe", "pod", c.curlPodName, "--namespace", c.namespace).CombinedOutput()
+		if err == nil {
+			t.Logf("describe pod %s -n %s: %s", c.curlPodName, c.namespace, output)
+		} else {
+			require.NoError(t, err, "Error describing curl pod: %s", string(output))
+		}
+		require.NoError(t, waitErr, "Error waiting for curl pod to be ready: %s", string(waitOutput))
+	}
 
 	t.Log("Validating the metrics endpoint")
 	curlCmd := exec.Command(c.client, "exec", c.curlPodName, "--namespace", c.namespace, "--",
