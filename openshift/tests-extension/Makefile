@@ -64,7 +64,6 @@ lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
 fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
 	$(GOLANGCI_LINT) run --fix
 
-# Bindata generation
 .PHONY: bindata
 bindata: $(GO_BINDATA)
 
