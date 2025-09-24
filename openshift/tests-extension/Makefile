@@ -64,7 +64,6 @@ lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
 fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
 	$(GOLANGCI_LINT) run --fix
 
-# Bindata generation
 .PHONY: bindata
 bindata: $(GO_BINDATA)
 
@@ -97,6 +96,11 @@ build: #HELP Build the extended tests binary
 
 .PHONY: update-metadata
 update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
+	@# Check if KUBECONFIG is set and not empty
+	@if [ -z "$(KUBECONFIG)" ]; then \
+		echo "Please set KUBECONFIG first"; \
+		exit 1; \
+	fi
 	$(TOOLS_BIN_DIR)/olmv1-tests-ext update --component openshift:payload:olmv1
 	$(MAKE) clean-metadata
 

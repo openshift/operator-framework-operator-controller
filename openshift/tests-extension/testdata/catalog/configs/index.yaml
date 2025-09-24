@@ -1,17 +1,17 @@
 {
   "schema": "olm.package",
-  "name": "TEST-BUNDLE"
+  "name": "{{ TEST-BUNDLE }}"
 }
 {
   "schema": "olm.bundle",
-  "name": "TEST-BUNDLE.v0.0.1",
-  "package": "TEST-BUNDLE",
-  "image": "image-registry.openshift-image-registry.svc:5000/NAMESPACE/TEST-BUNDLE:latest",
+  "name": "{{ TEST-BUNDLE }}.v0.0.1",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
   "properties": [
     {
       "type": "olm.package",
       "value": {
-        "packageName": "TEST-BUNDLE",
+        "packageName": "{{ TEST-BUNDLE }}",
         "version": "0.0.1"
       }
     },
@@ -24,10 +24,10 @@
 {
   "schema": "olm.channel",
   "name": "preview",
-  "package": "TEST-BUNDLE",
+  "package": "{{ TEST-BUNDLE }}",
   "entries": [
     {
-      "name": "TEST-BUNDLE.v0.0.1"
+      "name": "{{ TEST-BUNDLE }}.v0.0.1"
     }
   ]
 }

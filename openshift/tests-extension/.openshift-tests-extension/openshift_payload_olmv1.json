@@ -130,8 +130,11 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
-    "labels": {},
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed": {}
+    },
     "resources": {
       "isolation": {}
     },

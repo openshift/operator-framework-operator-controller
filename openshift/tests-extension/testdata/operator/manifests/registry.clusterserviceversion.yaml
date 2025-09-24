@@ -10,9 +10,9 @@ metadata:
           "metadata": {
             "labels": {
               "app.kubernetes.io/managed-by": "kustomize",
-              "app.kubernetes.io/name": "TEST-BUNDLE"
+              "app.kubernetes.io/name": "{{ TEST-BUNDLE }}"
             },
-            "name": "TEST-BUNDLE-sample"
+            "name": "{{ TEST-BUNDLE }}-sample"
           },
           "spec": null
         }
@@ -21,13 +21,13 @@ metadata:
     createdAt: "2025-08-06T17:43:41Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: TEST-BUNDLE.v0.0.1
+  name: {{ TEST-BUNDLE }}.v0.0.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinition: {}
-  description: TEST-BUNDLE description. TODO.
-  displayName: TEST-BUNDLE
+  description: {{ TEST-BUNDLE }} description. TODO.
+  displayName: {{ TEST-BUNDLE }}
   icon:
   - base64data: ""
     mediatype: ""
@@ -36,9 +36,9 @@ spec:
       deployments:
       - label:
           app.kubernetes.io/managed-by: kustomize
-          app.kubernetes.io/name: TEST-BUNDLE
+          app.kubernetes.io/name: {{ TEST-BUNDLE }}
           control-plane: controller-manager
-        name: TEST-BUNDLE-controller-manager
+        name: {{ TEST-BUNDLE }}-controller-manager
         spec:
           replicas: 1
           selector:
@@ -57,7 +57,7 @@ spec:
                 command:
                 - sleep
                 - "1000"
-                image: busybox
+                image: "{{ TEST-CONTROLLER }}"
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -120,22 +120,22 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: TEST-BUNDLE-controller-manager
+        serviceAccountName: {{ TEST-BUNDLE }}-controller-manager
     strategy: deployment
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
-  - supported: false
+  - supported: true
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
   - supported: true
     type: AllNamespaces
   keywords:
-  - TEST-BUNDLE
+  - {{ TEST-BUNDLE }}
   links:
-  - name: TEST-BUNDLE
-    url: https://TEST-BUNDLE.domain
+  - name: {{ TEST-BUNDLE }}
+    url: https://{{ TEST-BUNDLE }}.domain
   maintainers:
   - email: your@email.com
     name: Maintainer Name
