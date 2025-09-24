@@ -68,6 +68,12 @@ fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
 .PHONY: bindata
 bindata: $(GO_BINDATA)
 
+bindata: pkg/bindata/controller/controller.go
+pkg/bindata/controller/controller.go: $(shell find testdata/controller -type f)
+	mkdir -p $(@D)
+	$(GO_BINDATA) -pkg operator -o $@ -prefix "testdata/controller" testdata/controller/...
+	go fmt ./$(@D)/...
+
 bindata: pkg/bindata/operator/operator.go
 pkg/bindata/operator/operator.go: $(shell find testdata/operator -type f)
 	mkdir -p $(@D)
