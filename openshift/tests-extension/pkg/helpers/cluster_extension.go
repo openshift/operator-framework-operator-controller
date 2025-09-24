@@ -24,9 +24,32 @@ import (
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 )
 
+// ClusterExtensionOption mutates ext
+type ClusterExtensionOption func(ext *olmv1.ClusterExtension)
+
+// WithCatalogSelector sets .spec.Source.Catalog.Selector to selector if ext.Spec.Source.Catalog is defined
+func WithCatalogSelector(selector metav1.LabelSelector) ClusterExtensionOption {
+	return func(ext *olmv1.ClusterExtension) {
+		if ext == nil || ext.Spec.Source.Catalog == nil {
+			return
+		}
+		ext.Spec.Source.Catalog.Selector = &selector
+	}
+}
+
+// WithCatalogNameSelector adds a selector to the ClusterExtension's catalog filter to restrict package resolution a ClusterCatalog
+// called catalogName
+func WithCatalogNameSelector(catalogName string) ClusterExtensionOption {
+	return WithCatalogSelector(metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"olm.operatorframework.io/metadata.name": catalogName,
+		},
+	})
+}
+
 // CreateClusterExtension creates a ServiceAccount, ClusterRoleBinding, and ClusterExtension using typed APIs.
 // It returns the unique suffix and a cleanup function.
-func CreateClusterExtension(packageName, version, namespace, unique string) (string, func()) {
+func CreateClusterExtension(packageName, version, namespace, unique string, opts ...ClusterExtensionOption) (string, func()) {
 	ctx := context.TODO()
 	k8sClient := env.Get().K8sClient
 	if unique == "" {
@@ -51,7 +74,7 @@ func CreateClusterExtension(packageName, version, namespace, unique string) (str
 	ExpectClusterRoleBindingExists(ctx, crbName)
 
 	// 3. Create ClusterExtension
-	ce := NewClusterExtensionObject(packageName, version, ceName, saName, namespace)
+	ce := NewClusterExtensionObject(packageName, version, ceName, saName, namespace, opts...)
 	Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension")
 
 	// Cleanup closure
@@ -91,8 +114,8 @@ func NewClusterRoleBinding(name, roleName, saName, namespace string) *rbacv1.Clu
 }
 
 // NewClusterExtensionObject creates a new ClusterExtension object with the specified package, version, name, and ServiceAccount.
-func NewClusterExtensionObject(pkg, version, ceName, saName, namespace string) *olmv1.ClusterExtension {
-	return &olmv1.ClusterExtension{
+func NewClusterExtensionObject(pkg, version, ceName, saName, namespace string, opts ...ClusterExtensionOption) *olmv1.ClusterExtension {
+	ext := &olmv1.ClusterExtension{
 		ObjectMeta: metav1.ObjectMeta{Name: ceName},
 		Spec: olmv1.ClusterExtensionSpec{
 			Namespace: namespace,
@@ -102,14 +125,20 @@ func NewClusterExtensionObject(pkg, version, ceName, saName, namespace string) *
 			Source: olmv1.SourceConfig{
 				SourceType: olmv1.SourceTypeCatalog,
 				Catalog: &olmv1.CatalogFilter{
-					PackageName:             pkg,
-					Version:                 version,
-					Selector:                &metav1.LabelSelector{},
+					PackageName: pkg,
+					Version:     version,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{},
+					},
 					UpgradeConstraintPolicy: olmv1.UpgradeConstraintPolicyCatalogProvided,
 				},
 			},
 		},
 	}
+	for _, applyOpt := range opts {
+		applyOpt(ext)
+	}
+	return ext
 }
 
 // ExpectClusterExtensionToBeInstalled checks that the ClusterExtension has both Progressing=True and Installed=True.
