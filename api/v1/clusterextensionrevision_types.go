@@ -49,19 +49,22 @@ type ClusterExtensionRevisionSpec struct {
 	// +kubebuilder:validation:Enum=Active;Paused;Archived
 	// +kubebuilder:validation:XValidation:rule="oldSelf == 'Active' || oldSelf == 'Paused' || oldSelf == 'Archived' && oldSelf == self", message="can not un-archive"
 	LifecycleState ClusterExtensionRevisionLifecycleState `json:"lifecycleState,omitempty"`
-	// Revision number orders changes over time, must always be previous revision +1.
+	// Revision is a sequence number representing a specific revision of the ClusterExtension instance.
+	// Must be positive. Each ClusterExtensionRevision of the same parent ClusterExtension needs to have
+	// a unique value assigned. It is immutable after creation. The new revision number must always be previous revision +1.
 	//
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum:=1
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="revision is immutable"
 	Revision int64 `json:"revision"`
 	// Phases are groups of objects that will be applied at the same time.
-	// All objects in the a phase will have to pass their probes in order to progress to the next phase.
+	// All objects in the phase will have to pass their probes in order to progress to the next phase.
 	//
-	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf || oldSelf.size() == 0", message="phases is immutable"
 	// +listType=map
 	// +listMapKey=name
-	Phases []ClusterExtensionRevisionPhase `json:"phases"`
+	// +optional
+	Phases []ClusterExtensionRevisionPhase `json:"phases,omitempty"`
 	// Previous references previous revisions that objects can be adopted from.
 	//
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="previous is immutable"
@@ -104,6 +107,7 @@ type ClusterExtensionRevisionObject struct {
 	// already existing on the cluster or even owned by another controller.
 	//
 	// +kubebuilder:default="Prevent"
+	// +optional
 	CollisionProtection CollisionProtection `json:"collisionProtection,omitempty"`
 }
 

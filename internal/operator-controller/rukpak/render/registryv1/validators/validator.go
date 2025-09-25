@@ -101,21 +101,32 @@ func CheckPackageNameNotEmpty(rv1 *bundle.RegistryV1) []error {
 	return nil
 }
 
-// CheckWebhookSupport checks that if the bundle cluster service version declares webhook definitions
-// that it is a singleton operator, i.e. that it only supports AllNamespaces mode. This keeps parity
-// with OLMv0 behavior for conversion webhooks,
+// CheckConversionWebhookSupport checks that if the bundle cluster service version declares conversion webhook definitions,
+// that the bundle also only supports AllNamespaces install mode. This keeps parity with OLMv0 behavior for conversion webhooks,
 // https://github.com/operator-framework/operator-lifecycle-manager/blob/dfd0b2bea85038d3c0d65348bc812d297f16b8d2/pkg/controller/install/webhook.go#L193
-// Since OLMv1 considers APIs to be cluster-scoped, we initially extend this constraint to validating and mutating webhooks.
-// While this might restrict the number of supported bundles, we can tackle the issue of relaxing this constraint in turn
-// after getting the webhook support working.
-func CheckWebhookSupport(rv1 *bundle.RegistryV1) []error {
-	if len(rv1.CSV.Spec.WebhookDefinitions) > 0 {
+func CheckConversionWebhookSupport(rv1 *bundle.RegistryV1) []error {
+	var conversionWebhookNames []string
+	for _, wh := range rv1.CSV.Spec.WebhookDefinitions {
+		if wh.Type == v1alpha1.ConversionWebhook {
+			conversionWebhookNames = append(conversionWebhookNames, wh.GenerateName)
+		}
+	}
+
+	if len(conversionWebhookNames) > 0 {
 		supportedInstallModes := sets.Set[v1alpha1.InstallModeType]{}
 		for _, mode := range rv1.CSV.Spec.InstallModes {
-			supportedInstallModes.Insert(mode.Type)
+			if mode.Supported {
+				supportedInstallModes.Insert(mode.Type)
+			}
 		}
+
 		if len(supportedInstallModes) != 1 || !supportedInstallModes.Has(v1alpha1.InstallModeTypeAllNamespaces) {
-			return []error{errors.New("bundle contains webhook definitions but supported install modes beyond AllNamespaces")}
+			sortedModes := slices.Sorted(slices.Values(supportedInstallModes.UnsortedList()))
+			errs := make([]error, len(conversionWebhookNames))
+			for i, webhookName := range conversionWebhookNames {
+				errs[i] = fmt.Errorf("bundle contains conversion webhook %q and supports install modes %v - conversion webhooks are only supported for bundles that only support AllNamespaces install mode", webhookName, sortedModes)
+			}
+			return errs
 		}
 	}
 
@@ -260,6 +271,58 @@ func CheckWebhookNameIsDNS1123SubDomain(rv1 *bundle.RegistryV1) []error {
 	for _, whType := range slices.Sorted(maps.Keys(invalidWebhooksByType)) {
 		for _, webhookName := range slices.Sorted(maps.Keys(invalidWebhooksByType[whType])) {
 			errs = append(errs, fmt.Errorf("webhook of type '%s' has invalid name '%s': %s", whType, webhookName, strings.Join(invalidWebhooksByType[whType][webhookName], ",")))
+		}
+	}
+	return errs
+}
+
+// forbiddenWebhookRuleAPIGroups contain the API groups that are forbidden for webhook configuration rules in OLMv1
+var forbiddenWebhookRuleAPIGroups = sets.New("olm.operatorframework.io", "*")
+
+// forbiddenAdmissionRegistrationResources contain the resources that are forbidden for webhook configuration rules
+// for the admissionregistration.k8s.io api group
+var forbiddenAdmissionRegistrationResources = sets.New(
+	"*",
+	"mutatingwebhookconfiguration",
+	"mutatingwebhookconfigurations",
+	"validatingwebhookconfiguration",
+	"validatingwebhookconfigurations",
+)
+
+// CheckWebhookRules ensures webhook rules do not reference forbidden API groups or resources in line with OLMv0 behavior
+// The following are forbidden, rules targeting:
+//   - all API groups (i.e. '*')
+//   - OLMv1 API group (i.e. 'olm.operatorframework.io')
+//   - all resources under the 'admissionregistration.k8s.io' API group
+//   - the 'ValidatingWebhookConfiguration' resource under the 'admissionregistration.k8s.io' API group
+//   - the 'MutatingWebhookConfiguration' resource under the 'admissionregistration.k8s.io' API group
+//
+// These boundaries attempt to reduce the blast radius of faulty webhooks and avoid deadlocks preventing the user
+// from deleting OLMv1 resources installing and managing the faulty webhook, or deleting faulty admission webhook
+// configurations.
+// See https://github.com/operator-framework/operator-lifecycle-manager/blob/ccf0c4c91f1e7673e87f3a18947f9a1f88d48438/pkg/controller/install/webhook.go#L19
+// for more details
+func CheckWebhookRules(rv1 *bundle.RegistryV1) []error {
+	var errs []error
+	for _, wh := range rv1.CSV.Spec.WebhookDefinitions {
+		// Rules are not used for conversion webhooks
+		if wh.Type == v1alpha1.ConversionWebhook {
+			continue
+		}
+		webhookName := wh.GenerateName
+		for _, rule := range wh.Rules {
+			for _, apiGroup := range rule.APIGroups {
+				if forbiddenWebhookRuleAPIGroups.Has(apiGroup) {
+					errs = append(errs, fmt.Errorf("webhook %q contains forbidden rule: admission webhook rules cannot reference API group %q", webhookName, apiGroup))
+				}
+				if apiGroup == "admissionregistration.k8s.io" {
+					for _, resource := range rule.Resources {
+						if forbiddenAdmissionRegistrationResources.Has(strings.ToLower(resource)) {
+							errs = append(errs, fmt.Errorf("webhook %q contains forbidden rule: admission webhook rules cannot reference resource %q for API group %q", webhookName, resource, apiGroup))
+						}
+					}
+				}
+			}
 		}
 	}
 	return errs

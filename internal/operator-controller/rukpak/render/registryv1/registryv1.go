@@ -22,11 +22,13 @@ var BundleValidator = render.BundleValidator{
 	validators.CheckCRDResourceUniqueness,
 	validators.CheckOwnedCRDExistence,
 	validators.CheckPackageNameNotEmpty,
+	validators.CheckConversionWebhookSupport,
 	validators.CheckWebhookDeploymentReferentialIntegrity,
 	validators.CheckWebhookNameUniqueness,
 	validators.CheckWebhookNameIsDNS1123SubDomain,
 	validators.CheckConversionWebhookCRDReferenceUniqueness,
 	validators.CheckConversionWebhooksReferenceOwnedCRDs,
+	validators.CheckWebhookRules,
 }
 
 // ResourceGenerators a slice of ResourceGenerators required to generate plain resource manifests for
