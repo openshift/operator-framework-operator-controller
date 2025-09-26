@@ -284,7 +284,7 @@ apiVersion: template.openshift.io/v1
 metadata:
   name: cip-template
 objects:
-- apiVersion: config.openshift.io/v1alpha1
+- apiVersion: config.openshift.io/v1
   kind: ClusterImagePolicy
   metadata:
     name: "${NAME}"
