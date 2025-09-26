@@ -57,7 +57,7 @@ spec:
                 command:
                 - sleep
                 - "1000"
-                image: busybox
+                image: "image-registry.openshift-image-registry.svc:5000/NAMESPACE/TEST-CONTROLLER:latest"
                 livenessProbe:
                   httpGet:
                     path: /healthz
