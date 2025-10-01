@@ -23,7 +23,7 @@ func TestSuite(t *testing.T) {
 }
 
 var _ = Describe("OLM-Catalog-Validation", func() {
-	catalogsPath := "../../../catalogd/kustomize/overlays/openshift/catalogs"
+	catalogsPath := "../../../../helm/olmv1/templates/openshift-catalogs"
 	images, err := utils.ParseImageRefsFromCatalog(catalogsPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(images).ToNot(BeEmpty(), "no images found")

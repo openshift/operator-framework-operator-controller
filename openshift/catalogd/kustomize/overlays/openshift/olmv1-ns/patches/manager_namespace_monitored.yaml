@@ -1,9 +1,0 @@
-$patch: merge
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: olmv1-system
-  labels:
-    openshift.io/cluster-monitoring: "true"
-  annotations:
-    openshift.io/node-selector: ""
