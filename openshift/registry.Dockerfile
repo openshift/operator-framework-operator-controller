@@ -11,7 +11,6 @@ RUN go build -o ./push     ./testdata/push/push.go
 FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
 USER 1001
 COPY --from=builder /build/push /push
-COPY openshift/operator-controller/manifests /openshift/manifests
 COPY testdata/images /images
 
 LABEL io.k8s.display-name="OpenShift Operator Lifecycle Manager Operator Controller E2E Registry" \
