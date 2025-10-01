@@ -1,4 +1,0 @@
-resources:
-- catalogd_metrics_monitor_role.yaml
-- catalogd_metrics_monitor_role_binding.yaml
-- catalogd_metrics_monitor_servicemonitor.yaml

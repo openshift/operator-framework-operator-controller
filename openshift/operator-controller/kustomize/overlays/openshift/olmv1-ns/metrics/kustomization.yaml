@@ -1,4 +1,0 @@
-resources:
-- operator_controller_metrics_monitor_role.yaml
-- operator_controller_metrics_monitor_rolebinding.yaml
-- operator_controller_metrics_monitor_servicemonitor.yaml

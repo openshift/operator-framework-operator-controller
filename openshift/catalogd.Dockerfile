@@ -10,8 +10,6 @@ FROM registry.ci.openshift.org/ocp/4.21:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/catalogd /catalogd
 COPY openshift/catalogd/cp-manifests /cp-manifests
-COPY openshift/catalogd/manifests /openshift/manifests
-COPY openshift/catalogd/manifests-experimental /openshift/manifests-experimental
 COPY helm/olmv1 /openshift/helm/olmv1
 COPY openshift/helm/experimental.yaml /openshift/helm
 COPY openshift/helm/catalogd.yaml /openshift/helm/openshift.yaml

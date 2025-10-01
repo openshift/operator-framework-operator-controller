@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -15,6 +16,8 @@ import (
 // ParseImageRefsFromCatalog reads the catalogs from the files used and returns a list of image references.
 func ParseImageRefsFromCatalog(catalogsPath string) ([]string, error) {
 	var images []string
+
+	re := regexp.MustCompile(`{{.*}}`)
 
 	// Check if the directory exists first
 	if _, err := os.Stat(catalogsPath); os.IsNotExist(err) {
@@ -35,6 +38,8 @@ func ParseImageRefsFromCatalog(catalogsPath string) ([]string, error) {
 		if err != nil {
 			return nil
 		}
+		// Replace any helm templating
+		content = re.ReplaceAll(content, []byte{})
 
 		var catalog apiv1.ClusterCatalog
 		if err := yaml.Unmarshal(content, &catalog); err != nil {
