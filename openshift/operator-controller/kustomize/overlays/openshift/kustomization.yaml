@@ -1,5 +1,0 @@
-resources:
-  - ../../../../../config/base/operator-controller/crd/standard
-  - rbac
-  - olmv1-ns
-  - openshift-config

@@ -1,5 +1,0 @@
-resources:
-  - openshift-certified-operators.yaml
-  - openshift-community-operators.yaml
-  - openshift-redhat-marketplace.yaml
-  - openshift-redhat-operators.yaml
