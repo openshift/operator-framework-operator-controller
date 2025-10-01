@@ -1,7 +1,0 @@
-# Adds namespace to all resources.
-namespace: openshift-config
-namePrefix: operator-controller-
-
-resources:
-- rbac/operator-controller_manager_role.yaml
-- rbac/operator-controller_manager_role_binding.yaml

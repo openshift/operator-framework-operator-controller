@@ -19,8 +19,6 @@ USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
 COPY --from=builder /tmp/build/olmv1-tests-ext.gz /usr/bin/olmv1-tests-ext.gz
 COPY openshift/operator-controller/cp-manifests /cp-manifests
-COPY openshift/operator-controller/manifests /openshift/manifests
-COPY openshift/operator-controller/manifests-experimental /openshift/manifests-experimental
 COPY helm/olmv1 /openshift/helm/olmv1
 COPY openshift/helm/experimental.yaml /openshift/helm
 COPY openshift/helm/operator-controller.yaml /openshift/helm/openshift.yaml
