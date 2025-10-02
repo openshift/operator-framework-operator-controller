@@ -1,6 +1,0 @@
-resources:
-- ../../../../../config/base/catalogd/crd/standard
-- rbac
-- olmv1-ns
-- openshift-config
-- catalogs

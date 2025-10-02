@@ -1,7 +1,0 @@
-- op: add
-  path: /metadata/annotations
-  value:
-    service.beta.openshift.io/inject-cabundle: "true"
-- op: replace
-  path: /webhooks/0/clientConfig/service/namespace
-  value: OPENSHIFT-NAMESPACE
