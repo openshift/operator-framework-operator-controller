@@ -20,6 +20,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/origin/test/extended/util/image"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +37,7 @@ import (
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation", func() {
 	var unique, nsName, ccName, rbName, opName string
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
@@ -54,105 +55,110 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			helpers.DescribeAllClusterExtensions(context.Background(), nsName)
 		}
 	})
-	It("should block cluster upgrades if an incompatible operator is installed", func(ctx SpecContext) {
-		if !env.Get().IsOpenShift {
-			Skip("Requires OCP APIs: not OpenShift")
-		}
+	It("should block cluster upgrades if an incompatible operator is installed",
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed"), func(ctx SpecContext) {
+			if !env.Get().IsOpenShift {
+				Skip("Requires OCP APIs: not OpenShift")
+			}
 
-		By(fmt.Sprintf("setting a unique value: %q", unique))
+			By(fmt.Sprintf("setting a unique value: %q", unique))
 
-		testVersion := env.Get().OpenShiftVersion
-		replacements := map[string]string{
-			"TEST-BUNDLE": opName,
-			"NAMESPACE":   nsName,
-			"VERSION":     testVersion,
-		}
-		By(fmt.Sprintf("testing against OCP %s", testVersion))
+			testVersion := env.Get().OpenShiftVersion
+			replacements := map[string]string{
+				"{{ TEST-BUNDLE }}": opName,
+				"{{ NAMESPACE }}":   nsName,
+				"{{ VERSION }}":     testVersion,
 
-		By("creating a new Namespace")
-		nsCleanup := createNamespace(nsName)
-		DeferCleanup(nsCleanup)
+				// Using the shell image provided by origin as the controller image.
+				// The image is mirrored into disconnected environments for testing.
+				"{{ TEST-CONTROLLER }}": image.ShellImage(),
+			}
+			By(fmt.Sprintf("testing against OCP %s", testVersion))
 
-		By("applying image-puller RoleBinding")
-		rbCleanup := createImagePullerRoleBinding(rbName, nsName)
-		DeferCleanup(rbCleanup)
+			By("creating a new Namespace")
+			nsCleanup := createNamespace(nsName)
+			DeferCleanup(nsCleanup)
 
-		By("creating the operator BuildConfig")
-		bcCleanup := createBuildConfig(opName, nsName)
-		DeferCleanup(bcCleanup)
+			By("applying image-puller RoleBinding")
+			rbCleanup := createImagePullerRoleBinding(rbName, nsName)
+			DeferCleanup(rbCleanup)
 
-		By("creating the operator ImageStream")
-		isCleanup := createImageStream(opName, nsName)
-		DeferCleanup(isCleanup)
+			By("creating the operator BuildConfig")
+			bcCleanup := createBuildConfig(opName, nsName)
+			DeferCleanup(bcCleanup)
 
-		By("creating the operator tarball")
-		fileOperator, fileCleanup := createTempTarBall(replacements, operatordata.AssetNames, operatordata.Asset)
-		DeferCleanup(fileCleanup)
-		By(fmt.Sprintf("created operator tarball %q", fileOperator))
+			By("creating the operator ImageStream")
+			isCleanup := createImageStream(opName, nsName)
+			DeferCleanup(isCleanup)
 
-		By("starting the operator build via RAW URL")
-		opArgs := []string{
-			"create",
-			"--raw",
-			fmt.Sprintf(
-				"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-				nsName, opName, opName, nsName,
-			),
-			"-f",
-			fileOperator,
-		}
-		buildOperator := startBuild(opArgs...)
+			By("creating the operator tarball")
+			fileOperator, fileCleanup := createTempTarBall(replacements, operatordata.AssetNames, operatordata.Asset)
+			DeferCleanup(fileCleanup)
+			By(fmt.Sprintf("created operator tarball %q", fileOperator))
 
-		By(fmt.Sprintf("waiting for the build %q to finish", buildOperator.Name))
-		waitForBuildToFinish(ctx, buildOperator.Name, nsName)
+			By("starting the operator build via RAW URL")
+			opArgs := []string{
+				"create",
+				"--raw",
+				fmt.Sprintf(
+					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
+					nsName, opName, opName, nsName,
+				),
+				"-f",
+				fileOperator,
+			}
+			buildOperator := startBuild(opArgs...)
 
-		By("creating the catalog BuildConfig")
-		bcCleanup = createBuildConfig(ccName, nsName)
-		DeferCleanup(bcCleanup)
+			By(fmt.Sprintf("waiting for the build %q to finish", buildOperator.Name))
+			waitForBuildToFinish(ctx, buildOperator.Name, nsName)
 
-		By("creating the catalog ImageStream")
-		isCleanup = createImageStream(ccName, nsName)
-		DeferCleanup(isCleanup)
+			By("creating the catalog BuildConfig")
+			bcCleanup = createBuildConfig(ccName, nsName)
+			DeferCleanup(bcCleanup)
 
-		By("creating the catalog tarball")
-		fileCatalog, fileCleanup := createTempTarBall(replacements, catalogdata.AssetNames, catalogdata.Asset)
-		DeferCleanup(fileCleanup)
-		By(fmt.Sprintf("created catalog tarball %q", fileCatalog))
+			By("creating the catalog ImageStream")
+			isCleanup = createImageStream(ccName, nsName)
+			DeferCleanup(isCleanup)
 
-		By("starting the catalog build via RAW URL")
-		catalogArgs := []string{
-			"create",
-			"--raw",
-			fmt.Sprintf(
-				"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-				nsName, ccName, ccName, nsName,
-			),
-			"-f",
-			fileCatalog,
-		}
-		buildCatalog := startBuild(catalogArgs...)
+			By("creating the catalog tarball")
+			fileCatalog, fileCleanup := createTempTarBall(replacements, catalogdata.AssetNames, catalogdata.Asset)
+			DeferCleanup(fileCleanup)
+			By(fmt.Sprintf("created catalog tarball %q", fileCatalog))
 
-		By(fmt.Sprintf("waiting for the build %q to finish", buildCatalog.Name))
-		waitForBuildToFinish(ctx, buildCatalog.Name, nsName)
+			By("starting the catalog build via RAW URL")
+			catalogArgs := []string{
+				"create",
+				"--raw",
+				fmt.Sprintf(
+					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
+					nsName, ccName, ccName, nsName,
+				),
+				"-f",
+				fileCatalog,
+			}
+			buildCatalog := startBuild(catalogArgs...)
 
-		By("creating the ClusterCatalog")
-		ccCleanup := createClusterCatalog(ccName, nsName)
-		DeferCleanup(ccCleanup)
+			By(fmt.Sprintf("waiting for the build %q to finish", buildCatalog.Name))
+			waitForBuildToFinish(ctx, buildCatalog.Name, nsName)
 
-		By("waiting for InstalledOLMOperatorUpgradable to be true")
-		waitForOlmUpgradeStatus(ctx, operatorv1.ConditionTrue, "")
+			By("creating the ClusterCatalog")
+			ccCleanup := createClusterCatalog(ccName, nsName)
+			DeferCleanup(ccCleanup)
 
-		By("creating the ClusterExtension")
-		ceName, ceCleanup := helpers.CreateClusterExtension(opName, "", nsName, unique)
-		DeferCleanup(ceCleanup)
-		helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
+			By("waiting for InstalledOLMOperatorUpgradable to be true")
+			waitForOlmUpgradeStatus(ctx, operatorv1.ConditionTrue, "")
 
-		By("waiting for InstalledOLMOperatorUpgradable to be false")
-		waitForOlmUpgradeStatus(ctx, operatorv1.ConditionFalse, ceName)
+			By("creating the ClusterExtension")
+			ceName, ceCleanup := helpers.CreateClusterExtension(opName, "", nsName, unique, helpers.WithCatalogNameSelector(ccName))
+			DeferCleanup(ceCleanup)
+			helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
 
-		By("waiting for ClusterOperator Upgradeable to be false")
-		waitForClusterOperatorUpgradable(ctx, ceName)
-	})
+			By("waiting for InstalledOLMOperatorUpgradable to be false")
+			waitForOlmUpgradeStatus(ctx, operatorv1.ConditionFalse, ceName)
+
+			By("waiting for ClusterOperator Upgradeable to be false")
+			waitForClusterOperatorUpgradable(ctx, ceName)
+		})
 })
 
 func createClusterCatalog(name, namespace string) func() {
