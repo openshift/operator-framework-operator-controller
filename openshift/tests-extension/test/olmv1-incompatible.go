@@ -79,6 +79,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 			nsCleanup := createNamespace(nsName)
 			DeferCleanup(nsCleanup)
 
+			By("ensuring the builder ServiceAccount exists")
+			ensureServiceAccount(ctx, "builder", nsName)
+
+			By("ensuring the deployer ServiceAccount exists")
+			ensureServiceAccount(ctx, "deployer", nsName)
+
 			By("applying image-puller RoleBinding")
 			rbCleanup := createImagePullerRoleBinding(rbName, nsName)
 			DeferCleanup(rbCleanup)
@@ -310,6 +316,15 @@ func createBuildConfig(name, namespace string) func() {
 		By(fmt.Sprintf("deleting BuildConfig %q", name))
 		_ = k8sClient.Delete(context.Background(), bc)
 	}
+}
+
+func ensureServiceAccount(ctx SpecContext, name, namespace string) {
+	k8sClient := env.Get().K8sClient
+	Eventually(func(g Gomega) {
+		b := &corev1.ServiceAccount{}
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, b)
+		g.Expect(err).ToNot(HaveOccurred())
+	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
 }
 
 func waitForBuildToFinish(ctx SpecContext, name, namespace string) {
