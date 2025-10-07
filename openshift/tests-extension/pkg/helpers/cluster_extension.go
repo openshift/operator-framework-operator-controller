@@ -214,7 +214,7 @@ func ExpectServiceAccountExists(ctx context.Context, name, namespace string) {
 	Eventually(func(g Gomega) {
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, sa)
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ServiceAccount %q/%q: %v", namespace, name, err))
-	}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
+	}).WithTimeout(5*time.Minute).WithPolling(3*time.Second).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
 }
 
 // ExpectClusterRoleBindingExists waits for a ClusterRoleBinding to be available and visible to the client.

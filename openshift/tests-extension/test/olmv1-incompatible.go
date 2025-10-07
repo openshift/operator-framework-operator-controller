@@ -79,6 +79,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 			nsCleanup := createNamespace(nsName)
 			DeferCleanup(nsCleanup)
 
+			// The builder (and deployer) service accounts are created by OpenShift itself which injects them in the NS.
+			By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
+			helpers.ExpectServiceAccountExists(ctx, "builder", nsName)
+
+			By(fmt.Sprintf("waiting for deployer serviceaccount in %s", nsName))
+			helpers.ExpectServiceAccountExists(ctx, "deployer", nsName)
+
 			By("applying image-puller RoleBinding")
 			rbCleanup := createImagePullerRoleBinding(rbName, nsName)
 			DeferCleanup(rbCleanup)
