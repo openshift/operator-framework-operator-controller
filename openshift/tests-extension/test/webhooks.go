@@ -63,7 +63,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			err = k8sClient.Get(ctx, client.ObjectKey{Name: webhookCatalogName}, catalog)
 			if apierrors.IsNotFound(err) {
 				By(fmt.Sprintf("creating the webhook-operator catalog with name %s", webhookCatalogName))
-				catalog = helpers.NewClusterCatalog(webhookCatalogName, "quay.io/operator-framework/webhook-operator-index:0.0.4")
+				catalog = helpers.NewClusterCatalog(webhookCatalogName, "quay.io/olmtest/webhook-operator-index:v0.0.5")
 				err = k8sClient.Create(ctx, catalog)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -286,7 +286,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	helpers.ExpectClusterRoleBindingExists(ctx, operatorClusterRoleBindingName)
 
 	ceName := webhookOperatorInstallNamespace
-	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.4", ceName, saName, webhookOperatorInstallNamespace)
+	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, saName, webhookOperatorInstallNamespace)
 	ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"olm.operatorframework.io/metadata.name": webhookCatalogName,
