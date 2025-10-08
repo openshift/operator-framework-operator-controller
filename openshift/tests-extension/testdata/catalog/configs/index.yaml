@@ -17,7 +17,7 @@
     },
     {
       "type": "olm.maxOpenShiftVersion",
-      "value": "VERSION"
+      "value": "{{ VERSION }}"
     }
   ]
 }
