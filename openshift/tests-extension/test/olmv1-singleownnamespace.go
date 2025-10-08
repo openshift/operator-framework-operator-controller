@@ -23,7 +23,7 @@ import (
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for singleNamespace watch mode with quay-operator", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for singleNamespace watch mode with quay-operator", Ordered, Serial, func() {
 	var (
 		k8sClient  client.Client
 		namespace  string
@@ -69,7 +69,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 	})
 
 	It("should install a cluster extension successfully",
-		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully"),
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully"),
 		func(ctx SpecContext) {
 			By("creating ServiceAccount")
 			sa := helpers.NewServiceAccount(saName, namespace)
@@ -116,7 +116,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with quay-operator", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for ownNamespace watch mode with quay-operator", Ordered, Serial, func() {
 	var (
 		k8sClient  client.Client
 		namespace  string
@@ -161,7 +161,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 	})
 
 	It("should install a cluster extension successfully",
-		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully"),
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully"),
 		func(ctx SpecContext) {
 			By("creating ServiceAccount")
 			sa := helpers.NewServiceAccount(saName, namespace)
@@ -208,7 +208,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode", Ordered, Serial, func() {
 	var (
 		k8sClient  client.Client
 		namespace  string
@@ -253,7 +253,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 	})
 
 	It("should fail to install a cluster extension successfully",
-		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully"),
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully"),
 		func(ctx SpecContext) {
 			By("creating ServiceAccount")
 			sa := helpers.NewServiceAccount(saName, namespace)
