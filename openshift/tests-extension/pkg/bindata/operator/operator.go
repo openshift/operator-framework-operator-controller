@@ -96,7 +96,7 @@ func dockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1760017176, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -116,7 +116,7 @@ func manifestsRegistryClusterserviceversionYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 3959, mode: os.FileMode(420), modTime: time.Unix(1759218321, 0)}
+	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 3959, mode: os.FileMode(420), modTime: time.Unix(1760017176, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -136,7 +136,7 @@ func metadataAnnotationsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1760017176, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -156,7 +156,7 @@ func metadataPropertiesYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1759218275, 0)}
+	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1760017176, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -176,7 +176,7 @@ func testsScorecardConfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1760017176, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
