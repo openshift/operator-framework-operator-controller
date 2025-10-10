@@ -78,6 +78,17 @@ pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 	mkdir -p $(@D)
 	$(GO_BINDATA) -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
 	go fmt ./$(@D)/...
+bindata: pkg/bindata/webhook/bundle/bundle.go
+pkg/bindata/webhook/bundle/bundle.go: $(shell find testdata/webhook/bundle -type f)
+	mkdir -p $(@D)
+	$(GO_BINDATA) -pkg webhookbundle -o $@ -prefix "testdata/webhook/bundle" testdata/webhook/bundle/...
+	go fmt ./$(@D)/...
+
+bindata: pkg/bindata/webhook/index/index.go
+pkg/bindata/webhook/index/index.go: $(shell find testdata/webhook/index -type f)
+	mkdir -p $(@D)
+	$(GO_BINDATA) -pkg webhookindex -o $@ -prefix "testdata/webhook/index" testdata/webhook/index/...
+	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/qe/bindata.go
 pkg/bindata/qe/bindata.go: $(shell find test/qe/testdata -type f)
@@ -110,7 +121,7 @@ update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
 # How to rename a test?
 # 1. Run: make list-test-names
 # 2. Find the current full test name (e.g. "[sig-abc] My test does XYZ")
-# 3. Add a Ginkgo label: ginkgo.Label("original-name:[sig-abc] My test does XYZ")
+# 3. Add a Ginkgo label: ginkgo.Label("original-name:[sig-abc] My test does XYZ"). if there is existing original-name label, please do not update the label again and keep it unchanged.
 # 4. Change the test name string and run: make build-update
 # **Example**
 # It("should pass a renamed sanity check",

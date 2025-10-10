@@ -387,7 +387,7 @@ github.com/openshift/client-go/user/applyconfigurations/user/v1
 github.com/openshift/client-go/user/clientset/versioned
 github.com/openshift/client-go/user/clientset/versioned/scheme
 github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
-# github.com/openshift/origin v1.5.0-alpha.3.0.20250927181537-6079513c8d63
+# github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
 ## explicit; go 1.24.0
 github.com/openshift/origin/test/extended/util/image
 # github.com/operator-framework/operator-controller v1.5.1

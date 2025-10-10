@@ -107,7 +107,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		}
 	})
 
-	It("should install an openshift catalog cluster extension", func(ctx SpecContext) {
+	It("should install an openshift catalog cluster extension", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should install an openshift catalog cluster extension"), func(ctx SpecContext) {
 		if !env.Get().IsOpenShift {
 			Skip("Requires OCP Catalogs: not OpenShift")
 		}

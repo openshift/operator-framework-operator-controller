@@ -10,7 +10,7 @@ require (
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250722101414-8083129ab8f9
 	github.com/openshift/api v0.0.0-20250808142411-c974eeafe3f1
 	github.com/openshift/client-go v0.0.0-20250710075018-396b36f983ee
-	github.com/openshift/origin v1.5.0-alpha.3.0.20250927181537-6079513c8d63
+	github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
 	github.com/operator-framework/operator-controller v1.5.1
 	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cobra v1.10.1
