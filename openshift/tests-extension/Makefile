@@ -78,6 +78,7 @@ pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 	mkdir -p $(@D)
 	$(GO_BINDATA) -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
 	go fmt ./$(@D)/...
+
 bindata: pkg/bindata/webhook/bundle/bundle.go
 pkg/bindata/webhook/bundle/bundle.go: $(shell find testdata/webhook/bundle -type f)
 	mkdir -p $(@D)
