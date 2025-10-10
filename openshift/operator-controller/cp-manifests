@@ -5,10 +5,8 @@ if [ -z "${1}" ]; then
    exit 1
 fi
 
-DEST=${1}
+DEST="${1}/helm/operator-controller"
 
-if [ -d /openshift/helm ]; then
-    mkdir -p "${DEST}/helm/operator-controller"
-    cp -a /openshift/helm/* "${DEST}/helm/operator-controller"
-fi
+mkdir -p "${DEST}"
+cp -a /openshift/helm/* "${DEST}"
 
