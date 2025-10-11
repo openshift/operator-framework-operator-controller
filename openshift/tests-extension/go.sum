@@ -201,8 +201,8 @@ github.com/openshift/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0
 github.com/openshift/kubernetes/staging/src/k8s.io/pod-security-admission v0.0.0-20250906192346-6efb6a95323f/go.mod h1:+UmuDIUnxxGlHHQvFhdg4s1XMRX+MBU1n70IYo18IOk=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20250416174521-4eb003743b54 h1:ehXndVZfIk/fo18YJCMJ+6b8HL8tzqjP7yWgchMnfCc=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20250416174521-4eb003743b54/go.mod h1:7Du3c42kxCUegi0IImZ1wUQzMBVecgIHjR1C+NkhLQo=
-github.com/openshift/origin v1.5.0-alpha.3.0.20250927181537-6079513c8d63 h1:kt7T98/AlpwFeMZlEqlwRJXWUW0kp9etoZ1uUmZfLnY=
-github.com/openshift/origin v1.5.0-alpha.3.0.20250927181537-6079513c8d63/go.mod h1:thiTAaYNKIS7Lh6Lvzwi1JcE/TrX8oSc8u8PfP/Gaa8=
+github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815 h1:Q8fO0DLFlhGKJThi2V+zg8A1acvxj3Cwi+5ZPsY4RsI=
+github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815/go.mod h1:thiTAaYNKIS7Lh6Lvzwi1JcE/TrX8oSc8u8PfP/Gaa8=
 github.com/operator-framework/operator-controller v1.5.1 h1:J3xdRHzh9ajuKt/i1fWxoOLUf3kMpaOnGf1XNZ6+Klg=
 github.com/operator-framework/operator-controller v1.5.1/go.mod h1:6BpO9yzrmr1s7zqnk7YUA9SJlNVD+gA25JS5sg6axCE=
 github.com/pborman/uuid v1.2.1 h1:+ZZIw58t/ozdjRaXh/3awHfmWRbzYxJoAdNJxe/3pvw=

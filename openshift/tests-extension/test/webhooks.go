@@ -1,5 +1,6 @@
 package test
 
+//nolint:gci // keep import order for readability
 import (
 	"context"
 	"crypto/x509"
@@ -24,8 +25,11 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
+	webhookbundle "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/webhook/bundle"
+	webhookindex "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/webhook/index"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
+	"github.com/openshift/origin/test/extended/util/image"
 )
 
 const (
@@ -35,13 +39,13 @@ const (
 	webhookServiceCert         = "webhook-operator-controller-manager-service-cert"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks",
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks",
 	Ordered, Serial, func() {
 		var (
 			k8sClient                       client.Client
 			dynamicClient                   dynamic.Interface
 			webhookOperatorInstallNamespace string
-			cleanup                         func(ctx context.Context)
+			unique                          string
 		)
 
 		BeforeEach(func(ctx SpecContext) {
@@ -55,25 +59,113 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			By("requiring OLMv1 capability on OpenShift")
 			helpers.RequireOLMv1CapabilityOnOpenshift()
 
+			By("requiring image-registry to be available")
+			helpers.RequireImageRegistry(ctx)
+
 			By("ensuring no ClusterExtension and CRD from a previous run")
 			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
 
-			By(fmt.Sprintf("checking if the %s exists", webhookCatalogName))
-			catalog := &olmv1.ClusterCatalog{}
-			err = k8sClient.Get(ctx, client.ObjectKey{Name: webhookCatalogName}, catalog)
-			if apierrors.IsNotFound(err) {
-				By(fmt.Sprintf("creating the webhook-operator catalog with name %s", webhookCatalogName))
-				catalog = helpers.NewClusterCatalog(webhookCatalogName, "quay.io/operator-framework/webhook-operator-index:0.0.4")
-				err = k8sClient.Create(ctx, catalog)
-				Expect(err).ToNot(HaveOccurred())
+			unique = rand.String(8)
+			nsName := "webhook-olm-ns-" + unique
+			rbName := "webhook-olm-rb-" + unique
+			catalogName := webhookCatalogName + "-" + unique
+			bundleName := webhookOperatorPackageName
 
-				By("waiting for the webhook-operator catalog to be serving")
-				helpers.ExpectCatalogToBeServing(ctx, webhookCatalogName)
-			} else {
-				By(fmt.Sprintf("webhook-operator catalog %s already exists, skipping creation", webhookCatalogName))
+			replacements := map[string]string{
+				"{{ TEST-BUNDLE }}":     bundleName,
+				"{{ NAMESPACE }}":       nsName,
+				"{{ TEST-CONTROLLER }}": image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5"),
 			}
+
+			// Create namespace for building images
+			By("creating a new Namespace for builds")
+			nsCleanup := createNamespace(nsName)
+			DeferCleanup(nsCleanup)
+
+			By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
+			helpers.ExpectServiceAccountExists(ctx, "builder", nsName)
+
+			By(fmt.Sprintf("waiting for deployer serviceaccount in %s", nsName))
+			helpers.ExpectServiceAccountExists(ctx, "deployer", nsName)
+
+			By("applying image-puller RoleBinding")
+			rbCleanup := createImagePullerRoleBinding(rbName, nsName)
+			DeferCleanup(rbCleanup)
+
+			// Build bundle image
+			By("creating the operator bundle BuildConfig")
+			bcBundleCleanup := createBuildConfig(bundleName, nsName)
+			DeferCleanup(bcBundleCleanup)
+
+			By("creating the operator bundle ImageStream")
+			isBundleCleanup := createImageStream(bundleName, nsName)
+			DeferCleanup(isBundleCleanup)
+
+			By("creating the operator bundle tarball")
+			fileOperatorBundle, fileCleanupBundle := createTempTarBall(replacements, webhookbundle.AssetNames, webhookbundle.Asset)
+			DeferCleanup(fileCleanupBundle)
+			By(fmt.Sprintf("created operator bundle tarball %q", fileOperatorBundle))
+
+			By("starting the operator build via RAW URL")
+			opArgs := []string{
+				"create",
+				"--raw",
+				fmt.Sprintf(
+					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
+					nsName, bundleName, bundleName, nsName,
+				),
+				"-f",
+				fileOperatorBundle,
+			}
+			buildOperatorBundle := startBuild(opArgs...)
+
+			By(fmt.Sprintf("waiting for the build %q to finish", buildOperatorBundle.Name))
+			waitForBuildToFinish(ctx, buildOperatorBundle.Name, nsName)
+
+			// Build index image
+			By("creating the catalog BuildConfig")
+			bcIndexCleanup := createBuildConfig(catalogName, nsName)
+			DeferCleanup(bcIndexCleanup)
+
+			By("creating the catalog ImageStream")
+			isIndexCleanup := createImageStream(catalogName, nsName)
+			DeferCleanup(isIndexCleanup)
+
+			By("creating the catalog tarball")
+			fileCatalogIndex, fileCleanupIndex := createTempTarBall(replacements, webhookindex.AssetNames, webhookindex.Asset)
+			DeferCleanup(fileCleanupIndex)
+			By(fmt.Sprintf("created catalog tarball %q", fileCatalogIndex))
+
+			By("starting the catalog build via RAW URL")
+			indexArgs := []string{
+				"create",
+				"--raw",
+				fmt.Sprintf(
+					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
+					nsName, catalogName, catalogName, nsName,
+				),
+				"-f",
+				fileCatalogIndex,
+			}
+			buildCatalogIndex := startBuild(indexArgs...)
+
+			By(fmt.Sprintf("waiting for the build %q to finish", buildCatalogIndex.Name))
+			waitForBuildToFinish(ctx, buildCatalogIndex.Name, nsName)
+
+			// Create ClusterCatalog
+			By("creating the ClusterCatalog")
+			catalogCleanup := createClusterCatalog(catalogName, nsName)
+			DeferCleanup(func(ctx context.Context) {
+				catalogCleanup()
+			})
+
+			By("waiting for the webhook-operator catalog to be serving")
+			helpers.ExpectCatalogToBeServing(ctx, catalogName)
+
+			// Create ClusterExtension in a separate namespace
+			// setupWebhookOperator now registers its own DeferCleanup handlers internally
 			webhookOperatorInstallNamespace = fmt.Sprintf("webhook-operator-%s", rand.String(5))
-			cleanup = setupWebhookOperator(ctx, k8sClient, webhookOperatorInstallNamespace)
+			setupWebhookOperator(ctx, k8sClient, webhookOperatorInstallNamespace, catalogName)
 		})
 
 		AfterEach(func(ctx SpecContext) {
@@ -88,14 +180,11 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				helpers.RunAndPrint(ctx, "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
 				helpers.RunAndPrint(ctx, "get", "validatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
 			}
-
-			By("performing webhook operator cleanup")
-			if cleanup != nil {
-				cleanup(ctx)
-			}
+			// Note: cleanup is now handled by DeferCleanup in BeforeEach, which ensures
+			// cleanup runs even if BeforeEach or the test fails
 		})
 
-		It("should have a working validating webhook", func(ctx SpecContext) {
+		It("should have a working validating webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working validating webhook"), func(ctx SpecContext) {
 			By("creating a webhook test resource that will be rejected by the validating webhook")
 			Eventually(func() error {
 				name := fmt.Sprintf("validating-webhook-test-%s", rand.String(5))
@@ -121,7 +210,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		})
 
-		It("should have a working mutating webhook", func(ctx SpecContext) {
+		It("should have a working mutating webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
 			By("creating a valid webhook")
 			mutatingWebhookResourceName := "mutating-webhook-test"
 			resource := newWebhookTest(mutatingWebhookResourceName, webhookOperatorInstallNamespace, true)
@@ -143,7 +232,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}))
 		})
 
-		It("should have a working conversion webhook", func(ctx SpecContext) {
+		It("should have a working conversion webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook"), func(ctx SpecContext) {
 			By("creating a conversion webhook test resource")
 			conversionWebhookResourceName := "conversion-webhook-test"
 			resourceV1 := newWebhookTest(conversionWebhookResourceName, webhookOperatorInstallNamespace, true)
@@ -167,7 +256,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}))
 		})
 
-		It("should be tolerant to tls secret deletion", func(ctx SpecContext) {
+		It("should be tolerant to tls secret deletion [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion"), func(ctx SpecContext) {
 			certificateSecretName := webhookServiceCert
 			By("ensuring secret exists before deletion attempt")
 			Eventually(func(g Gomega) {
@@ -262,7 +351,7 @@ func newWebhookTest(name, namespace string, valid bool) *unstructured.Unstructur
 	return obj
 }
 
-func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOperatorInstallNamespace string) func(ctx context.Context) {
+func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOperatorInstallNamespace, catalogName string) {
 	By(fmt.Sprintf("installing the webhook operator in namespace %s", webhookOperatorInstallNamespace))
 
 	ns := &corev1.Namespace{
@@ -270,12 +359,27 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	}
 	err := k8sClient.Create(ctx, ns)
 	Expect(err).ToNot(HaveOccurred())
+	// Register cleanup immediately after creating the namespace
+	DeferCleanup(func(ctx context.Context) {
+		By(" NOW cleaning up ClusterExtension namespace (DeferCleanup executing) ")
+		By(fmt.Sprintf("cleanup: deleting namespace %s", ns.Name))
+		_ = k8sClient.Delete(ctx, ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
+
+		By(fmt.Sprintf("waiting for namespace %s to be fully deleted", webhookOperatorInstallNamespace))
+		Eventually(func(g Gomega) {
+			tempNs := &corev1.Namespace{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookOperatorInstallNamespace}, tempNs)
+			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "namespace still exists")
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	})
 
 	saName := fmt.Sprintf("%s-installer", webhookOperatorInstallNamespace)
 	sa := helpers.NewServiceAccount(saName, webhookOperatorInstallNamespace)
 	err = k8sClient.Create(ctx, sa)
 	Expect(err).ToNot(HaveOccurred())
 	helpers.ExpectServiceAccountExists(ctx, saName, webhookOperatorInstallNamespace)
+	// ServiceAccount will be deleted with the namespace, no separate cleanup needed
 
 	By("creating a ClusterRoleBinding to cluster-admin for the webhook operator")
 	operatorClusterRoleBindingName := fmt.Sprintf("%s-operator-crb", webhookOperatorInstallNamespace)
@@ -284,16 +388,36 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create ClusterRoleBinding %s",
 		operatorClusterRoleBindingName))
 	helpers.ExpectClusterRoleBindingExists(ctx, operatorClusterRoleBindingName)
+	// Register cleanup for ClusterRoleBinding (cluster-scoped resource)
+	DeferCleanup(func(ctx context.Context) {
+		By(" NOW cleaning up ClusterRoleBinding (DeferCleanup executing) ")
+		By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", operatorClusterRoleBinding.Name))
+		_ = k8sClient.Delete(ctx, operatorClusterRoleBinding, client.PropagationPolicy(metav1.DeletePropagationBackground))
+	})
 
 	ceName := webhookOperatorInstallNamespace
-	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.4", ceName, saName, webhookOperatorInstallNamespace)
+	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, saName, webhookOperatorInstallNamespace)
 	ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"olm.operatorframework.io/metadata.name": webhookCatalogName,
+			"olm.operatorframework.io/metadata.name": catalogName,
 		},
 	}
 	err = k8sClient.Create(ctx, ce)
 	Expect(err).ToNot(HaveOccurred())
+	// Register cleanup for ClusterExtension (cluster-scoped resource)
+	DeferCleanup(func(ctx context.Context) {
+		By(" NOW cleaning up ClusterExtension (DeferCleanup executing) ")
+		By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
+		_ = k8sClient.Delete(ctx, ce, client.PropagationPolicy(metav1.DeletePropagationBackground))
+
+		By(fmt.Sprintf("waiting for ClusterExtension %s to be fully deleted", ce.Name))
+		Eventually(func(g Gomega) {
+			tempCE := &olmv1.ClusterExtension{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, tempCE)
+			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	})
 
 	By("waiting for the webhook operator to be installed")
 	helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
@@ -324,24 +448,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty")
 	}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(Succeed(), "webhook service certificate secret did not become available within timeout")
 
-	return func(ctx context.Context) {
-		By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
-		_ = k8sClient.Delete(ctx, ce, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", operatorClusterRoleBinding.Name))
-		_ = k8sClient.Delete(ctx, operatorClusterRoleBinding, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-		_ = k8sClient.Delete(ctx, sa, client.PropagationPolicy(metav1.DeletePropagationBackground))
-		By(fmt.Sprintf("cleanup: deleting namespace %s", ns.Name))
-		_ = k8sClient.Delete(ctx, ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
-
-		By(fmt.Sprintf("waiting for namespace %s to be fully deleted", webhookOperatorInstallNamespace))
-		Eventually(func(g Gomega) {
-			ns := &corev1.Namespace{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookOperatorInstallNamespace}, ns)
-			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "namespace still exists")
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-	}
+	By("setupWebhookOperator completed - ClusterExtension is ready for test to use")
 }
 
 // printTLSCertInfo parses a PEM-encoded TLS certificate and prints useful debug info.

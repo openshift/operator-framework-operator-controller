@@ -8,6 +8,7 @@ https://github.com/openshift-eng/openshift-tests-extension/blob/main/cmd/example
 */
 package main
 
+//nolint:gci // keep import order for readability
 import (
 	"fmt"
 	"os"
@@ -24,6 +25,7 @@ import (
 	_ "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/specs"
 	exutil "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util/filters"
+	"github.com/openshift/origin/test/extended/util/image"
 )
 
 func main() {
@@ -280,6 +282,10 @@ func main() {
 	specs.AddBeforeAll(func() {
 		env.Init()
 		exutil.InitClusterEnv()
+		// Initialize image repository mapping from KUBE_TEST_REPO environment variable
+		// This allows tests to work in both connected (repo="") and disconnected (repo=custom) environments
+		// The KUBE_TEST_REPO variable is set by openshift-tests via --from-repository flag
+		image.InitializeImages(os.Getenv("KUBE_TEST_REPO"))
 	})
 
 	ext.AddSpecs(specs)
