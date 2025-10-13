@@ -125,104 +125,22 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 })
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation", func() {
-	var unique, nsName, ccName, rbName, opName string
+	var unique, nsName, ccName, opName string
 	BeforeEach(func(ctx SpecContext) {
-		helpers.RequireOLMv1CapabilityOnOpenshift()
-		unique = rand.String(8)
-		nsName = "install-test-ns-" + unique
-		ccName = "install-test-cc-" + unique
-		rbName = "install-test-rb-" + unique
-		opName = "install-test-op-" + unique
-
-		By(fmt.Sprintf("setting a unique value: %q", unique))
-
 		testVersion := env.Get().OpenShiftVersion
 		replacements := map[string]string{
-			"{{ TEST-BUNDLE }}": opName,
-			"{{ NAMESPACE }}":   nsName,
+			"{{ TEST-BUNDLE }}": "", // Auto-filled
+			"{{ NAMESPACE }}":   "", // Auto-filled
 			"{{ VERSION }}":     testVersion,
 
 			// Using the shell image provided by origin as the controller image.
 			// The image is mirrored into disconnected environments for testing.
 			"{{ TEST-CONTROLLER }}": image.ShellImage(),
 		}
-
-		By("creating a new Namespace")
-		nsCleanup := createNamespace(nsName)
-		DeferCleanup(nsCleanup)
-
-		// The builder (and deployer) service accounts are created by OpenShift itself which injects them in the NS.
-		By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
-		helpers.ExpectServiceAccountExists(ctx, "builder", nsName)
-
-		By(fmt.Sprintf("waiting for deployer serviceaccount in %s", nsName))
-		helpers.ExpectServiceAccountExists(ctx, "deployer", nsName)
-
-		By("applying image-puller RoleBinding")
-		rbCleanup := createImagePullerRoleBinding(rbName, nsName)
-		DeferCleanup(rbCleanup)
-
-		By("creating the operator BuildConfig")
-		bcCleanup := createBuildConfig(opName, nsName)
-		DeferCleanup(bcCleanup)
-
-		By("creating the operator ImageStream")
-		isCleanup := createImageStream(opName, nsName)
-		DeferCleanup(isCleanup)
-
-		By("creating the operator tarball")
-		fileOperator, fileCleanup := createTempTarBall(replacements, operatordata.AssetNames, operatordata.Asset)
-		DeferCleanup(fileCleanup)
-		By(fmt.Sprintf("created operator tarball %q", fileOperator))
-
-		By("starting the operator build via RAW URL")
-		opArgs := []string{
-			"create",
-			"--raw",
-			fmt.Sprintf(
-				"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-				nsName, opName, opName, nsName,
-			),
-			"-f",
-			fileOperator,
-		}
-		buildOperator := startBuild(opArgs...)
-
-		By(fmt.Sprintf("waiting for the build %q to finish", buildOperator.Name))
-		waitForBuildToFinish(ctx, buildOperator.Name, nsName)
-
-		By("creating the catalog BuildConfig")
-		bcCleanup = createBuildConfig(ccName, nsName)
-		DeferCleanup(bcCleanup)
-
-		By("creating the catalog ImageStream")
-		isCleanup = createImageStream(ccName, nsName)
-		DeferCleanup(isCleanup)
-
-		By("creating the catalog tarball")
-		fileCatalog, fileCleanup := createTempTarBall(replacements, catalogdata.AssetNames, catalogdata.Asset)
-		DeferCleanup(fileCleanup)
-		By(fmt.Sprintf("created catalog tarball %q", fileCatalog))
-
-		By("starting the catalog build via RAW URL")
-		catalogArgs := []string{
-			"create",
-			"--raw",
-			fmt.Sprintf(
-				"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-				nsName, ccName, ccName, nsName,
-			),
-			"-f",
-			fileCatalog,
-		}
-		buildCatalog := startBuild(catalogArgs...)
-
-		By(fmt.Sprintf("waiting for the build %q to finish", buildCatalog.Name))
-		waitForBuildToFinish(ctx, buildCatalog.Name, nsName)
-
-		By("creating the ClusterCatalog")
-		ccCleanup := createClusterCatalog(ccName, nsName)
-		DeferCleanup(ccCleanup)
+		unique, nsName, ccName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			catalogdata.AssetNames, catalogdata.Asset,
+			operatordata.AssetNames, operatordata.Asset,
+		)
 	})
 
 	AfterEach(func(ctx SpecContext) {

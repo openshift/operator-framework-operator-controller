@@ -93,7 +93,7 @@ func dockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "Dockerfile", size: 97, mode: os.FileMode(420), modTime: time.Unix(1760065068, 0)}
+	info := bindataFileInfo{name: "Dockerfile", size: 97, mode: os.FileMode(420), modTime: time.Unix(1760231456, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -113,7 +113,7 @@ func configsIndexYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "configs/index.yaml", size: 1122, mode: os.FileMode(420), modTime: time.Unix(1760066144, 0)}
+	info := bindataFileInfo{name: "configs/index.yaml", size: 1122, mode: os.FileMode(420), modTime: time.Unix(1760231456, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

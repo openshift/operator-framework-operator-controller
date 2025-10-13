@@ -45,7 +45,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			k8sClient                       client.Client
 			dynamicClient                   dynamic.Interface
 			webhookOperatorInstallNamespace string
-			unique                          string
+			catalogName                     string
 		)
 
 		BeforeEach(func(ctx SpecContext) {
@@ -65,102 +65,21 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			By("ensuring no ClusterExtension and CRD from a previous run")
 			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
 
-			unique = rand.String(8)
-			nsName := "webhook-olm-ns-" + unique
-			rbName := "webhook-olm-rb-" + unique
-			catalogName := webhookCatalogName + "-" + unique
-			bundleName := webhookOperatorPackageName
+			// Build webhook operator bundle and catalog using the consolidated helper
+			// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
 
 			replacements := map[string]string{
-				"{{ TEST-BUNDLE }}":     bundleName,
-				"{{ NAMESPACE }}":       nsName,
+				"{{ TEST-BUNDLE }}":     "", // Auto-filled
+				"{{ NAMESPACE }}":       "", // Auto-filled
 				"{{ TEST-CONTROLLER }}": image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5"),
 			}
 
-			// Create namespace for building images
-			By("creating a new Namespace for builds")
-			nsCleanup := createNamespace(nsName)
-			DeferCleanup(nsCleanup)
-
-			By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
-			helpers.ExpectServiceAccountExists(ctx, "builder", nsName)
-
-			By(fmt.Sprintf("waiting for deployer serviceaccount in %s", nsName))
-			helpers.ExpectServiceAccountExists(ctx, "deployer", nsName)
-
-			By("applying image-puller RoleBinding")
-			rbCleanup := createImagePullerRoleBinding(rbName, nsName)
-			DeferCleanup(rbCleanup)
-
-			// Build bundle image
-			By("creating the operator bundle BuildConfig")
-			bcBundleCleanup := createBuildConfig(bundleName, nsName)
-			DeferCleanup(bcBundleCleanup)
-
-			By("creating the operator bundle ImageStream")
-			isBundleCleanup := createImageStream(bundleName, nsName)
-			DeferCleanup(isBundleCleanup)
-
-			By("creating the operator bundle tarball")
-			fileOperatorBundle, fileCleanupBundle := createTempTarBall(replacements, webhookbundle.AssetNames, webhookbundle.Asset)
-			DeferCleanup(fileCleanupBundle)
-			By(fmt.Sprintf("created operator bundle tarball %q", fileOperatorBundle))
-
-			By("starting the operator build via RAW URL")
-			opArgs := []string{
-				"create",
-				"--raw",
-				fmt.Sprintf(
-					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-					nsName, bundleName, bundleName, nsName,
-				),
-				"-f",
-				fileOperatorBundle,
-			}
-			buildOperatorBundle := startBuild(opArgs...)
-
-			By(fmt.Sprintf("waiting for the build %q to finish", buildOperatorBundle.Name))
-			waitForBuildToFinish(ctx, buildOperatorBundle.Name, nsName)
-
-			// Build index image
-			By("creating the catalog BuildConfig")
-			bcIndexCleanup := createBuildConfig(catalogName, nsName)
-			DeferCleanup(bcIndexCleanup)
-
-			By("creating the catalog ImageStream")
-			isIndexCleanup := createImageStream(catalogName, nsName)
-			DeferCleanup(isIndexCleanup)
-
-			By("creating the catalog tarball")
-			fileCatalogIndex, fileCleanupIndex := createTempTarBall(replacements, webhookindex.AssetNames, webhookindex.Asset)
-			DeferCleanup(fileCleanupIndex)
-			By(fmt.Sprintf("created catalog tarball %q", fileCatalogIndex))
-
-			By("starting the catalog build via RAW URL")
-			indexArgs := []string{
-				"create",
-				"--raw",
-				fmt.Sprintf(
-					"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
-					nsName, catalogName, catalogName, nsName,
-				),
-				"-f",
-				fileCatalogIndex,
-			}
-			buildCatalogIndex := startBuild(indexArgs...)
-
-			By(fmt.Sprintf("waiting for the build %q to finish", buildCatalogIndex.Name))
-			waitForBuildToFinish(ctx, buildCatalogIndex.Name, nsName)
-
-			// Create ClusterCatalog
-			By("creating the ClusterCatalog")
-			catalogCleanup := createClusterCatalog(catalogName, nsName)
-			DeferCleanup(func(ctx context.Context) {
-				catalogCleanup()
-			})
-
-			By("waiting for the webhook-operator catalog to be serving")
-			helpers.ExpectCatalogToBeServing(ctx, catalogName)
+			var nsName, opName string
+			_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+				webhookindex.AssetNames, webhookindex.Asset,
+				webhookbundle.AssetNames, webhookbundle.Asset,
+			)
+			By(fmt.Sprintf("webhook bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
 
 			// Create ClusterExtension in a separate namespace
 			// setupWebhookOperator now registers its own DeferCleanup handlers internally
