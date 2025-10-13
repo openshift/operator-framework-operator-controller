@@ -527,7 +527,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should have a working mutating webhook [Serial]",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should have a working mutating webhook",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook": {}
@@ -540,7 +540,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should have a working conversion webhook [Serial]",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should have a working conversion webhook",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook": {}
@@ -553,7 +553,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should be tolerant to tls secret deletion [Serial]",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should be tolerant to tls secret deletion",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion": {}

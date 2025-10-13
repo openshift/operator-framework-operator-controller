@@ -39,205 +39,204 @@ const (
 	webhookServiceCert         = "webhook-operator-controller-manager-service-cert"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks",
-	Ordered, Serial, func() {
-		var (
-			k8sClient                       client.Client
-			dynamicClient                   dynamic.Interface
-			webhookOperatorInstallNamespace string
-			catalogName                     string
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks", func() {
+	var (
+		k8sClient                       client.Client
+		dynamicClient                   dynamic.Interface
+		webhookOperatorInstallNamespace string
+		catalogName                     string
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		By("initializing Kubernetes client")
+		k8sClient = env.Get().K8sClient
+		restCfg := env.Get().RestCfg
+		var err error
+		dynamicClient, err = dynamic.NewForConfig(restCfg)
+		Expect(err).ToNot(HaveOccurred(), "failed to create dynamic client")
+
+		By("requiring OLMv1 capability on OpenShift")
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring image-registry to be available")
+		helpers.RequireImageRegistry(ctx)
+
+		By("ensuring no ClusterExtension and CRD from a previous run")
+		helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
+
+		// Build webhook operator bundle and catalog using the consolidated helper
+		// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "", // Auto-filled
+			"{{ NAMESPACE }}":       "", // Auto-filled
+			"{{ TEST-CONTROLLER }}": image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5"),
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			webhookindex.AssetNames, webhookindex.Asset,
+			webhookbundle.AssetNames, webhookbundle.Asset,
 		)
+		By(fmt.Sprintf("webhook bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
 
-		BeforeEach(func(ctx SpecContext) {
-			By("initializing Kubernetes client")
-			k8sClient = env.Get().K8sClient
-			restCfg := env.Get().RestCfg
-			var err error
-			dynamicClient, err = dynamic.NewForConfig(restCfg)
-			Expect(err).ToNot(HaveOccurred(), "failed to create dynamic client")
+		// Create ClusterExtension in a separate namespace
+		// setupWebhookOperator now registers its own DeferCleanup handlers internally
+		webhookOperatorInstallNamespace = fmt.Sprintf("webhook-operator-%s", rand.String(5))
+		setupWebhookOperator(ctx, k8sClient, webhookOperatorInstallNamespace, catalogName)
+	})
 
-			By("requiring OLMv1 capability on OpenShift")
-			helpers.RequireOLMv1CapabilityOnOpenshift()
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping pod logs for debugging")
+			helpers.GetAllPodLogs(ctx, webhookOperatorInstallNamespace)
+			helpers.DescribePods(ctx, webhookOperatorInstallNamespace)
+			helpers.DescribeAllClusterCatalogs(ctx)
+			helpers.DescribeAllClusterExtensions(ctx, webhookOperatorInstallNamespace)
+			By("dumping webhook diagnostics")
+			// Additional diagnostics specific for this test
+			helpers.RunAndPrint(ctx, "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
+			helpers.RunAndPrint(ctx, "get", "validatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
+		}
+		// Note: cleanup is now handled by DeferCleanup in BeforeEach, which ensures
+		// cleanup runs even if BeforeEach or the test fails
+	})
 
-			By("requiring image-registry to be available")
-			helpers.RequireImageRegistry(ctx)
+	It("should have a working validating webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working validating webhook"), func(ctx SpecContext) {
+		By("creating a webhook test resource that will be rejected by the validating webhook")
+		Eventually(func() error {
+			name := fmt.Sprintf("validating-webhook-test-%s", rand.String(5))
+			obj := newWebhookTest(name, webhookOperatorInstallNamespace, false)
 
-			By("ensuring no ClusterExtension and CRD from a previous run")
-			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
+			_, err := dynamicClient.
+				Resource(webhookTestV1).
+				Namespace(webhookOperatorInstallNamespace).
+				Create(ctx, obj, metav1.CreateOptions{})
 
-			// Build webhook operator bundle and catalog using the consolidated helper
-			// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
-
-			replacements := map[string]string{
-				"{{ TEST-BUNDLE }}":     "", // Auto-filled
-				"{{ NAMESPACE }}":       "", // Auto-filled
-				"{{ TEST-CONTROLLER }}": image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5"),
-			}
-
-			var nsName, opName string
-			_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
-				webhookindex.AssetNames, webhookindex.Asset,
-				webhookbundle.AssetNames, webhookbundle.Asset,
-			)
-			By(fmt.Sprintf("webhook bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
-
-			// Create ClusterExtension in a separate namespace
-			// setupWebhookOperator now registers its own DeferCleanup handlers internally
-			webhookOperatorInstallNamespace = fmt.Sprintf("webhook-operator-%s", rand.String(5))
-			setupWebhookOperator(ctx, k8sClient, webhookOperatorInstallNamespace, catalogName)
-		})
-
-		AfterEach(func(ctx SpecContext) {
-			if CurrentSpecReport().Failed() {
-				By("dumping pod logs for debugging")
-				helpers.GetAllPodLogs(ctx, webhookOperatorInstallNamespace)
-				helpers.DescribePods(ctx, webhookOperatorInstallNamespace)
-				helpers.DescribeAllClusterCatalogs(ctx)
-				helpers.DescribeAllClusterExtensions(ctx, webhookOperatorInstallNamespace)
-				By("dumping webhook diagnostics")
-				// Additional diagnostics specific for this test
-				helpers.RunAndPrint(ctx, "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
-				helpers.RunAndPrint(ctx, "get", "validatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
-			}
-			// Note: cleanup is now handled by DeferCleanup in BeforeEach, which ensures
-			// cleanup runs even if BeforeEach or the test fails
-		})
-
-		It("should have a working validating webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working validating webhook"), func(ctx SpecContext) {
-			By("creating a webhook test resource that will be rejected by the validating webhook")
-			Eventually(func() error {
-				name := fmt.Sprintf("validating-webhook-test-%s", rand.String(5))
-				obj := newWebhookTest(name, webhookOperatorInstallNamespace, false)
-
-				_, err := dynamicClient.
-					Resource(webhookTestV1).
+			switch {
+			case err == nil:
+				// Webhook not ready yet; clean up and keep polling.
+				_ = dynamicClient.Resource(webhookTestV1).
 					Namespace(webhookOperatorInstallNamespace).
-					Create(ctx, obj, metav1.CreateOptions{})
+					Delete(ctx, name, metav1.DeleteOptions{})
+				return fmt.Errorf("webhook not rejecting yet")
+			case strings.Contains(err.Error(), "Invalid value: false: Spec.Valid must be true"):
+				return nil // got the expected validating-webhook rejection
+			default:
+				return fmt.Errorf("unexpected error: %v", err)
+			}
+		}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	})
 
-				switch {
-				case err == nil:
-					// Webhook not ready yet; clean up and keep polling.
-					_ = dynamicClient.Resource(webhookTestV1).
-						Namespace(webhookOperatorInstallNamespace).
-						Delete(ctx, name, metav1.DeleteOptions{})
-					return fmt.Errorf("webhook not rejecting yet")
-				case strings.Contains(err.Error(), "Invalid value: false: Spec.Valid must be true"):
-					return nil // got the expected validating-webhook rejection
-				default:
-					return fmt.Errorf("unexpected error: %v", err)
-				}
-			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-		})
+	It("should have a working mutating webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
+		By("creating a valid webhook")
+		mutatingWebhookResourceName := "mutating-webhook-test"
+		resource := newWebhookTest(mutatingWebhookResourceName, webhookOperatorInstallNamespace, true)
+		Eventually(func(g Gomega) {
+			_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+		}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
-		It("should have a working mutating webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
-			By("creating a valid webhook")
-			mutatingWebhookResourceName := "mutating-webhook-test"
-			resource := newWebhookTest(mutatingWebhookResourceName, webhookOperatorInstallNamespace, true)
-			Eventually(func(g Gomega) {
-				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		By("getting the created resource in v1 schema")
+		obj, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Get(ctx, mutatingWebhookResourceName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(obj).ToNot(BeNil())
 
-			By("getting the created resource in v1 schema")
-			obj, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Get(ctx, mutatingWebhookResourceName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(obj).ToNot(BeNil())
+		By("validating the resource spec")
+		spec := obj.Object["spec"].(map[string]interface{})
+		Expect(spec).To(Equal(map[string]interface{}{
+			"valid":  true,
+			"mutate": true,
+		}))
+	})
 
-			By("validating the resource spec")
-			spec := obj.Object["spec"].(map[string]interface{})
-			Expect(spec).To(Equal(map[string]interface{}{
+	It("should have a working conversion webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook"), func(ctx SpecContext) {
+		By("creating a conversion webhook test resource")
+		conversionWebhookResourceName := "conversion-webhook-test"
+		resourceV1 := newWebhookTest(conversionWebhookResourceName, webhookOperatorInstallNamespace, true)
+		Eventually(func(g Gomega) {
+			_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resourceV1, metav1.CreateOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+		}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+
+		By("getting the created resource in v2 schema")
+		obj, err := dynamicClient.Resource(webhookTestV2).Namespace(webhookOperatorInstallNamespace).Get(ctx, conversionWebhookResourceName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(obj).ToNot(BeNil())
+
+		By("validating the resource spec")
+		spec := obj.Object["spec"].(map[string]interface{})
+		Expect(spec).To(Equal(map[string]interface{}{
+			"conversion": map[string]interface{}{
 				"valid":  true,
 				"mutate": true,
-			}))
-		})
-
-		It("should have a working conversion webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook"), func(ctx SpecContext) {
-			By("creating a conversion webhook test resource")
-			conversionWebhookResourceName := "conversion-webhook-test"
-			resourceV1 := newWebhookTest(conversionWebhookResourceName, webhookOperatorInstallNamespace, true)
-			Eventually(func(g Gomega) {
-				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resourceV1, metav1.CreateOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-
-			By("getting the created resource in v2 schema")
-			obj, err := dynamicClient.Resource(webhookTestV2).Namespace(webhookOperatorInstallNamespace).Get(ctx, conversionWebhookResourceName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(obj).ToNot(BeNil())
-
-			By("validating the resource spec")
-			spec := obj.Object["spec"].(map[string]interface{})
-			Expect(spec).To(Equal(map[string]interface{}{
-				"conversion": map[string]interface{}{
-					"valid":  true,
-					"mutate": true,
-				},
-			}))
-		})
-
-		It("should be tolerant to tls secret deletion [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion"), func(ctx SpecContext) {
-			certificateSecretName := webhookServiceCert
-			By("ensuring secret exists before deletion attempt")
-			Eventually(func(g Gomega) {
-				secret := &corev1.Secret{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-
-			By("checking webhook is responsive through secret recreation after manual deletion")
-			tlsSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      certificateSecretName,
-					Namespace: webhookOperatorInstallNamespace,
-				},
-			}
-			err := k8sClient.Delete(ctx, tlsSecret, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
-
-			DeferCleanup(func() {
-				// Specific check for this test
-				if CurrentSpecReport().Failed() {
-					By("dumping certificate details for debugging")
-					secret := &corev1.Secret{}
-					if err := k8sClient.Get(ctx, client.ObjectKey{
-						Name:      webhookServiceCert,
-						Namespace: webhookOperatorInstallNamespace,
-					}, secret); err == nil {
-						if crt, ok := secret.Data["tls.crt"]; ok && len(crt) > 0 {
-							printTLSCertInfo(crt)
-						} else {
-							_, _ = GinkgoWriter.Write([]byte("[diag] tls.crt key not found or empty in secret\n"))
-						}
-					} else {
-						fmt.Fprintf(GinkgoWriter, "[diag] failed to get secret for cert dump: %v\n", err)
-					}
-				}
-			})
-
-			By("waiting for the webhook operator's service certificate secret to be recreated and populated")
-			Eventually(func(g Gomega) {
-				secret := &corev1.Secret{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
-				if apierrors.IsNotFound(err) {
-					GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling for recreation)", webhookOperatorInstallNamespace, certificateSecretName))
-					return
-				}
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
-				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
-			}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
-
-			Eventually(func(g Gomega) {
-				resourceName := fmt.Sprintf("tls-deletion-test-%s", rand.String(5))
-				resource := newWebhookTest(resourceName, webhookOperatorInstallNamespace, true)
-
-				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create test resource %s: %v", resourceName, err))
-
-				err = dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
-				g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
-		})
+			},
+		}))
 	})
+
+	It("should be tolerant to tls secret deletion", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion"), func(ctx SpecContext) {
+		certificateSecretName := webhookServiceCert
+		By("ensuring secret exists before deletion attempt")
+		Eventually(func(g Gomega) {
+			secret := &corev1.Secret{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
+			g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
+		}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+
+		By("checking webhook is responsive through secret recreation after manual deletion")
+		tlsSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      certificateSecretName,
+				Namespace: webhookOperatorInstallNamespace,
+			},
+		}
+		err := k8sClient.Delete(ctx, tlsSecret, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred())
+
+		DeferCleanup(func() {
+			// Specific check for this test
+			if CurrentSpecReport().Failed() {
+				By("dumping certificate details for debugging")
+				secret := &corev1.Secret{}
+				if err := k8sClient.Get(ctx, client.ObjectKey{
+					Name:      webhookServiceCert,
+					Namespace: webhookOperatorInstallNamespace,
+				}, secret); err == nil {
+					if crt, ok := secret.Data["tls.crt"]; ok && len(crt) > 0 {
+						printTLSCertInfo(crt)
+					} else {
+						_, _ = GinkgoWriter.Write([]byte("[diag] tls.crt key not found or empty in secret\n"))
+					}
+				} else {
+					fmt.Fprintf(GinkgoWriter, "[diag] failed to get secret for cert dump: %v\n", err)
+				}
+			}
+		})
+
+		By("waiting for the webhook operator's service certificate secret to be recreated and populated")
+		Eventually(func(g Gomega) {
+			secret := &corev1.Secret{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
+			if apierrors.IsNotFound(err) {
+				GinkgoLogr.Info(fmt.Sprintf("Secret %s/%s not found yet (still polling for recreation)", webhookOperatorInstallNamespace, certificateSecretName))
+				return
+			}
+			g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
+			g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
+		}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
+
+		Eventually(func(g Gomega) {
+			resourceName := fmt.Sprintf("tls-deletion-test-%s", rand.String(5))
+			resource := newWebhookTest(resourceName, webhookOperatorInstallNamespace, true)
+
+			_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
+			g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create test resource %s: %v", resourceName, err))
+
+			err = dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
+			g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
+		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+	})
+})
 
 var webhookTestV1 = schema.GroupVersionResource{
 	Group:    "webhook.operators.coreos.io",
