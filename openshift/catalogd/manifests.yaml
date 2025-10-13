@@ -1021,7 +1021,7 @@ spec:
     type: Image
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/certified-operator-index:v4.20
+      ref: registry.redhat.io/redhat/certified-operator-index:v4.21
 ---
 # Source: olmv1/templates/openshift-catalogs/clustercatalog-openshift-community-operators.yml
 apiVersion: olm.operatorframework.io/v1
@@ -1034,7 +1034,7 @@ spec:
     type: Image
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/community-operator-index:v4.20
+      ref: registry.redhat.io/redhat/community-operator-index:v4.21
 ---
 # Source: olmv1/templates/openshift-catalogs/clustercatalog-openshift-redhat-marketplace.yml
 apiVersion: olm.operatorframework.io/v1
@@ -1047,7 +1047,7 @@ spec:
     type: Image
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/redhat-marketplace-index:v4.20
+      ref: registry.redhat.io/redhat/redhat-marketplace-index:v4.21
 ---
 # Source: olmv1/templates/openshift-catalogs/clustercatalog-openshift-redhat-operators.yml
 apiVersion: olm.operatorframework.io/v1
@@ -1060,7 +1060,7 @@ spec:
     type: Image
     image:
       pollIntervalMinutes: 10
-      ref: registry.redhat.io/redhat/redhat-operator-index:v4.20
+      ref: registry.redhat.io/redhat/redhat-operator-index:v4.21
 ---
 # Source: olmv1/templates/mutatingwebhookconfiguration-catalogd-mutating-webhook-configuration.yml
 apiVersion: admissionregistration.k8s.io/v1
