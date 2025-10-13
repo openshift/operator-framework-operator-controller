@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.20 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.21 AS builder
 
 ARG SOURCE_GIT_COMMIT
 ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
@@ -8,7 +8,7 @@ COPY . .
 # from 'image-registry' target so we don't need these
 RUN go build -o ./push     ./testdata/push/push.go
 
-FROM registry.ci.openshift.org/ocp/4.20:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.21:base-rhel9
 USER 1001
 COPY --from=builder /build/push /push
 COPY testdata/images /images
