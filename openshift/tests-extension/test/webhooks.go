@@ -39,8 +39,9 @@ const (
 	webhookServiceCert         = "webhook-operator-controller-manager-service-cert"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks",
-	Ordered, Serial, func() {
+// Parallel webhook tests - can run concurrently
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks - parallel tests",
+	Ordered, func() {
 		var (
 			k8sClient                       client.Client
 			dynamicClient                   dynamic.Interface
@@ -62,8 +63,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			By("requiring image-registry to be available")
 			helpers.RequireImageRegistry(ctx)
 
-			By("ensuring no ClusterExtension and CRD from a previous run")
-			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
+			// Note: No cleanup here - allows parallel tests to coexist with shared CRD
 
 			// Build webhook operator bundle and catalog using the consolidated helper
 			// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
@@ -129,7 +129,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		})
 
-		It("should have a working mutating webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
+		It("should have a working mutating webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
 			By("creating a valid webhook")
 			mutatingWebhookResourceName := "mutating-webhook-test"
 			resource := newWebhookTest(mutatingWebhookResourceName, webhookOperatorInstallNamespace, true)
@@ -151,7 +151,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			}))
 		})
 
-		It("should have a working conversion webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook"), func(ctx SpecContext) {
+		It("should have a working conversion webhook", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working conversion webhook"), func(ctx SpecContext) {
 			By("creating a conversion webhook test resource")
 			conversionWebhookResourceName := "conversion-webhook-test"
 			resourceV1 := newWebhookTest(conversionWebhookResourceName, webhookOperatorInstallNamespace, true)
@@ -173,6 +173,72 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 					"mutate": true,
 				},
 			}))
+		})
+	})
+
+// Serial webhook test - must run after parallel tests complete
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks - serial tests",
+	Ordered, Serial, func() {
+		var (
+			k8sClient                       client.Client
+			dynamicClient                   dynamic.Interface
+			webhookOperatorInstallNamespace string
+			catalogName                     string
+		)
+
+		BeforeEach(func(ctx SpecContext) {
+			By("initializing Kubernetes client")
+			k8sClient = env.Get().K8sClient
+			restCfg := env.Get().RestCfg
+			var err error
+			dynamicClient, err = dynamic.NewForConfig(restCfg)
+			Expect(err).ToNot(HaveOccurred(), "failed to create dynamic client")
+
+			By("requiring OLMv1 capability on OpenShift")
+			helpers.RequireOLMv1CapabilityOnOpenshift()
+
+			By("requiring image-registry to be available")
+			helpers.RequireImageRegistry(ctx)
+
+			By("ensuring no ClusterExtension and CRD from previous parallel tests")
+			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
+
+			// Build webhook operator bundle and catalog using the consolidated helper
+			// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
+
+			replacements := map[string]string{
+				"{{ TEST-BUNDLE }}":     "", // Auto-filled
+				"{{ NAMESPACE }}":       "", // Auto-filled
+				"{{ TEST-CONTROLLER }}": image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5"),
+			}
+
+			var nsName, opName string
+			_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+				webhookindex.AssetNames, webhookindex.Asset,
+				webhookbundle.AssetNames, webhookbundle.Asset,
+			)
+			By(fmt.Sprintf("webhook bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
+
+			// Create ClusterExtension in a separate namespace
+			// setupWebhookOperator now registers its own DeferCleanup handlers internally
+			webhookOperatorInstallNamespace = fmt.Sprintf("webhook-operator-%s", rand.String(5))
+			setupWebhookOperator(ctx, k8sClient, webhookOperatorInstallNamespace, catalogName)
+		})
+
+		AfterEach(func(ctx SpecContext) {
+			if CurrentSpecReport().Failed() {
+				By("dumping pod logs for debugging")
+				helpers.GetAllPodLogs(ctx, webhookOperatorInstallNamespace)
+				helpers.DescribePods(ctx, webhookOperatorInstallNamespace)
+				helpers.DescribeAllClusterCatalogs(ctx)
+				helpers.DescribeAllClusterExtensions(ctx, webhookOperatorInstallNamespace)
+				By("dumping webhook diagnostics")
+				// Additional diagnostics specific for this test
+				helpers.RunAndPrint(ctx, "get", "mutatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
+				helpers.RunAndPrint(ctx, "get", "validatingwebhookconfigurations.admissionregistration.k8s.io", "-oyaml")
+			}
+			// Note: cleanup is now handled by DeferCleanup in BeforeEach, which ensures
+			// cleanup runs even if BeforeEach or the test fails
 		})
 
 		It("should be tolerant to tls secret deletion [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should be tolerant to tls secret deletion"), func(ctx SpecContext) {
