@@ -208,6 +208,15 @@ func main() {
 		},
 	})
 
+	// Extended Candidate ClusterCatalog Suite: extended clustercatalog tests
+	// Contains extended tests designed for clustercatalog
+	ext.AddSuite(e.Suite{
+		Name: "olmv1/extended/candidate/clustercatalog",
+		Qualifiers: []string{
+			filters.BasedExtendedCandidateTests(`labels.exists(l, l=="ClusterCatalog")`),
+		},
+	})
+
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
