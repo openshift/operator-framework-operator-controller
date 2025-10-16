@@ -416,7 +416,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for singleNamespace watch mode with operator should install a cluster extension successfully",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully": {}
@@ -429,7 +429,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace watch mode with operator should install a cluster extension successfully",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully": {}
@@ -442,8 +442,11 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace and single namespace watch mode with quay-operator should install cluster extensions successfully in both watch modes",
-    "labels": {},
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace and single namespace watch mode with operator should install cluster extensions successfully in both watch modes",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace and single namespace watch mode with quay-operator should install cluster extensions successfully in both watch modes",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace and single namespace watch mode with quay-operator should install cluster extensions successfully in both watch modes": {}
+    },
     "resources": {
       "isolation": {}
     },
@@ -452,7 +455,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully",
     "labels": {
       "original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully": {}
@@ -465,8 +468,11 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid",
-    "labels": {},
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid": {}
+    },
     "resources": {
       "isolation": {}
     },
