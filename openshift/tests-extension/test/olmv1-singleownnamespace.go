@@ -10,6 +10,7 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
+	"github.com/openshift/origin/test/extended/util/image"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -20,24 +21,32 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
+	singleownbundle "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/singleown/bundle"
+	singleownindex "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/singleown/index"
+	webhookbundle "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/webhook/bundle"
+	webhookindex "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/webhook/index"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for singleNamespace watch mode with quay-operator", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for singleNamespace watch mode with operator", func() {
 	var (
-		k8sClient  client.Client
-		namespace  string
-		testPrefix = "quay-singlens"
+		k8sClient   client.Client
+		namespace   string
+		testPrefix  = "singlens"
+		catalogName string
+		packageName string
+		crdSuffix   string
 	)
 
 	var unique, saName, crbName, ceName string
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		By("checking if OpenShift is available for tests")
 		if !env.Get().IsOpenShift {
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 
 		unique = rand.String(4)
@@ -46,8 +55,29 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
-		By("ensuring no ClusterExtension and CRD for quay-operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+		crdSuffix = unique
+
+		// Build in-cluster bundle and catalog
+		singleownImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		packageName = fmt.Sprintf("singleown-operator-single-%s", crdSuffix)
+		By(fmt.Sprintf("using singleown operator image: %s, CRD suffix: %s, package: %s", singleownImage, crdSuffix, packageName))
+		crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
+		helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "",
+			"{{ NAMESPACE }}":       "",
+			"{{ TEST-CONTROLLER }}": singleownImage,
+			"{{ CRD-SUFFIX }}":      crdSuffix,
+			"{{ PACKAGE-NAME }}":    packageName,
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			singleownindex.AssetNames, singleownindex.Asset,
+			singleownbundle.AssetNames, singleownbundle.Asset,
+		)
+		By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
 
 		By(fmt.Sprintf("creating namespace %s for single-namespace tests", namespace))
 		ns := &corev1.Namespace{
@@ -55,7 +85,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				Name: namespace,
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), ns)).To(Succeed(), "failed to create test namespace %q", namespace)
+		Expect(k8sClient.Create(ctx, ns)).To(Succeed(), "failed to create test namespace %q", namespace)
 		DeferCleanup(func() {
 			By(fmt.Sprintf("cleaning up namespace %s", namespace))
 			_ = k8sClient.Delete(context.Background(), ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
@@ -95,7 +125,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 			})
 
 			By("creating ClusterExtension with the watch-namespace configured")
-			ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"olm.operatorframework.io/metadata.name": catalogName,
+				},
+			}
 			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 				ConfigType: "Inline",
 				Inline: &apiextensionsv1.JSON{
@@ -117,20 +152,24 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with quay-operator", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace watch mode with operator", func() {
 	var (
-		k8sClient  client.Client
-		namespace  string
-		testPrefix = "quay-ownns"
+		k8sClient   client.Client
+		namespace   string
+		testPrefix  = "ownns"
+		catalogName string
+		packageName string
+		crdSuffix   string
 	)
 
 	var unique, saName, crbName, ceName string
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		By("checking if OpenShift is available for tests")
 		if !env.Get().IsOpenShift {
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
@@ -138,8 +177,29 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
-		By("ensuring no ClusterExtension and CRD for quay-operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+		crdSuffix = unique
+
+		// Build in-cluster bundle and catalog
+		singleownImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		packageName = fmt.Sprintf("singleown-operator-own-%s", crdSuffix)
+		By(fmt.Sprintf("using singleown operator image: %s, CRD suffix: %s, package: %s", singleownImage, crdSuffix, packageName))
+		crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
+		helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "",
+			"{{ NAMESPACE }}":       "",
+			"{{ TEST-CONTROLLER }}": singleownImage,
+			"{{ CRD-SUFFIX }}":      crdSuffix,
+			"{{ PACKAGE-NAME }}":    packageName,
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			singleownindex.AssetNames, singleownindex.Asset,
+			singleownbundle.AssetNames, singleownbundle.Asset,
+		)
+		By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
 
 		By(fmt.Sprintf("creating namespace %s for own-namespace tests", namespace))
 		ns := &corev1.Namespace{
@@ -147,7 +207,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				Name: namespace,
 			},
 		}
-		Expect(k8sClient.Create(context.Background(), ns)).To(Succeed(), "failed to create test namespace %q", namespace)
+		Expect(k8sClient.Create(ctx, ns)).To(Succeed(), "failed to create test namespace %q", namespace)
 		DeferCleanup(func() {
 			By(fmt.Sprintf("cleaning up namespace %s", namespace))
 			_ = k8sClient.Delete(context.Background(), ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
@@ -187,7 +247,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 			})
 
 			By("creating ClusterExtension with the watch-namespace configured")
-			ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"olm.operatorframework.io/metadata.name": catalogName,
+				},
+			}
 			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 				ConfigType: "Inline",
 				Inline: &apiextensionsv1.JSON{
@@ -209,20 +274,47 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace and single namespace watch mode with quay-operator", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace and single namespace watch mode with operator", func() {
 	var (
 		k8sClient        client.Client
 		activeNamespaces map[string]struct{}
+		catalogName      string
+		packageName      string
+		crdSuffix        string
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		By("checking if OpenShift is available for tests")
 		if !env.Get().IsOpenShift {
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		activeNamespaces = map[string]struct{}{}
+
+		// Generate unique CRD suffix for parallel execution
+		crdSuffix = rand.String(4)
+
+		// Build in-cluster bundle and catalog
+		singleownImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		packageName = fmt.Sprintf("singleown-operator-both-%s", crdSuffix)
+		By(fmt.Sprintf("using singleown operator image: %s, CRD suffix: %s, package: %s", singleownImage, crdSuffix, packageName))
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "",
+			"{{ NAMESPACE }}":       "",
+			"{{ TEST-CONTROLLER }}": singleownImage,
+			"{{ CRD-SUFFIX }}":      crdSuffix,
+			"{{ PACKAGE-NAME }}":    packageName,
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			singleownindex.AssetNames, singleownindex.Asset,
+			singleownbundle.AssetNames, singleownbundle.Asset,
+		)
+		By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -234,6 +326,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 	})
 
 	It("should install cluster extensions successfully in both watch modes",
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace and single namespace watch mode with quay-operator should install cluster extensions successfully in both watch modes"),
 		func(ctx SpecContext) {
 			scenarios := []struct {
 				id     string
@@ -259,7 +352,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 			for _, scenario := range scenarios {
 				sc := scenario
 				suffix := rand.String(4)
-				installNamespace := fmt.Sprintf("olmv1-quay-bothns-%s-%s", sc.id, suffix)
+				installNamespace := fmt.Sprintf("olmv1-webhook-bothns-%s-%s", sc.id, suffix)
 				watchNamespace := sc.watchN(installNamespace)
 
 				activeNamespaces[installNamespace] = struct{}{}
@@ -267,8 +360,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 					activeNamespaces[watchNamespace] = struct{}{}
 				}
 
-				By(fmt.Sprintf("ensuring no ClusterExtension and CRD for quay-operator before %s scenario", sc.label))
-				helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+				By(fmt.Sprintf("ensuring no ClusterExtension for %s before %s scenario", packageName, sc.label))
+				crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
+				helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 
 				By(fmt.Sprintf("creating namespace %s for %s tests", installNamespace, sc.label))
 				installNS := &corev1.Namespace{
@@ -301,7 +395,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 					})
 				}
 
-				saName := fmt.Sprintf("install-quay-bothns-%s-sa-%s", sc.id, suffix)
+				saName := fmt.Sprintf("install-webhook-bothns-%s-sa-%s", sc.id, suffix)
 				By(fmt.Sprintf("creating ServiceAccount %s for %s scenario", saName, sc.label))
 				sa := helpers.NewServiceAccount(saName, installNamespace)
 				Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
@@ -311,7 +405,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 					_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
 				})
 
-				crbName := fmt.Sprintf("install-quay-bothns-%s-crb-%s", sc.id, suffix)
+				crbName := fmt.Sprintf("install-webhook-bothns-%s-crb-%s", sc.id, suffix)
 				By(fmt.Sprintf("creating ClusterRoleBinding %s for %s scenario", crbName, sc.label))
 				crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, installNamespace)
 				Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
@@ -321,9 +415,14 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 					_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 				})
 
-				ceName := fmt.Sprintf("install-quay-bothns-%s-ce-%s", sc.id, suffix)
+				ceName := fmt.Sprintf("install-webhook-bothns-%s-ce-%s", sc.id, suffix)
 				By(fmt.Sprintf("creating ClusterExtension %s for %s scenario", ceName, sc.label))
-				ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, installNamespace)
+				ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, installNamespace)
+				ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"olm.operatorframework.io/metadata.name": catalogName,
+					},
+				}
 				ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 					ConfigType: olmv1.ClusterExtensionConfigTypeInline,
 					Inline: &apiextensionsv1.JSON{
@@ -364,7 +463,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				By(fmt.Sprintf("cleaning up resources created for %s scenario to allow next scenario", sc.label))
 				deletePolicy := metav1.DeletePropagationForeground
 				Expect(k8sClient.Delete(ctx, ce, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterExtension %q", ceName)
-				helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+				helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 
 				Expect(k8sClient.Delete(ctx, crb, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterRoleBinding %q", crbName)
 				Expect(k8sClient.Delete(ctx, sa, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ServiceAccount %q", saName)
@@ -377,20 +476,23 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode", Serial, func() {
 	var (
-		k8sClient  client.Client
-		namespace  string
-		testPrefix = "pipelines"
+		k8sClient   client.Client
+		namespace   string
+		testPrefix  = "pipelines"
+		catalogName string
+		crdSuffix   string
 	)
 
 	var unique, saName, crbName, ceName string
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		By("checking if OpenShift is available for tests")
 		if !env.Get().IsOpenShift {
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
@@ -398,8 +500,26 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
-		By("ensuring no ClusterExtension and CRD for openshift-pipelines-operator-rh")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "openshift-pipelines-operator-rh", "clustertasks.tekton.dev")
+		// Build in-cluster bundle and catalog using webhook testdata (supports AllNamespaces mode only)
+		webhookImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		By(fmt.Sprintf("using webhook operator image: %s, CRD suffix: %s", webhookImage, crdSuffix))
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "",
+			"{{ NAMESPACE }}":       "",
+			"{{ TEST-CONTROLLER }}": webhookImage,
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			webhookindex.AssetNames, webhookindex.Asset,
+			webhookbundle.AssetNames, webhookbundle.Asset,
+		)
+		By(fmt.Sprintf("webhook bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
+
+		By("ensuring no ClusterExtension for webhook-operator")
+		crdName := "webhooktests.webhook.operators.coreos.io"
+		helpers.EnsureCleanupClusterExtension(context.Background(), "webhook-operator", crdName)
 
 		By(fmt.Sprintf("creating namespace %s for failing tests", namespace))
 		ns := &corev1.Namespace{
@@ -446,8 +566,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			})
 
-			By("creating ClusterExtension with the watch-namespace configured")
-			ce := helpers.NewClusterExtensionObject("openshift-pipelines-operator-rh", "1.17.1", ceName, saName, namespace)
+			By("creating ClusterExtension with the watch-namespace configured using webhook operator that only supports AllNamespaces mode")
+			ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, saName, namespace)
+			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"olm.operatorframework.io/metadata.name": catalogName,
+				},
+			}
 			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 				ConfigType: "Inline",
 				Inline: &apiextensionsv1.JSON{
@@ -481,20 +606,24 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly", Ordered, Serial, func() {
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly", func() {
 	var (
-		k8sClient  client.Client
-		namespace  string
-		testPrefix = "invalidwatch"
+		k8sClient   client.Client
+		namespace   string
+		testPrefix  = "invalidwatch"
+		catalogName string
+		packageName string
+		crdSuffix   string
 	)
 
 	var unique, saName, crbName, ceName string
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		By("checking if OpenShift is available for tests")
 		if !env.Get().IsOpenShift {
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
@@ -502,8 +631,32 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
-		By("ensuring no lingering ClusterExtensions or CRDs for quay-operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+		// Generate unique CRD suffix for parallel execution
+		crdSuffix = unique
+
+		// Build in-cluster bundle and catalog
+		singleownImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		packageName = fmt.Sprintf("singleown-operator-%s", crdSuffix)
+		By(fmt.Sprintf("using singleown operator image: %s, CRD suffix: %s, package: %s", singleownImage, crdSuffix, packageName))
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "",
+			"{{ NAMESPACE }}":       "",
+			"{{ TEST-CONTROLLER }}": singleownImage,
+			"{{ CRD-SUFFIX }}":      crdSuffix,
+			"{{ PACKAGE-NAME }}":    packageName,
+		}
+
+		var nsName, opName string
+		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			singleownindex.AssetNames, singleownindex.Asset,
+			singleownbundle.AssetNames, singleownbundle.Asset,
+		)
+		By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
+
+		By(fmt.Sprintf("ensuring no lingering ClusterExtensions for %s", packageName))
+		crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
+		helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 
 		By(fmt.Sprintf("creating namespace %s for invalid watch namespace tests", namespace))
 		ns := &corev1.Namespace{
@@ -529,6 +682,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 	// Setting a trailing '-' produces an invalid identifier that cannot exist in the cluster, so the install should
 	// fail fast and surface a failure through the Installed condition.
 	It("should fail to install the ClusterExtension when watch namespace is invalid",
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid"),
 		func(ctx SpecContext) {
 			By("creating ServiceAccount")
 			sa := helpers.NewServiceAccount(saName, namespace)
@@ -553,7 +707,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:D
 			invalidWatchNamespace := fmt.Sprintf("%s-", namespace)
 
 			By("creating ClusterExtension with an invalid watch namespace configured")
-			ce := helpers.NewClusterExtensionObject("quay-operator", "3.14.2", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"olm.operatorframework.io/metadata.name": catalogName,
+				},
+			}
 			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 				ConfigType: olmv1.ClusterExtensionConfigTypeInline,
 				Inline: &apiextensionsv1.JSON{

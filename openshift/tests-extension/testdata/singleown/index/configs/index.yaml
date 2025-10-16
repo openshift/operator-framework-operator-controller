@@ -1,0 +1,47 @@
+{
+    "schema": "olm.package",
+    "name": "{{ PACKAGE-NAME }}",
+    "defaultChannel": "alpha"
+}
+{
+    "schema": "olm.channel",
+    "name": "alpha",
+    "package": "{{ PACKAGE-NAME }}",
+    "entries": [
+        {
+            "name": "{{ PACKAGE-NAME }}.v0.0.5"
+        }
+    ]
+}
+{
+    "schema": "olm.bundle",
+    "name": "{{ PACKAGE-NAME }}.v0.0.5",
+    "package": "{{ PACKAGE-NAME }}",
+    "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+    "properties": [
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "webhook.operators.coreos.io",
+                "kind": "WebhookTest",
+                "version": "v1"
+            }
+        },
+        {
+            "type": "olm.gvk",
+            "value": {
+                "group": "webhook.operators.coreos.io",
+                "kind": "WebhookTest",
+                "version": "v2"
+            }
+        },
+        {
+            "type": "olm.package",
+            "value": {
+                "packageName": "{{ PACKAGE-NAME }}",
+                "version": "0.0.5"
+            }
+        }
+    ]
+}
+
