@@ -34,7 +34,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		crds, err := oc.WithoutNamespace().AsAdmin().Run("get").Args("crd").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		if strings.Contains(crds, "bundlemetadata") || strings.Contains(crds, "catalogmetadata") {
-			e2e.Logf(crds)
+			e2e.Logf("crds: %s", crds)
 			o.Expect(strings.Contains(crds, "bundlemetadata")).NotTo(o.BeTrue())
 			o.Expect(strings.Contains(crds, "catalogmetadata")).NotTo(o.BeTrue())
 		} else {
@@ -277,11 +277,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		stringMessage, err := exec.Command("bash", "-c", getCmd).Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		if !strings.Contains(strings.ToLower(string(stringMessage)), "content-encoding: gzip") {
-			e2e.Logf(string(stringMessage))
+			e2e.Logf("response is %s", string(stringMessage))
 			e2e.Failf("string Content-Encoding: gzip not in the output")
 		}
 		if !strings.Contains(strings.ToLower(string(stringMessage)), "content-type: application/jsonl") {
-			e2e.Logf(string(stringMessage))
+			e2e.Logf("response is %s", string(stringMessage))
 			e2e.Failf("string Content-Type: application/jsonl not in the output")
 		}
 		g.By("Check the url response of clustercatalog-75441v2")
