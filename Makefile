@@ -240,6 +240,8 @@ envtest-k8s-bins: $(SETUP_ENVTEST)
 
 .PHONY: test-unit
 test-unit: $(SETUP_ENVTEST) envtest-k8s-bins #HELP Run the unit tests
+	echo "JSAF sleeping"
+	sleep 999999
 	rm -rf $(COVERAGE_UNIT_DIR) && mkdir -p $(COVERAGE_UNIT_DIR)
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use -p path $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE))" \
             CGO_ENABLED=1 go test \
