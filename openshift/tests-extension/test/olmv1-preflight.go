@@ -30,6 +30,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Sk
 	)
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		k8sClient = env.Get().K8sClient
 		namespace = "preflight-test-ns-" + rand.String(4)
 

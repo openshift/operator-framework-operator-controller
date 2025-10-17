@@ -149,6 +149,16 @@ Or, if used within helper functions:
 
 This ensures compatibility when running tests in non-OpenShift environments such as KinD.
 
+2. Use helpers for Tech Preview features which are not available in GA
+
+Ensure that tests depending on Tech Preview features check for the feature gate using 
+helper functions:
+
+```go
+    By("requiring TechPreview capability on OpenShift")
+    helpers.RequireTechPreviewFeatureSetOnOpenshift()
+```
+
 ## Development Workflow
 
 - Add or update tests in: `openshift/tests-extension/tests/`

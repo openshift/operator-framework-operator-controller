@@ -46,6 +46,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 
@@ -169,6 +173,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
@@ -289,6 +297,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		activeNamespaces = map[string]struct{}{}
@@ -492,6 +504,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
@@ -623,6 +639,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 			Skip("Requires OpenShift for the tests")
 		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
+
+		By("requiring TechPreview capability on OpenShift")
+		helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)

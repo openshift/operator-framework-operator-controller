@@ -59,6 +59,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			By("requiring OLMv1 capability on OpenShift")
 			helpers.RequireOLMv1CapabilityOnOpenshift()
 
+			By("requiring TechPreview capability on OpenShift")
+			helpers.RequireTechPreviewFeatureSetOnOpenshift()
+
 			By("requiring image-registry to be available")
 			helpers.RequireImageRegistry(ctx)
 
