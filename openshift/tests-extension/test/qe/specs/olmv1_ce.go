@@ -787,9 +787,15 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 
 		g.By("create role for ns watch")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleNsWatchFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleNsWatchFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
+		// Check if the watch namespace role file exists before trying to apply it
+		// The file may not exist if no permissions are needed for the watch namespace
+		if _, err := os.Stat(roleNsWatchFile); err == nil {
+			defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleNsWatchFile).Execute() }()
+			err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleNsWatchFile).Execute()
+			o.Expect(err).NotTo(o.HaveOccurred())
+		} else {
+			e2e.Logf("Watch namespace role file %s does not exist, skipping creation", roleNsWatchFile)
+		}
 
 		g.By("create binding")
 		paremeters = []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", bindingTemplate, "-p",
@@ -918,7 +924,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			g.By("check non all ns mode fails to be installed.")
 			defer ceNAN.Delete(oc)
 			_ = ceNAN.CreateWithoutCheck(oc)
-			ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "do not support targeting all namespaces", 10, 180, 0)
+			ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "bundle does not support AllNamespaces install mode", 10, 180, 0)
 			ceNAN.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
 			ceNAN.Delete(oc)
 		}
