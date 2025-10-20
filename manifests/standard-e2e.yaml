@@ -1876,13 +1876,13 @@ spec:
                     operator: In
                     values:
                       - linux
+      hostUsers: false
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/control-plane: ""
       securityContext:
         runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
+        runAsUser: 1000
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
@@ -2029,13 +2029,13 @@ spec:
                     operator: In
                     values:
                       - linux
+      hostUsers: false
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/control-plane: ""
       securityContext:
         runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
+        runAsUser: 1000
       terminationGracePeriodSeconds: 10
       tolerations:
         - effect: NoSchedule
