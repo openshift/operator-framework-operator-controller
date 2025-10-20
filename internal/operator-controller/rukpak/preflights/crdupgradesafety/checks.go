@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"fmt"
 	"reflect"
+	"slices"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,9 +39,13 @@ func Enum(diff FieldDiff) (bool, error) {
 
 	switch {
 	case oldEnums.Len() == 0 && newEnums.Len() > 0:
-		err = fmt.Errorf("enum constraints %v added when there were no restrictions previously", newEnums.UnsortedList())
+		newEnumList := newEnums.UnsortedList()
+		slices.Sort(newEnumList)
+		err = fmt.Errorf("enum: constraints %v added when there were no restrictions previously", newEnumList)
 	case diffEnums.Len() > 0:
-		err = fmt.Errorf("enums %v removed from the set of previously allowed values", diffEnums.UnsortedList())
+		diffEnumList := diffEnums.UnsortedList()
+		slices.Sort(diffEnumList)
+		err = fmt.Errorf("enum: allowed enum values removed: %v", diffEnumList)
 	}
 
 	return isHandled(diff, reset), err
@@ -59,7 +64,9 @@ func Required(diff FieldDiff) (bool, error) {
 	var err error
 
 	if diffRequired.Len() > 0 {
-		err = fmt.Errorf("new required fields %v added", diffRequired.UnsortedList())
+		diffRequiredList := diffRequired.UnsortedList()
+		slices.Sort(diffRequiredList)
+		err = fmt.Errorf("required: new required fields %v added", diffRequiredList)
 	}
 
 	return isHandled(diff, reset), err
@@ -218,11 +225,11 @@ func Default(diff FieldDiff) (bool, error) {
 
 	switch {
 	case diff.Old.Default == nil && diff.New.Default != nil:
-		err = fmt.Errorf("default value %q added when there was no default previously", string(diff.New.Default.Raw))
+		err = fmt.Errorf("default: value %q added when there was no default previously", string(diff.New.Default.Raw))
 	case diff.Old.Default != nil && diff.New.Default == nil:
-		err = fmt.Errorf("default value %q removed", string(diff.Old.Default.Raw))
+		err = fmt.Errorf("default: value %q removed", string(diff.Old.Default.Raw))
 	case diff.Old.Default != nil && diff.New.Default != nil && !bytes.Equal(diff.Old.Default.Raw, diff.New.Default.Raw):
-		err = fmt.Errorf("default value changed from %q to %q", string(diff.Old.Default.Raw), string(diff.New.Default.Raw))
+		err = fmt.Errorf("default: value changed from %q to %q", string(diff.Old.Default.Raw), string(diff.New.Default.Raw))
 	}
 
 	return isHandled(diff, reset), err
@@ -237,7 +244,7 @@ func Type(diff FieldDiff) (bool, error) {
 
 	var err error
 	if diff.Old.Type != diff.New.Type {
-		err = fmt.Errorf("type changed from %q to %q", diff.Old.Type, diff.New.Type)
+		err = fmt.Errorf("type: type changed : %q -> %q", diff.Old.Type, diff.New.Type)
 	}
 
 	return isHandled(diff, reset), err

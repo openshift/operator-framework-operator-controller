@@ -12,8 +12,8 @@ import (
 )
 
 func TestServedVersionValidator(t *testing.T) {
-	validationErr1 := errors.New(`version "v1alpha1", field "^" has unknown change, refusing to determine that change is safe`)
-	validationErr2 := errors.New(`version upgrade "v1alpha1" to "v1alpha2", field "^": fail`)
+	validationErr1 := errors.New(`v1alpha1 -> v1alpha2: ^: has unknown change, refusing to determine that change is safe`)
+	validationErr2 := errors.New(`v1alpha1 -> v1alpha2: ^: fail`)
 
 	for _, tc := range []struct {
 		name                   string
@@ -176,7 +176,7 @@ func TestServedVersionValidator(t *testing.T) {
 					},
 				},
 			},
-			expectedError: fmt.Errorf("%w\n%s\n%w", validationErr2, `version upgrade "v1alpha1" to "v1alpha2", field "^": error`, validationErr1),
+			expectedError: fmt.Errorf("%w\n%s\n%w", validationErr2, `v1alpha1 -> v1alpha2: ^: error`, validationErr1),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

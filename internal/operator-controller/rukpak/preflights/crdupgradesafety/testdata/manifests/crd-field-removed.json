@@ -10,7 +10,7 @@
             {
                 "name": "v1",
                 "served": true,
-                "storage": false,
+                "storage": true,
                 "schema": {
                     "openAPIV3Schema": {
                         "type": "object",
@@ -22,7 +22,8 @@
                                         "type":"integer"
                                     },
                                     "enum": {
-                                        "type":"integer"
+                                        "type": "string",
+                                        "enum": ["a", "b", "c"]
                                     },
                                     "minMaxValue": {
                                         "type":"integer"
@@ -65,11 +66,9 @@
                             "spec": {
                                 "type": "object",
                                 "properties": {
-                                    "removedField": {
-                                        "type":"integer"
-                                    },
                                     "enum": {
-                                        "type":"integer"
+                                        "type": "string",
+                                        "enum": ["a", "b", "c"]
                                     },
                                     "minMaxValue": {
                                         "type":"integer"
@@ -104,7 +103,7 @@
             {
                 "name": "v3",
                 "served": true,
-                "storage": true,
+                "storage": false,
                 "schema": {
                     "openAPIV3Schema": {
                         "type": "object",
@@ -112,9 +111,6 @@
                             "spec": {
                                 "type": "object",
                                 "properties": {
-                                    "removedField": {
-                                        "type":"integer"
-                                    },
                                     "enum": {
                                         "type":"integer"
                                     },
@@ -158,5 +154,10 @@
                 "ct"
             ]
         }
+    },
+    "status": {
+        "storedVersions": [
+            "v1"
+        ]
     }
 }

@@ -53,7 +53,7 @@ func TestEnum(t *testing.T) {
 					},
 				},
 			},
-			err:     errors.New("enum constraints [foo] added when there were no restrictions previously"),
+			err:     errors.New("enum: constraints [foo] added when there were no restrictions previously"),
 			handled: true,
 		},
 		{
@@ -77,7 +77,7 @@ func TestEnum(t *testing.T) {
 					},
 				},
 			},
-			err:     errors.New("enums [foo] removed from the set of previously allowed values"),
+			err:     errors.New("enum: allowed enum values removed: [foo]"),
 			handled: true,
 		},
 		{
@@ -154,7 +154,7 @@ func TestRequired(t *testing.T) {
 					},
 				},
 			},
-			err:     errors.New("new required fields [foo] added"),
+			err:     errors.New("required: new required fields [foo] added"),
 			handled: true,
 		},
 		{
@@ -800,7 +800,7 @@ func TestDefault(t *testing.T) {
 					},
 				},
 			},
-			err:     errors.New("default value \"foo\" added when there was no default previously"),
+			err:     errors.New("default: value \"foo\" added when there was no default previously"),
 			handled: true,
 		},
 		{
@@ -813,7 +813,7 @@ func TestDefault(t *testing.T) {
 				},
 				New: &apiextensionsv1.JSONSchemaProps{},
 			},
-			err:     errors.New("default value \"foo\" removed"),
+			err:     errors.New("default: value \"foo\" removed"),
 			handled: true,
 		},
 		{
@@ -830,7 +830,7 @@ func TestDefault(t *testing.T) {
 					},
 				},
 			},
-			err:     errors.New("default value changed from \"foo\" to \"bar\""),
+			err:     errors.New("default: value changed from \"foo\" to \"bar\""),
 			handled: true,
 		},
 		{
@@ -880,7 +880,7 @@ func TestType(t *testing.T) {
 					Type: "integer",
 				},
 			},
-			err:     errors.New("type changed from \"string\" to \"integer\""),
+			err:     errors.New("type: type changed : \"string\" -> \"integer\""),
 			handled: true,
 		},
 		{
