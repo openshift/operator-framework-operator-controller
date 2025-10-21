@@ -182,7 +182,7 @@ func EnsureCleanupClusterExtension(ctx context.Context, packageName, crdName str
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, &olmv1.ClusterExtension{})
 					return errors.IsNotFound(err)
-				}).WithTimeout(1*time.Minute).WithPolling(2*time.Second).Should(BeTrue(), "Cleanup ClusterExtension %s failed to delete", ce.Name)
+				}).WithTimeout(3*time.Minute).WithPolling(2*time.Second).Should(BeTrue(), "Cleanup ClusterExtension %s failed to delete", ce.Name)
 			}
 		}
 	} else if !errors.IsNotFound(err) {

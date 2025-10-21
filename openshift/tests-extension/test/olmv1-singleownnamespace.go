@@ -14,6 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -472,6 +473,24 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 					Expect(k8sClient.Delete(ctx, watchNSObj, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete watch namespace %q", watchNamespace)
 				}
 				Expect(k8sClient.Delete(ctx, installNS, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete install namespace %q", installNamespace)
+
+				By(fmt.Sprintf("waiting for namespace %s to be fully deleted before next scenario", installNamespace))
+				Eventually(func(g Gomega) {
+					ns := &corev1.Namespace{}
+					err := k8sClient.Get(ctx, client.ObjectKey{Name: installNamespace}, ns)
+					g.Expect(err).To(HaveOccurred(), "expected namespace %s to be deleted", installNamespace)
+					g.Expect(errors.IsNotFound(err)).To(BeTrue(), "expected NotFound error for namespace %s", installNamespace)
+				}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+
+				if watchNSObj != nil {
+					By(fmt.Sprintf("waiting for watch namespace %s to be fully deleted before next scenario", watchNamespace))
+					Eventually(func(g Gomega) {
+						ns := &corev1.Namespace{}
+						err := k8sClient.Get(ctx, client.ObjectKey{Name: watchNamespace}, ns)
+						g.Expect(err).To(HaveOccurred(), "expected namespace %s to be deleted", watchNamespace)
+						g.Expect(errors.IsNotFound(err)).To(BeTrue(), "expected NotFound error for namespace %s", watchNamespace)
+					}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Succeed())
+				}
 			}
 		})
 })
