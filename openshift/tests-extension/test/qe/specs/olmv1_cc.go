@@ -22,7 +22,7 @@ import (
 var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShiftHOST", "ClusterCatalog"), func() {
 	defer g.GinkgoRecover()
 	var (
-		oc = exutil.NewCLI("olmv1-opeco"+exutil.GetRandomString(), exutil.KubeConfigPath())
+		oc = exutil.NewCLIWithoutNamespace("default")
 	)
 
 	g.BeforeEach(func() {
