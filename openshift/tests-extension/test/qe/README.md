@@ -1,3 +1,18 @@
+# OLM v1 QE Test Extension
+
+> **For AI Agents**: This directory contains comprehensive documentation for AI coding assistants.
+> Please read [AGENTS.md](./AGENTS.md) for detailed context about the OLM v1 QE test framework,
+> migration guidelines, suite definitions, and best practices.
+>
+> **Using Claude Code**: If you are using Claude Code as your AI coding assistant:
+> 1. Start Claude Code from `test/qe/` directory or its subdirectories (e.g., `test/qe/specs/`)
+> 2. On first launch from a subdirectory, Claude Code will prompt you to load the parent AGENTS.md - select **Yes** (subsequent launches will auto-load)
+> 3. If starting from `test/qe/` itself, AGENTS.md is automatically loaded
+> 4. Use `/memory` to verify AGENTS.md is loaded and view its content
+>
+> This ensures Claude Code has access to test framework architecture, migration guidelines,
+> suite definitions, and code quality standards.
+
 ## Overview
 
 When creating test cases based on OTE (OpenShift Tests Extension) in operator-controller, there are two sources:
@@ -95,72 +110,38 @@ We need to identify all cases from tests-private among all cases, then mark whic
 
 ### Suites for Custom Prow jobs:
 
-#### Extended All Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended",
-		Qualifiers: []string{
-			`labels.exists(l, l=="Extended")`,
-		},
-	})
+For the complete and current suite definitions with detailed qualifiers and comments, refer to **[cmd/main.go](../cmd/main.go)** (lines 103-209).
+
+**Suite hierarchy**:
+```
+olmv1/extended                                    # All extended tests
+├── olmv1/extended/releasegate                   # Extended + ReleaseGate
+└── olmv1/extended/candidate                     # Extended without ReleaseGate
+    ├── function                                 # Functional tests (excludes StressTest)
+    │   ├── parallel                             # Can run concurrently (excludes [Serial] and [Slow])
+    │   ├── serial                               # Must run one at a time ([Serial] but not [Slow])
+    │   ├── fast                                 # Non-slow tests (parallel + serial)
+    │   └── slow                                 # [Slow] tests
+    └── stress                                   # StressTest label
 ```
 
-#### Extended ReleaseGate Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended/releasegate",
-		Qualifiers: []string{
-			`labels.exists(l, l=="Extended") && labels.exists(l, l=="ReleaseGate")`,
-		},
-	})
-```
+**Key relationships** (defined in main.go):
+- `candidate = function + stress`
+- `function = parallel + serial + slow = fast + slow`
 
-#### Extended Candidate Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended/candidate",
-		Qualifiers: []string{
-			`labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate")`,
-		},
-	})
-```
-
-#### Extended Candidate Parallel Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended/candidate/parallel",
-		Qualifiers: []string{
-			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
-			!(name.contains("[Serial]") || name.contains("[Slow]"))`,
-		},
-	})
-```
-
-#### CExtended Candidate Serial Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended/candidate/serial",
-		Qualifiers: []string{
-			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
-			(name.contains("[Serial]") && !name.contains("[Slow]"))`,
-		},
-	})
-```
-
-#### Extended Candidate Slow Suite
-```go
-	ext.AddSuite(e.Suite{
-		Name: "olmv1/extended/candidate/slow",
-		Qualifiers: []string{
-			`(labels.exists(l, l=="Extended") && !labels.exists(l, l=="ReleaseGate") && !labels.exists(l, l=="StressTest")) &&
-			name.contains("[Slow]")`,
-		},
-	})
-```
+**Note**: All suite qualifiers use helper functions from `test/qe/util/filters/filters.go`:
+- `BasedExtendedTests()` - All Extended tests
+- `BasedExtendedReleaseGateTests()` - Extended AND ReleaseGate
+- `BasedExtendedCandidateTests()` - Extended AND NOT ReleaseGate
+- `BasedExtendedCandidateFuncTests()` - Extended AND NOT ReleaseGate AND NOT StressTest
 
 ## Test Case Migration Guide
 
-**Required For all QE cases**: Do not use `&|!,()/` in case title
+**Required For all QE cases**:
+- Do not use `&|!,()/` in case title
+- Do NOT remove the PolarionID number from the `original-name` label. The PolarionID in `g.Label("original-name:...")` must include the case ID number.
+  - ✅ **Correct**: `g.Label("original-name:[sig-operator][Jira:OLM] OLMv0 optional should PolarionID:68679-[Skipped:Disconnected]catalogsource with invalid name is created")`
+  - ❌ **Wrong**: `g.Label("original-name:[sig-operator][Jira:OLM] OLMv0 optional should PolarionID:[Skipped:Disconnected]catalogsource with invalid name is created")` (missing case ID)
 
 ### A. Code Changes for Migrated Cases
 
@@ -183,20 +164,28 @@ All migrated test case code needs the following changes to run in the new test f
    - **Note**: Don't add `ReleaseGate` if case title contains `Disruptive` or `Slow`, or labels contain `StressTest`
 4. **Required For Migrated case from test-private**: Add `[OTP]` in case title
 
-#### Optional Label for Migration and New
-1. **LEVEL0**: Use title label `[Level0]`
-2. **Author**: Deprecated
+#### Optional Labels in Migration/New test cases' title
+1. **LEVEL0**: Add `[Level0]` in the case title as a title tag. Do NOT use `g.Label("LEVEL0")`.
+   - ✅ **Correct**: `g.It("PolarionID:72192-[Level0][OTP]description", func() { ... })`
+   - ❌ **Wrong**: `g.It("PolarionID:72192-[OTP]description", g.Label("LEVEL0"), func() { ... })`
+2. **Author**: Deprecated, remove it.
 3. **ConnectedOnly**: Add `[Skipped:Disconnected]` in title
 4. **DisconnectedOnly**: Add `[Skipped:Connected][Skipped:Proxy]` in title
-5. **Case ID**: change to `PolarionID:xxxxxx`
-6. **Importance**: Deprecated
-7. **NonPrerelease**: Deprecated
-    - **Longduration**: Change to `[Slow]` in case title
-    - **ChkUpg**: Not supported (openshift-tests upgrade differs from OpenShift QE)
-8. **VMonly**: Deprecated
-9. **Slow, Serial, Disruptive**: Preserved
-10. **DEPRECATED**: Deprecated, corresponding cases deprecated. Use `IgnoreObsoleteTests` for deprecation after addition
-11. **CPaasrunOnly, CPaasrunBoth, StagerunOnly, StagerunBoth, ProdrunOnly, ProdrunBoth**: Deprecated
+5. **Case ID**: change it to `PolarionID:xxxxxx` format, and remove the old one from the case title. Such as `-72017-` strings.
+   - **IMPORTANT**: The PolarionID number should only appear ONCE in the test title - at the beginning as `PolarionID:xxxxx`. Do NOT repeat the number anywhere else in the title.
+   - **IMPORTANT**: Do NOT add `-` between two consecutive square brackets. Adjacent tags should be written directly together.
+   - ✅ **Correct**: `PolarionID:12345-[OTP][Skipped:Disconnected]catalog pods do not recover from node failure [Disruptive][Serial]`
+   - ❌ **Wrong**: `PolarionID:12345-[OTP]-[Skipped:Disconnected]catalog pods do not recover from node failure [Disruptive][Serial]` (dash between brackets)
+   - ❌ **Wrong**: `PolarionID:12345-[OTP][Skipped:Disconnected]12345-catalog pods do not recover from node failure [Disruptive][Serial]` (repeated ID)
+   - ❌ **Wrong**: `PolarionID:12345-[OTP][Skipped:Disconnected]12345-support grpc sourcetype [Serial]` (repeated ID)
+6. **Importance**: Deprecated, remove it. Such as `Critical`, `High`, `Medium` and `Low` strings.
+7. **NonPrerelease**: Deprecated, remove it.
+    - **Longduration**: Change it to `[Slow]` in case title.
+    - **ChkUpg**: Deprecated, remove it. Not supported (openshift-tests upgrade differs from OpenShift QE)
+8.  **VMonly**: Deprecated, and don't migrate the `VMonly` test cases to here.
+9.  **Slow, Serial, Disruptive**: Preserved, but add them in the end of the title. Such as `"[sig-operator][Jira:OLM] OLMv0 optional should PolarionID: xxx ...[Slow][Serial][Disruptive]"`
+10. **DEPRECATED**: Deprecated, don't add this kind of case to here. But, if your test case has been merged into this repo and you want to deprecate it, please add this case into the [IgnoreObsoleteTests](https://github.com/openshift/operator-framework-operator-controller/blob/main/openshift/tests-extension/cmd/main.go).
+11. **CPaasrunOnly, CPaasrunBoth, StagerunOnly, StagerunBoth, ProdrunOnly, ProdrunBoth**: Deprecated, remove them.
 12. **StressTest**: Use Ginkgo label `g.Label("StressTest")`
 13. **NonHyperShiftHOST**: Use Ginkgo label `g.Label("NonHyperShiftHOST")` or use `IsHypershiftHostedCluster` judgment, then skip
 14. **HyperShiftMGMT**: Deprecated. For cases needing hypershift mgmt execution, use `g.Label("NonHyperShiftHOST")` and `ValidHypershiftAndGetGuestKubeConf` validation (to be provided when OLMv1 supports hypershift)
