@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -316,7 +315,7 @@ func waitForBuildToFinish(ctx SpecContext, name, namespace string) {
 		}
 		g.Expect(cond).ToNot(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
 
 	DeferCleanup(func() {
 		if CurrentSpecReport().Failed() {
@@ -338,7 +337,7 @@ func waitForClusterCatalogServing(ctx context.Context, name string) {
 		serving := meta.FindStatusCondition(cc.Status.Conditions, olmv1.TypeServing)
 		g.Expect(serving).ToNot(BeNil())
 		g.Expect(serving.Status).To(Equal(metav1.ConditionTrue))
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
 }
 
 func startBuild(args ...string) *buildv1.Build {
