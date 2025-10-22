@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -125,7 +124,7 @@ func runNegativePreflightTest(ctx context.Context, scenario int, namespace strin
 		c = meta.FindStatusCondition(latest.Status.Conditions, "Installed")
 		g.Expect(c).NotTo(BeNil())
 		g.Expect(c.Status).To(Equal(metav1.ConditionFalse))
-	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
 // createDeficientClusterRole returns a modified ClusterRole according to the test scenario.
