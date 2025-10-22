@@ -3,7 +3,6 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -72,6 +71,6 @@ func EnsureCleanupClusterCatalog(ctx context.Context, name string) {
 	Eventually(func() bool {
 		err := k8s.Get(ctx, key, &olmv1.ClusterCatalog{})
 		return errors.IsNotFound(err)
-	}).WithTimeout(3*time.Minute).WithPolling(2*time.Second).
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).
 		Should(BeTrue(), "ClusterCatalog %q failed to delete", name)
 }
