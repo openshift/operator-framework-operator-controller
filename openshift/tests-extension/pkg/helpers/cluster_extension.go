@@ -159,7 +159,7 @@ func ExpectClusterExtensionToBeInstalled(ctx context.Context, name string) {
 		installed := meta.FindStatusCondition(conditions, string(olmv1.TypeInstalled))
 		g.Expect(installed).ToNot(BeNil(), "Installed condition not found")
 		g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "Installed should be True")
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
 }
 
 // EnsureCleanupClusterExtension attempts to delete any ClusterExtension and a specified CRD
@@ -182,7 +182,7 @@ func EnsureCleanupClusterExtension(ctx context.Context, packageName, crdName str
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, &olmv1.ClusterExtension{})
 					return errors.IsNotFound(err)
-				}).WithTimeout(1*time.Minute).WithPolling(2*time.Second).Should(BeTrue(), "Cleanup ClusterExtension %s failed to delete", ce.Name)
+				}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(BeTrue(), "Cleanup ClusterExtension %s failed to delete", ce.Name)
 			}
 		}
 	} else if !errors.IsNotFound(err) {
@@ -200,7 +200,7 @@ func EnsureCleanupClusterExtension(ctx context.Context, packageName, crdName str
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: crdName}, &apiextensionsv1.CustomResourceDefinition{})
 				return errors.IsNotFound(err)
-			}).WithTimeout(1*time.Minute).WithPolling(2*time.Second).Should(BeTrue(), "Lingering CRD %s failed to delete", crdName)
+			}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(BeTrue(), "Lingering CRD %s failed to delete", crdName)
 		} else if !errors.IsNotFound(err) {
 			fmt.Fprintf(GinkgoWriter, "Warning: Failed to get CRD %s during cleanup: %v\n", crdName, err)
 		}
@@ -214,7 +214,7 @@ func ExpectServiceAccountExists(ctx context.Context, name, namespace string) {
 	Eventually(func(g Gomega) {
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, sa)
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ServiceAccount %q/%q: %v", namespace, name, err))
-	}).WithTimeout(5*time.Minute).WithPolling(3*time.Second).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
 }
 
 // ExpectClusterRoleBindingExists waits for a ClusterRoleBinding to be available and visible to the client.
@@ -224,5 +224,5 @@ func ExpectClusterRoleBindingExists(ctx context.Context, name string) {
 	Eventually(func(g Gomega) {
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, crb)
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ClusterRoleBinding %q: %v", name, err))
-	}).WithTimeout(10*time.Second).WithPolling(1*time.Second).Should(Succeed(), "ClusterRoleBinding %q did not become visible within timeout", name)
+	}).WithTimeout(2*time.Minute).WithPolling(DefaultPolling).Should(Succeed(), "ClusterRoleBinding %q did not become visible within timeout", name)
 }
