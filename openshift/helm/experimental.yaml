@@ -2,24 +2,26 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# List of enabled experimental features for operator-controller
-# Use with {{- if has "FeatureGate" .Value.operatorControllerFeatures }}
-# to pull in resources or additions
-operatorControllerFeatures:
-  - WebhookProviderOpenshiftServiceCA
-  - SingleOwnNamespaceInstallSupport
-  - PreflightPermissions
-
-# Not yet supported
-#  - HelmChartSupport
-#  - BoxcutterRuntime
-
-# List of enabled experimental features for catalogd
-# Use with {{- if has "FeatureGate" .Value.catalogdFeatures }}
-# to pull in resources or additions
-catalogdFeatures:
-  - APIV1MetasHandler
-
-# This can be one of: standard or experimental
 options:
+# List of enabled experimental features for operator-controller
+# Use with {{- if has "FeatureGate" .Value.operatorController.features.enabled }}
+# to pull in resources or additions
+  operatorController:
+    features:
+      enabled:
+      - WebhookProviderOpenshiftServiceCA
+      - SingleOwnNamespaceInstallSupport
+      - PreflightPermissions
+      disabled:
+      - WebhookProviderCertManager
+      - HelmChartSupport
+      - BoxcutterRuntime
+# List of enabled experimental features for catalogd
+# Use with {{- if has "FeatureGate" .Value.catalogd.features.enabled }}
+# to pull in resources or additions
+  catalogd:
+    features:
+      enabled:
+        - APIV1MetasHandler
+# This can be one of: standard or experimental
   featureSet: experimental
