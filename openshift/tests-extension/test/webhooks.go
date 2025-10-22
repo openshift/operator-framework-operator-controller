@@ -126,7 +126,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				default:
 					return fmt.Errorf("unexpected error: %v", err)
 				}
-			}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 
 		It("should have a working mutating webhook [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA][Skipped:Disconnected][Serial] OLMv1 operator with webhooks should have a working mutating webhook"), func(ctx SpecContext) {
@@ -136,7 +136,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			Eventually(func(g Gomega) {
 				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resource, metav1.CreateOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
 			By("getting the created resource in v1 schema")
 			obj, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Get(ctx, mutatingWebhookResourceName, metav1.GetOptions{})
@@ -158,7 +158,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 			Eventually(func(g Gomega) {
 				_, err := dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Create(ctx, resourceV1, metav1.CreateOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
 			By("getting the created resource in v2 schema")
 			obj, err := dynamicClient.Resource(webhookTestV2).Namespace(webhookOperatorInstallNamespace).Get(ctx, conversionWebhookResourceName, metav1.GetOptions{})
@@ -182,7 +182,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				secret := &corev1.Secret{}
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: certificateSecretName, Namespace: webhookOperatorInstallNamespace}, secret)
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get secret %s/%s", webhookOperatorInstallNamespace, certificateSecretName))
-			}).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
 			By("checking webhook is responsive through secret recreation after manual deletion")
 			tlsSecret := &corev1.Secret{
@@ -224,7 +224,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				}
 				g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v", webhookOperatorInstallNamespace, certificateSecretName, err))
 				g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty after recreation")
-			}).WithTimeout(5*time.Minute).WithPolling(10*time.Second).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed(), "webhook service certificate secret did not get recreated and populated within timeout")
 
 			Eventually(func(g Gomega) {
 				resourceName := fmt.Sprintf("tls-deletion-test-%s", rand.String(5))
@@ -235,7 +235,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 
 				err = dynamicClient.Resource(webhookTestV1).Namespace(webhookOperatorInstallNamespace).Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
 				g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
-			}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 	})
 
@@ -290,7 +290,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookOperatorInstallNamespace}, tempNs)
 			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "namespace still exists")
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 
 	saName := fmt.Sprintf("%s-installer", webhookOperatorInstallNamespace)
@@ -335,7 +335,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, tempCE)
 			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 
 	By("waiting for the webhook operator to be installed")
@@ -349,7 +349,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service %s/%s: %v", webhookOperatorInstallNamespace, serviceName, err))
 		g.Expect(svc.Spec.ClusterIP).ToNot(BeEmpty(), "expected webhook service to have a ClusterIP assigned")
 		g.Expect(svc.Spec.Ports).ToNot(BeEmpty(), "expected webhook service to have ports defined")
-	}).WithTimeout(1*time.Minute).WithPolling(5*time.Second).Should(Succeed(), "webhook service did not become ready within timeout")
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed(), "webhook service did not become ready within timeout")
 
 	By("waiting for the webhook operator's service certificate secret to exist and be populated")
 	Eventually(func(g Gomega) {
@@ -365,7 +365,7 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get webhook service certificate secret %s/%s: %v",
 			webhookOperatorInstallNamespace, webhookServiceCert, err))
 		g.Expect(secret.Data).ToNot(BeEmpty(), "expected webhook service certificate secret data to not be empty")
-	}).WithTimeout(5*time.Minute).WithPolling(5*time.Second).Should(Succeed(), "webhook service certificate secret did not become available within timeout")
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed(), "webhook service certificate secret did not become available within timeout")
 
 	By("setupWebhookOperator completed - ClusterExtension is ready for test to use")
 }
