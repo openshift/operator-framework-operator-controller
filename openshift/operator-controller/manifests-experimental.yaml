@@ -1133,6 +1133,12 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=:8443
             - --leader-elect
+            - --feature-gates=WebhookProviderOpenshiftServiceCA=true
+            - --feature-gates=SingleOwnNamespaceInstallSupport=true
+            - --feature-gates=PreflightPermissions=true
+            - --feature-gates=WebhookProviderCertManager=false
+            - --feature-gates=HelmChartSupport=false
+            - --feature-gates=BoxcutterRuntime=false
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
             - --catalogd-cas-dir=/var/ca-certs
