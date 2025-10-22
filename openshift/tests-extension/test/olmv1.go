@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -185,7 +184,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 			ce := &olmv1.ClusterExtension{}
 			Eventually(func() error {
 				return env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: name}, ce)
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
 			By("waiting up to 2 minutes for ClusterExtension to report failure")
 			Eventually(func(g Gomega) {
@@ -204,6 +203,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(installed.Reason).To(Equal("Failed"))
 				g.Expect(installed.Message).To(Equal("No bundle installed"))
-			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
