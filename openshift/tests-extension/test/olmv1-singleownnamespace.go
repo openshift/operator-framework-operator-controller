@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -458,7 +457,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 						}
 					}
 					g.Expect(found).To(BeTrue(), "failed to find deployment with olm.targetNamespaces annotation")
-				}).WithTimeout(5 * time.Minute).WithPolling(3 * time.Second).Should(Succeed())
+				}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
 				By(fmt.Sprintf("cleaning up resources created for %s scenario to allow next scenario", sc.label))
 				deletePolicy := metav1.DeletePropagationForeground
@@ -602,7 +601,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 				g.Expect(installed).ToNot(BeNil(), "Installed condition not found")
 				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse), "Installed should be False")
 				g.Expect(installed.Reason).To(Equal("Failed"))
-			}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
 
@@ -742,6 +741,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse), "Installed should be False")
 				g.Expect(installed.Reason).To(Equal(olmv1.ReasonFailed))
 				g.Expect(installed.Message).ToNot(BeEmpty())
-			}).WithTimeout(5 * time.Minute).WithPolling(3 * time.Second).Should(Succeed())
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
