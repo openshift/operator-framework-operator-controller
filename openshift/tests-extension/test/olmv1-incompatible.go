@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -92,7 +91,7 @@ func waitForOlmUpgradeStatus(ctx SpecContext, status operatorv1.ConditionStatus,
 			g.Expect(cond.Reason).To(Equal(reasonIncompatibleOperatorsInstalled))
 			g.Expect(cond.Message).To(ContainSubstring(name))
 		}
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
 func waitForClusterOperatorUpgradable(ctx SpecContext, name string) {
@@ -116,5 +115,5 @@ func waitForClusterOperatorUpgradable(ctx SpecContext, name string) {
 		g.Expect(cond.Status).To(Equal(configv1.ConditionFalse))
 		g.Expect(cond.Reason).To(Equal(reasonIncompatibleOperatorsInstalled))
 		g.Expect(cond.Message).To(ContainSubstring(name))
-	}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
