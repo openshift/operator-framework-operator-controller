@@ -3,7 +3,6 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
@@ -48,5 +47,5 @@ func ExpectCatalogToBeServing(ctx context.Context, name string) {
 
 		g.Expect(meta.IsStatusConditionPresentAndEqual(conditions, olmv1.TypeServing, metav1.ConditionTrue)).
 			To(BeTrue(), fmt.Sprintf("catalog %q is not serving", name))
-	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
 }
