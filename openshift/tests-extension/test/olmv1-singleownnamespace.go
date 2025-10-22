@@ -13,6 +13,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -277,9 +278,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 	var (
 		k8sClient        client.Client
 		activeNamespaces map[string]struct{}
-		catalogName      string
-		packageName      string
-		crdSuffix        string
+		singleownImage   string
 	)
 
 	BeforeEach(func(ctx SpecContext) {
@@ -291,29 +290,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		activeNamespaces = map[string]struct{}{}
-
-		// Generate unique CRD suffix for parallel execution
-		crdSuffix = rand.String(4)
-
-		// Build in-cluster bundle and catalog
-		singleownImage := image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
-		packageName = fmt.Sprintf("singleown-operator-both-%s", crdSuffix)
-		By(fmt.Sprintf("using singleown operator image: %s, CRD suffix: %s, package: %s", singleownImage, crdSuffix, packageName))
-
-		replacements := map[string]string{
-			"{{ TEST-BUNDLE }}":     "",
-			"{{ NAMESPACE }}":       "",
-			"{{ TEST-CONTROLLER }}": singleownImage,
-			"{{ CRD-SUFFIX }}":      crdSuffix,
-			"{{ PACKAGE-NAME }}":    packageName,
-		}
-
-		var nsName, opName string
-		_, nsName, catalogName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
-			singleownindex.AssetNames, singleownindex.Asset,
-			singleownbundle.AssetNames, singleownbundle.Asset,
-		)
-		By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q", opName, catalogName, nsName))
+		singleownImage = image.LocationFor("quay.io/olmtest/webhook-operator:v0.0.5")
+		By(fmt.Sprintf("using singleown operator image: %s", singleownImage))
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -358,6 +336,29 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				if watchNamespace != installNamespace {
 					activeNamespaces[watchNamespace] = struct{}{}
 				}
+
+				// Ensure unique names per scenario
+				crdSuffix := rand.String(4)
+				packageName := fmt.Sprintf("singleown-operator-both-%s", crdSuffix)
+				By(fmt.Sprintf("building singleown operator assets for %s scenario: image=%s, CRD suffix=%s, package=%s", sc.label, singleownImage, crdSuffix, packageName))
+
+				replacements := map[string]string{
+					"{{ TEST-BUNDLE }}":                        "",
+					"{{ NAMESPACE }}":                          "",
+					"{{ TEST-CONTROLLER }}":                    singleownImage,
+					"{{ CRD-SUFFIX }}":                         crdSuffix, // Unique CRD suffix per scenario
+					"{{ PACKAGE-NAME }}":                       packageName,
+					"webhook-operator-webhooktest-admin-role":  fmt.Sprintf("webhook-operator-webhooktest-admin-role-%s", crdSuffix),
+					"webhook-operator-webhooktest-editor-role": fmt.Sprintf("webhook-operator-webhooktest-editor-role-%s", crdSuffix),
+					"webhook-operator-webhooktest-viewer-role": fmt.Sprintf("webhook-operator-webhooktest-viewer-role-%s", crdSuffix),
+					"webhook-operator-metrics-reader":          fmt.Sprintf("webhook-operator-metrics-reader-%s", crdSuffix),
+				}
+
+				_, nsName, catalogName, opName := helpers.NewCatalogAndClusterBundles(ctx, replacements,
+					singleownindex.AssetNames, singleownindex.Asset,
+					singleownbundle.AssetNames, singleownbundle.Asset,
+				)
+				By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q for %s scenario", opName, catalogName, nsName, sc.label))
 
 				By(fmt.Sprintf("ensuring no ClusterExtension for %s before %s scenario", packageName, sc.label))
 				crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
@@ -432,6 +433,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				DeferCleanup(func() {
 					By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
 					_ = k8sClient.Delete(context.Background(), ce, client.PropagationPolicy(metav1.DeletePropagationForeground))
+					if crdName != "" {
+						crd := &apiextensionsv1.CustomResourceDefinition{}
+						if err := k8sClient.Get(context.Background(), client.ObjectKey{Name: crdName}, crd); err == nil {
+							By(fmt.Sprintf("cleanup: deleting CRD %s", crdName))
+							_ = k8sClient.Delete(context.Background(), crd)
+						}
+					}
 				})
 
 				By(fmt.Sprintf("waiting for the ClusterExtension %s to be installed for %s scenario", ceName, sc.label))
@@ -459,6 +467,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 					g.Expect(found).To(BeTrue(), "failed to find deployment with olm.targetNamespaces annotation")
 				}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
+				// Ginkgo never invokes those deferred cleanups until we exit the whole spec, so the first scenario’s
+				// cluster resources survive long enough to collide with the second scenario.
 				By(fmt.Sprintf("cleaning up resources created for %s scenario to allow next scenario", sc.label))
 				deletePolicy := metav1.DeletePropagationForeground
 				Expect(k8sClient.Delete(ctx, ce, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterExtension %q", ceName)
@@ -471,6 +481,19 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 					Expect(k8sClient.Delete(ctx, watchNSObj, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete watch namespace %q", watchNamespace)
 				}
 				Expect(k8sClient.Delete(ctx, installNS, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete install namespace %q", installNamespace)
+
+				By(fmt.Sprintf("waiting for namespace %s to be fully deleted before next scenario", installNamespace))
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, client.ObjectKey{Name: installNamespace}, &corev1.Namespace{})
+					return errors.IsNotFound(err)
+				}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue(), "expected namespace %s to be deleted", installNamespace)
+				if watchNSObj != nil {
+					By(fmt.Sprintf("waiting for namespace %s to be fully deleted before next scenario", watchNamespace))
+					Eventually(func() bool {
+						err := k8sClient.Get(ctx, client.ObjectKey{Name: watchNamespace}, &corev1.Namespace{})
+						return errors.IsNotFound(err)
+					}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue(), "expected namespace %s to be deleted", watchNamespace)
+				}
 			}
 		})
 })
