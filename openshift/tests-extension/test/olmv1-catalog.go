@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -99,7 +98,7 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 				Fail(fmt.Sprintf("Job failed: %s", c.Message))
 			}
 		}
-	}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-community-operators Catalog", func() {
@@ -225,7 +224,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			g.Expect(c.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True")
 			g.Expect(c.Reason).To(Equal("Retrying"), "expected reason to be 'Retrying'")
 			g.Expect(c.Message).To(ContainSubstring("error creating image source"), "expected image source error")
-		}).WithTimeout(5 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 })
 
