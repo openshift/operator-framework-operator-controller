@@ -8,12 +8,12 @@ import (
 
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/render"
 )
@@ -68,43 +68,18 @@ func (r *RegistryV1ManifestProvider) Get(bundleFS fs.FS, ext *ocv1.ClusterExtens
 		render.WithCertificateProvider(r.CertificateProvider),
 	}
 
-	watchNamespace, err := r.getWatchNamespace(ext)
-	if err != nil {
-		return nil, err
-	}
+	if r.IsSingleOwnNamespaceEnabled && ext.Spec.Config != nil && ext.Spec.Config.ConfigType == ocv1.ClusterExtensionConfigTypeInline {
+		bundleConfig, err := bundle.UnmarshallConfig(ext.Spec.Config.Inline.Raw, rv1, ext.Spec.Namespace)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bundle configuration: %w", err)
+		}
 
-	if watchNamespace != "" {
-		opts = append(opts, render.WithTargetNamespaces(watchNamespace))
+		if bundleConfig != nil && bundleConfig.WatchNamespace != nil {
+			opts = append(opts, render.WithTargetNamespaces(*bundleConfig.WatchNamespace))
+		}
 	}
 
 	return r.BundleRenderer.Render(rv1, ext.Spec.Namespace, opts...)
-}
-
-// getWatchNamespace determines the watch namespace the ClusterExtension should use based on the
-// configuration in .spec.config.Inline. Only active if SingleOwnNamespace support is enabled.
-func (r *RegistryV1ManifestProvider) getWatchNamespace(ext *ocv1.ClusterExtension) (string, error) {
-	if !r.IsSingleOwnNamespaceEnabled {
-		return "", nil
-	}
-
-	var watchNamespace string
-	if ext.Spec.Config != nil && ext.Spec.Config.Inline != nil {
-		cfg := struct {
-			WatchNamespace string `json:"watchNamespace"`
-		}{}
-		if err := json.Unmarshal(ext.Spec.Config.Inline.Raw, &cfg); err != nil {
-			return "", fmt.Errorf("invalid bundle configuration: %w", err)
-		}
-		watchNamespace = cfg.WatchNamespace
-	} else {
-		return "", nil
-	}
-
-	if errs := validation.IsDNS1123Subdomain(watchNamespace); len(errs) > 0 {
-		return "", fmt.Errorf("invalid watch namespace '%s': namespace must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character", watchNamespace)
-	}
-
-	return watchNamespace, nil
 }
 
 // RegistryV1HelmChartProvider creates a Helm-Chart from a registry+v1 bundle and its associated ClusterExtension

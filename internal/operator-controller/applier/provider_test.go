@@ -64,6 +64,42 @@ func Test_RegistryV1ManifestProvider_Integration(t *testing.T) {
 		require.Contains(t, err.Error(), "some error")
 	})
 
+	t.Run("surfaces bundle config unmarshall errors", func(t *testing.T) {
+		provider := applier.RegistryV1ManifestProvider{
+			BundleRenderer: render.BundleRenderer{
+				ResourceGenerators: []render.ResourceGenerator{
+					func(rv1 *bundle.RegistryV1, opts render.Options) ([]client.Object, error) {
+						return nil, nil
+					},
+				},
+			},
+			// must be true for now as we only unmarshal configuration when this feature is on
+			// once we go GA and remove IsSingleOwnNamespaceEnabled it's ok to just delete this
+			IsSingleOwnNamespaceEnabled: true,
+		}
+
+		// The contents of the bundle are not important for this tesy, only that it be a valid bundle
+		// to avoid errors in the deserialization process
+		bundleFS := bundlefs.Builder().WithPackageName("test").
+			WithCSV(clusterserviceversion.Builder().WithInstallModeSupportFor(v1alpha1.InstallModeTypeSingleNamespace).Build()).Build()
+
+		ext := &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+				Config: &ocv1.ClusterExtensionConfig{
+					ConfigType: ocv1.ClusterExtensionConfigTypeInline,
+					Inline: &apiextensionsv1.JSON{
+						Raw: []byte(`{"watchNamespace": "install-namespace"}`),
+					},
+				},
+			},
+		}
+
+		_, err := provider.Get(bundleFS, ext)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid bundle configuration")
+	})
+
 	t.Run("returns rendered manifests", func(t *testing.T) {
 		provider := applier.RegistryV1ManifestProvider{
 			BundleRenderer: registryv1.Renderer,
@@ -203,6 +239,54 @@ func Test_RegistryV1ManifestProvider_SingleOwnNamespaceSupport(t *testing.T) {
 			},
 		})
 		require.Equal(t, "unsupported bundle: bundle does not support AllNamespaces install mode", err.Error())
+	})
+
+	t.Run("rejects bundles without AllNamespaces install mode and with SingleNamespace support when Single/OwnNamespace install mode support is enabled", func(t *testing.T) {
+		expectedWatchNamespace := "some-namespace"
+		provider := applier.RegistryV1ManifestProvider{
+			BundleRenderer: render.BundleRenderer{
+				ResourceGenerators: []render.ResourceGenerator{
+					func(rv1 *bundle.RegistryV1, opts render.Options) ([]client.Object, error) {
+						t.Log("ensure watch namespace is appropriately configured")
+						require.Equal(t, []string{expectedWatchNamespace}, opts.TargetNamespaces)
+						return nil, nil
+					},
+				},
+			},
+			IsSingleOwnNamespaceEnabled: false,
+		}
+
+		bundleFS := bundlefs.Builder().WithPackageName("test").
+			WithCSV(clusterserviceversion.Builder().WithInstallModeSupportFor(v1alpha1.InstallModeTypeSingleNamespace).Build()).Build()
+
+		_, err := provider.Get(bundleFS, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+				Config: &ocv1.ClusterExtensionConfig{
+					ConfigType: ocv1.ClusterExtensionConfigTypeInline,
+					Inline: &apiextensionsv1.JSON{
+						Raw: []byte(`{"watchNamespace": "` + expectedWatchNamespace + `"}`),
+					},
+				},
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported bundle")
+	})
+
+	t.Run("rejects bundles without AllNamespaces install mode and with OwnNamespace support when Single/OwnNamespace install mode support is disabled", func(t *testing.T) {
+		provider := applier.RegistryV1ManifestProvider{
+			IsSingleOwnNamespaceEnabled: false,
+		}
+		bundleFS := bundlefs.Builder().WithPackageName("test").
+			WithCSV(clusterserviceversion.Builder().WithInstallModeSupportFor(v1alpha1.InstallModeTypeOwnNamespace).Build()).Build()
+		_, err := provider.Get(bundleFS, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported bundle")
 	})
 
 	t.Run("accepts bundles without AllNamespaces install mode and with SingleNamespace support when Single/OwnNamespace install mode support is enabled", func(t *testing.T) {
