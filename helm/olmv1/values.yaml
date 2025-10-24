@@ -66,10 +66,10 @@ deployments:
     nodeSelector:
       kubernetes.io/os: linux
       node-role.kubernetes.io/control-plane: ""
+    hostUsers: false
     securityContext:
       runAsNonRoot: true
-      seccompProfile:
-        type: RuntimeDefault
+      runAsUser: 1000
     terminationGracePeriodSeconds: 10
     tolerations:
       - effect: NoSchedule
