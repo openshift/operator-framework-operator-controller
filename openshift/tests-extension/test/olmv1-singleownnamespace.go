@@ -338,20 +338,16 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				}
 
 				// Ensure unique names per scenario
-				crdSuffix := rand.String(4)
-				packageName := fmt.Sprintf("singleown-operator-both-%s", crdSuffix)
-				By(fmt.Sprintf("building singleown operator assets for %s scenario: image=%s, CRD suffix=%s, package=%s", sc.label, singleownImage, crdSuffix, packageName))
+				unique := rand.String(4)
+				packageName := fmt.Sprintf("singleown-operator-both-%s", unique)
+				By(fmt.Sprintf("building singleown operator assets for %s scenario: image=%s, CRD suffix=%s, package=%s", sc.label, singleownImage, unique, packageName))
 
 				replacements := map[string]string{
-					"{{ TEST-BUNDLE }}":                        "",
-					"{{ NAMESPACE }}":                          "",
-					"{{ TEST-CONTROLLER }}":                    singleownImage,
-					"{{ CRD-SUFFIX }}":                         crdSuffix, // Unique CRD suffix per scenario
-					"{{ PACKAGE-NAME }}":                       packageName,
-					"webhook-operator-webhooktest-admin-role":  fmt.Sprintf("webhook-operator-webhooktest-admin-role-%s", crdSuffix),
-					"webhook-operator-webhooktest-editor-role": fmt.Sprintf("webhook-operator-webhooktest-editor-role-%s", crdSuffix),
-					"webhook-operator-webhooktest-viewer-role": fmt.Sprintf("webhook-operator-webhooktest-viewer-role-%s", crdSuffix),
-					"webhook-operator-metrics-reader":          fmt.Sprintf("webhook-operator-metrics-reader-%s", crdSuffix),
+					"{{ TEST-BUNDLE }}":     "",
+					"{{ NAMESPACE }}":       "",
+					"{{ TEST-CONTROLLER }}": singleownImage,
+					"{{ CRD-SUFFIX }}":      unique, // Unique CRD suffix per scenario
+					"{{ PACKAGE-NAME }}":    packageName,
 				}
 
 				_, nsName, catalogName, opName := helpers.NewCatalogAndClusterBundles(ctx, replacements,
@@ -361,7 +357,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				By(fmt.Sprintf("singleown bundle %q and catalog %q built successfully in namespace %q for %s scenario", opName, catalogName, nsName, sc.label))
 
 				By(fmt.Sprintf("ensuring no ClusterExtension for %s before %s scenario", packageName, sc.label))
-				crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", crdSuffix)
+				crdName := fmt.Sprintf("webhooktests-%s.webhook.operators.coreos.io", unique)
 				helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 
 				By(fmt.Sprintf("creating namespace %s for %s tests", installNamespace, sc.label))
@@ -433,13 +429,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				DeferCleanup(func() {
 					By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
 					_ = k8sClient.Delete(context.Background(), ce, client.PropagationPolicy(metav1.DeletePropagationForeground))
-					if crdName != "" {
-						crd := &apiextensionsv1.CustomResourceDefinition{}
-						if err := k8sClient.Get(context.Background(), client.ObjectKey{Name: crdName}, crd); err == nil {
-							By(fmt.Sprintf("cleanup: deleting CRD %s", crdName))
-							_ = k8sClient.Delete(context.Background(), crd)
-						}
-					}
+					helpers.EnsureCleanupClusterExtension(context.Background(), ceName, nsName)
 				})
 
 				By(fmt.Sprintf("waiting for the ClusterExtension %s to be installed for %s scenario", ceName, sc.label))
