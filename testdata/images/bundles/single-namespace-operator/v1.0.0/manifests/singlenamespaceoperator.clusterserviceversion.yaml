@@ -5,8 +5,8 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "olme2etests.olm.operatorframework.io/v1",
-          "kind": "OLME2ETests",
+          "apiVersion": "singlenamespaces.olm.operatorframework.io/v1",
+          "kind": "SingleNamespace",
           "metadata": {
             "labels": {
               "app.kubernetes.io/managed-by": "kustomize",
@@ -21,18 +21,18 @@ metadata:
     createdAt: "2024-10-24T19:21:40Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: testoperator.v1.0.0
+  name: singlenamespaceoperator.v1.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
   owned:
-    - description: Configures subsections of Alertmanager configuration specific to each namespace
-      displayName: OLME2ETest
-      kind: OLME2ETest
-      name: olme2etests.olm.operatorframework.io
+    - description: A dummy resource for an operator that only supports single namespace install mode
+      displayName: SingleNamespace
+      kind: SingleNamespace
+      name: singlenamespaces.olm.operatorframework.io
       version: v1
-  description: OLM E2E Testing Operator
+  description: OLM SingleNamespace Testing Operator
   displayName: test-operator
   icon:
     - base64data: ""
@@ -42,18 +42,18 @@ spec:
       deployments:
         - label:
             app.kubernetes.io/component: controller
-            app.kubernetes.io/name: test-operator
+            app.kubernetes.io/name: single-namespace-operator
             app.kubernetes.io/version: 1.0.0
-          name: test-operator
+          name: single-namespace-operator
           spec:
             replicas: 1
             selector:
               matchLabels:
-                app: olme2etest
+                app: singlenamespacetest
             template:
               metadata:
                 labels:
-                  app: olme2etest
+                  app: singlenamespacetest
               spec:
                 terminationGracePeriodSeconds: 0
                 containers:
@@ -65,7 +65,7 @@ spec:
                     securityContext:
                       runAsUser: 1000
                       runAsNonRoot: true
-                    serviceAccountName: simple-bundle-manager
+                serviceAccountName: simple-bundle-manager
       clusterPermissions:
         - rules:
             - apiGroups:
@@ -134,7 +134,7 @@ spec:
       type: SingleNamespace
     - supported: false
       type: MultiNamespace
-    - supported: true
+    - supported: false
       type: AllNamespaces
   keywords:
     - registry
