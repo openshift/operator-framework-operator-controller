@@ -3,14 +3,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.1
-  name: olme2etests.olm.operatorframework.io
+  name: ownnamespaces.olm.operatorframework.io
 spec:
   group: olm.operatorframework.io
   names:
-    kind: OLME2ETest
-    listKind: OLME2ETestList
-    plural: olme2etests
-    singular: olme2etest
+    kind: OwnNamespace
+    listKind: OwnNamespaceList
+    plural: ownnamespaces
+    singular: ownnamespace
   scope: Cluster
   versions:
     - name: v1

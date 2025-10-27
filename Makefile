@@ -152,7 +152,7 @@ update-crds:
 #
 # Override HELM_SETTINGS on the command line to include additional Helm settings
 # e.g. make HELM_SETTINGS="options.openshift.enabled=true" manifests
-# e.g. make HELM_SETTINGS="operatorControllerFeatures={WebhookProviderCertManager}" manifests
+# e.g. make HELM_SETTINGS="options.operatorController.features.enabled={WebhookProviderCertManager}" manifests
 #
 MANIFESTS ?= $(STANDARD_MANIFEST) $(STANDARD_E2E_MANIFEST) $(EXPERIMENTAL_MANIFEST) $(EXPERIMENTAL_E2E_MANIFEST)
 $(STANDARD_MANIFEST) ?= helm/cert-manager.yaml
@@ -186,8 +186,9 @@ fix-lint: $(GOLANGCI_LINT) #EXHELP Fix lint issues
 	$(GOLANGCI_LINT) run --fix --build-tags $(GO_BUILD_TAGS) $(GOLANGCI_LINT_ARGS)
 
 .PHONY: fmt
-fmt: #EXHELP Formats code
+fmt: $(YAMLFMT) #EXHELP Formats code
 	go fmt ./...
+	$(YAMLFMT) -gitignore_excludes testdata
 
 .PHONY: update-tls-profiles
 update-tls-profiles: $(GOJQ) #EXHELP Update TLS profiles from the Mozilla wiki
