@@ -2,7 +2,253 @@
   {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package/bundlemetadata/catalogmetadata from clustercatalog CR",
     "labels": {
+      "ClusterCatalog": {},
       "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69123-[Skipped:Disconnected]Catalogd clustercatalog offer the operator content through http server",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "LEVEL0": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69069-[Skipped:Disconnected]Replace pod-based image unpacker with an image registry client",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69869-[Skipped:Disconnected]Catalogd Add metrics to the Storage implementation",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69202-[Skipped:Disconnected][Skipped:Proxy]Catalogd clustercatalog offer the operator content through http server off cluster",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "LEVEL0": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:73219-[Skipped:Disconnected]Fetch deprecation data from the catalogd http server",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75441-[Skipped:Disconnected]Catalogd supports compression and jsonlines format",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:73289-[Skipped:Disconnected]Check the deprecation conditions and messages",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:74948-[Skipped:Disconnected]catalog offer the operator content through https server",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "LEVEL0": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:74978-[Skipped:Disconnected]CRD upgrade will be prevented if the Scope is switched between Namespaced and Cluster",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "LEVEL0": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75218-[Skipped:Disconnected]Disabling the CRD Upgrade Safety preflight checks",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75122-[Skipped:Disconnected]CRD upgrade check Removing an existing stored version and add a new CRD with no modifications to existing versions",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75123-[Skipped:Disconnected]CRD upgrade checks for changes in required field and field type",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75124-[Skipped:Disconnected]CRD upgrade checks for changes in default values",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75515-[Skipped:Disconnected]CRD upgrade checks for changes in enumeration values",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "informing",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:75516-[Skipped:Disconnected][Skipped:SNO]CRD upgrade checks for the field maximum minimum changes",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "LEVEL0": {},
       "NonHyperShiftHOST": {}
     },
     "resources": {
