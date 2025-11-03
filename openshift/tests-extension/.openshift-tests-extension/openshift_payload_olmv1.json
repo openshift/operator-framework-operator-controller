@@ -9,7 +9,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -40,7 +40,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -55,7 +55,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -71,7 +71,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -87,7 +87,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -102,7 +102,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -117,7 +117,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -132,7 +132,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -147,7 +147,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -162,7 +162,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -177,7 +177,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -192,7 +192,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -207,7 +207,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -222,7 +222,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
@@ -237,7 +237,7 @@
       "isolation": {}
     },
     "source": "openshift:payload:olmv1",
-    "lifecycle": "informing",
+    "lifecycle": "blocking",
     "environmentSelector": {
       "exclude": "topology==\"External\""
     }
