@@ -7,12 +7,14 @@ objects:
   kind: ClusterExtension
   metadata:
     name: "${NAME}"
-    annotations:
-      olm.operatorframework.io/watch-namespace: "${WATCHNS}"
   spec:
     namespace: "${INSTALLNAMESPACE}"
     serviceAccount:
       name: "${SANAME}"
+    config:
+      configType: Inline
+      inline:
+        watchNamespace: "${WATCHNS}"
     source:
       sourceType: "${SOURCETYPE}"
       catalog:
