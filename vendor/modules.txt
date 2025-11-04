@@ -718,10 +718,6 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runtime-spec v1.2.1
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/openshift/crd-schema-checker v0.0.0-20240404194209-35a9033b1d11
-## explicit; go 1.20
-github.com/openshift/crd-schema-checker/pkg/manifestcomparators
-github.com/openshift/crd-schema-checker/pkg/resourceread
 # github.com/operator-framework/api v0.30.0
 ## explicit; go 1.23.0
 github.com/operator-framework/api/pkg/constraints

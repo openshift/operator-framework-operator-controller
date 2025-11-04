@@ -13,50 +13,39 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	crdifyconfig "github.com/operator-framework/operator-controller/internal/thirdparty/crdify/pkg/config"
+	crdifyrunner "github.com/operator-framework/operator-controller/internal/thirdparty/crdify/pkg/runner"
+	crdifyvalidations "github.com/operator-framework/operator-controller/internal/thirdparty/crdify/pkg/validations"
+	crdifyproperty "github.com/operator-framework/operator-controller/internal/thirdparty/crdify/pkg/validations/property"
+
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/util"
 )
 
 type Option func(p *Preflight)
 
-func WithValidator(v *Validator) Option {
+func WithConfig(cfg *crdifyconfig.Config) Option {
 	return func(p *Preflight) {
-		p.validator = v
+		p.config = cfg
+	}
+}
+
+func WithRegistry(reg crdifyvalidations.Registry) Option {
+	return func(p *Preflight) {
+		p.registry = reg
 	}
 }
 
 type Preflight struct {
 	crdClient apiextensionsv1client.CustomResourceDefinitionInterface
-	validator *Validator
+	config    *crdifyconfig.Config
+	registry  crdifyvalidations.Registry
 }
 
 func NewPreflight(crdCli apiextensionsv1client.CustomResourceDefinitionInterface, opts ...Option) *Preflight {
-	changeValidations := []ChangeValidation{
-		Description,
-		Enum,
-		Required,
-		Maximum,
-		MaxItems,
-		MaxLength,
-		MaxProperties,
-		Minimum,
-		MinItems,
-		MinLength,
-		MinProperties,
-		Default,
-		Type,
-	}
 	p := &Preflight{
 		crdClient: crdCli,
-		// create a default validator. Can be overridden via the options
-		validator: &Validator{
-			Validations: []Validation{
-				NewValidationFunc("NoScopeChange", NoScopeChange),
-				NewValidationFunc("NoStoredVersionRemoved", NoStoredVersionRemoved),
-				NewValidationFunc("NoExistingFieldRemoved", NoExistingFieldRemoved),
-				&ServedVersionValidator{Validations: changeValidations},
-				&ChangeValidator{Validations: changeValidations},
-			},
-		},
+		config:    defaultConfig(),
+		registry:  defaultRegistry(),
 	}
 
 	for _, o := range opts {
@@ -82,6 +71,11 @@ func (p *Preflight) runPreflight(ctx context.Context, rel *release.Release) erro
 	relObjects, err := util.ManifestObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
 	if err != nil {
 		return fmt.Errorf("parsing release %q objects: %w", rel.Name, err)
+	}
+
+	runner, err := crdifyrunner.New(p.config, p.registry)
+	if err != nil {
+		return fmt.Errorf("creating CRD validation runner: %w", err)
 	}
 
 	validateErrors := make([]error, 0, len(relObjects))
@@ -110,11 +104,237 @@ func (p *Preflight) runPreflight(ctx context.Context, rel *release.Release) erro
 			return fmt.Errorf("getting existing resource for CRD %q: %w", newCrd.Name, err)
 		}
 
-		err = p.validator.Validate(*oldCrd, *newCrd)
-		if err != nil {
-			validateErrors = append(validateErrors, fmt.Errorf("validating upgrade for CRD %q failed: %w", newCrd.Name, err))
+		results := runner.Run(oldCrd, newCrd)
+		if results.HasFailures() {
+			resultErrs := crdWideErrors(results)
+			resultErrs = append(resultErrs, sameVersionErrors(results)...)
+			resultErrs = append(resultErrs, servedVersionErrors(results)...)
+			if len(resultErrs) > 0 {
+				validateErrors = append(validateErrors, fmt.Errorf("validating upgrade for CRD %q: %w", newCrd.Name, errors.Join(resultErrs...)))
+			}
 		}
 	}
 
 	return errors.Join(validateErrors...)
+}
+
+func defaultConfig() *crdifyconfig.Config {
+	return &crdifyconfig.Config{
+		// Ignore served version validations if conversion policy is set.
+		Conversion: crdifyconfig.ConversionPolicyIgnore,
+		// Fail-closed by default
+		UnhandledEnforcement: crdifyconfig.EnforcementPolicyError,
+		// Use the default validation configurations as they are
+		// the strictest possible.
+		Validations: []crdifyconfig.ValidationConfig{
+			// Do not enforce the description validation
+			// because OLM should not block on field description changes.
+			{
+				Name:        "description",
+				Enforcement: crdifyconfig.EnforcementPolicyNone,
+			},
+			{
+				Name:        "enum",
+				Enforcement: crdifyconfig.EnforcementPolicyError,
+				Configuration: map[string]interface{}{
+					"additionPolicy": crdifyproperty.AdditionPolicyAllow,
+				},
+			},
+		},
+	}
+}
+
+func defaultRegistry() crdifyvalidations.Registry {
+	return crdifyrunner.DefaultRegistry()
+}
+
+func crdWideErrors(results *crdifyrunner.Results) []error {
+	if results == nil {
+		return nil
+	}
+
+	errs := []error{}
+	for _, result := range results.CRDValidation {
+		for _, err := range result.Errors {
+			errs = append(errs, fmt.Errorf("%s: %s", result.Name, err))
+		}
+	}
+
+	return errs
+}
+
+func sameVersionErrors(results *crdifyrunner.Results) []error {
+	if results == nil {
+		return nil
+	}
+
+	errs := []error{}
+	for version, propertyResults := range results.SameVersionValidation {
+		for property, comparisonResults := range propertyResults {
+			for _, result := range comparisonResults {
+				for _, err := range result.Errors {
+					msg := err
+					if result.Name == "unhandled" {
+						msg = conciseUnhandledMessage(err)
+					}
+					errs = append(errs, fmt.Errorf("%s: %s: %s: %s", version, property, result.Name, msg))
+				}
+			}
+		}
+	}
+
+	return errs
+}
+
+func servedVersionErrors(results *crdifyrunner.Results) []error {
+	if results == nil {
+		return nil
+	}
+
+	errs := []error{}
+	for version, propertyResults := range results.ServedVersionValidation {
+		for property, comparisonResults := range propertyResults {
+			for _, result := range comparisonResults {
+				for _, err := range result.Errors {
+					msg := err
+					if result.Name == "unhandled" {
+						msg = conciseUnhandledMessage(err)
+					}
+					errs = append(errs, fmt.Errorf("%s: %s: %s: %s", version, property, result.Name, msg))
+				}
+			}
+		}
+	}
+
+	return errs
+}
+
+const unhandledSummaryPrefix = "unhandled changes found"
+
+// conciseUnhandledMessage trims the CRD diff emitted by crdify's "unhandled" comparator
+// into a short human readable description so operators get a hint of the change without
+// the unreadable Go struct dump.
+func conciseUnhandledMessage(raw string) string {
+	if !strings.Contains(raw, unhandledSummaryPrefix) {
+		return raw
+	}
+
+	details := extractUnhandledDetails(raw)
+	if len(details) == 0 {
+		return unhandledSummaryPrefix
+	}
+
+	return fmt.Sprintf("%s (%s)", unhandledSummaryPrefix, strings.Join(details, "; "))
+}
+
+func extractUnhandledDetails(raw string) []string {
+	type diffEntry struct {
+		before    string
+		after     string
+		beforeRaw string
+		afterRaw  string
+	}
+
+	entries := map[string]*diffEntry{}
+	order := []string{}
+
+	for _, line := range strings.Split(raw, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if len(trimmed) < 2 {
+			continue
+		}
+
+		sign := trimmed[0]
+		if sign != '-' && sign != '+' {
+			continue
+		}
+
+		field, value, rawValue := parseUnhandledDiffValue(trimmed[1:])
+		if field == "" {
+			continue
+		}
+
+		entry, ok := entries[field]
+		if !ok {
+			entry = &diffEntry{}
+			entries[field] = entry
+			order = append(order, field)
+		}
+
+		if sign == '-' {
+			entry.before = value
+			entry.beforeRaw = rawValue
+		} else {
+			entry.after = value
+			entry.afterRaw = rawValue
+		}
+	}
+
+	details := []string{}
+	for _, field := range order {
+		entry := entries[field]
+		if entry.before == "" && entry.after == "" {
+			continue
+		}
+		if entry.before == entry.after && entry.beforeRaw == entry.afterRaw {
+			continue
+		}
+
+		before := entry.before
+		if before == "" {
+			before = "<empty>"
+		}
+		after := entry.after
+		if after == "" {
+			after = "<empty>"
+		}
+		if entry.before == entry.after && entry.beforeRaw != entry.afterRaw {
+			after = after + " (changed)"
+		}
+
+		details = append(details, fmt.Sprintf("%s %s -> %s", field, before, after))
+	}
+
+	return details
+}
+
+func parseUnhandledDiffValue(fragment string) (string, string, string) {
+	cleaned := strings.TrimSpace(fragment)
+	cleaned = strings.TrimPrefix(cleaned, "\t")
+	cleaned = strings.TrimSpace(cleaned)
+	cleaned = strings.TrimSuffix(cleaned, ",")
+
+	parts := strings.SplitN(cleaned, ":", 2)
+	if len(parts) != 2 {
+		return "", "", ""
+	}
+
+	field := strings.TrimSpace(parts[0])
+	rawValue := strings.TrimSpace(parts[1])
+	value := normalizeUnhandledValue(rawValue)
+
+	if field == "" {
+		return "", "", ""
+	}
+
+	return field, value, rawValue
+}
+
+func normalizeUnhandledValue(value string) string {
+	value = strings.TrimSuffix(value, ",")
+	value = strings.TrimSpace(value)
+
+	switch value {
+	case "":
+		return "<empty>"
+	case "\"\"":
+		return "\"\""
+	}
+
+	value = strings.ReplaceAll(value, "v1.", "")
+	if strings.Contains(value, "JSONSchemaProps") {
+		return "<complex value>"
+	}
+
+	return value
 }

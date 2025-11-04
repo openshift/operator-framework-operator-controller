@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	crdifyconfig "github.com/operator-framework/operator-controller/internal/thirdparty/crdify/pkg/config"
+
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/preflights/crdupgradesafety"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/util"
 )
@@ -30,18 +32,15 @@ func (c *MockCRDGetter) Get(ctx context.Context, name string, options metav1.Get
 	return c.oldCrd, c.getErr
 }
 
-func newMockPreflight(crd *apiextensionsv1.CustomResourceDefinition, err error, customValidator *crdupgradesafety.Validator) *crdupgradesafety.Preflight {
+func newMockPreflight(crd *apiextensionsv1.CustomResourceDefinition, err error) *crdupgradesafety.Preflight {
 	var preflightOpts []crdupgradesafety.Option
-	if customValidator != nil {
-		preflightOpts = append(preflightOpts, crdupgradesafety.WithValidator(customValidator))
-	}
 	return crdupgradesafety.NewPreflight(&MockCRDGetter{
 		oldCrd: crd,
 		getErr: err,
 	}, preflightOpts...)
 }
 
-const crdFolder string = "../../../../../testdata/manifests"
+const crdFolder string = "testdata/manifests"
 
 func getCrdFromManifestFile(t *testing.T, oldCrdFile string) *apiextensionsv1.CustomResourceDefinition {
 	if oldCrdFile == "" {
@@ -69,15 +68,22 @@ func getManifestString(t *testing.T, crdFile string) string {
 	return string(buff)
 }
 
+func wantErrorMsgs(wantMsgs []string) require.ErrorAssertionFunc {
+	return func(t require.TestingT, haveErr error, _ ...interface{}) {
+		for _, wantMsg := range wantMsgs {
+			require.ErrorContains(t, haveErr, wantMsg)
+		}
+	}
+}
+
 // TestInstall exists only for completeness as Install() is currently a no-op. It can be used as
 // a template for real tests in the future if the func is implemented.
 func TestInstall(t *testing.T) {
 	tests := []struct {
 		name          string
 		oldCrdPath    string
-		validator     *crdupgradesafety.Validator
 		release       *release.Release
-		wantErrMsgs   []string
+		requireErr    require.ErrorAssertionFunc
 		wantCrdGetErr error
 	}{
 		{
@@ -95,7 +101,7 @@ func TestInstall(t *testing.T) {
 				Name:     "test-release",
 				Manifest: "abcd",
 			},
-			wantErrMsgs: []string{"json: cannot unmarshal string into Go value of type unstructured.detector"},
+			requireErr: wantErrorMsgs([]string{"json: cannot unmarshal string into Go value of type unstructured.detector"}),
 		},
 		{
 			name: "release with no CRD objects",
@@ -111,7 +117,7 @@ func TestInstall(t *testing.T) {
 				Manifest: getManifestString(t, "crd-valid-upgrade.json"),
 			},
 			wantCrdGetErr: fmt.Errorf("error!"),
-			wantErrMsgs:   []string{"error!"},
+			requireErr:    wantErrorMsgs([]string{"error!"}),
 		},
 		{
 			name: "fail to get old crd, not found error",
@@ -127,23 +133,7 @@ func TestInstall(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-invalid"),
 			},
-			wantErrMsgs: []string{"json: cannot unmarshal"},
-		},
-		{
-			name:       "custom validator",
-			oldCrdPath: "old-crd.json",
-			release: &release.Release{
-				Name:     "test-release",
-				Manifest: getManifestString(t, "old-crd.json"),
-			},
-			validator: &crdupgradesafety.Validator{
-				Validations: []crdupgradesafety.Validation{
-					crdupgradesafety.NewValidationFunc("test", func(old, new apiextensionsv1.CustomResourceDefinition) error {
-						return fmt.Errorf("custom validation error!!")
-					}),
-				},
-			},
-			wantErrMsgs: []string{"custom validation error!!"},
+			requireErr: wantErrorMsgs([]string{"json: cannot unmarshal"}),
 		},
 		{
 			name:       "valid upgrade",
@@ -162,21 +152,21 @@ func TestInstall(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-invalid-upgrade.json"),
 			},
-			wantErrMsgs: []string{
-				`"NoScopeChange"`,
-				`"NoStoredVersionRemoved"`,
-				`enum constraints`,
-				`new required fields`,
-				`maximum: constraint`,
-				`maxItems: constraint`,
-				`maxLength: constraint`,
-				`maxProperties: constraint`,
-				`minimum: constraint`,
-				`minItems: constraint`,
-				`minLength: constraint`,
-				`minProperties: constraint`,
-				`default value`,
-			},
+			requireErr: wantErrorMsgs([]string{
+				`scope:`,
+				`storedVersionRemoval:`,
+				`enum:`,
+				`required:`,
+				`maximum:`,
+				`maxItems:`,
+				`maxLength:`,
+				`maxProperties:`,
+				`minimum:`,
+				`minItems:`,
+				`minLength:`,
+				`minProperties:`,
+				`default:`,
+			}),
 		},
 		{
 			name: "new crd validation failure for existing field removal",
@@ -187,20 +177,28 @@ func TestInstall(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-field-removed.json"),
 			},
-			wantErrMsgs: []string{
-				`"NoExistingFieldRemoved"`,
+			requireErr: wantErrorMsgs([]string{
+				`existingFieldRemoval:`,
+			}),
+		},
+		{
+			name: "new crd validation should not fail on description changes",
+			// Separate test from above as this error will cause the validator to
+			// return early and skip some of the above validations.
+			oldCrdPath: "old-crd.json",
+			release: &release.Release{
+				Name:     "test-release",
+				Manifest: getManifestString(t, "crd-description-changed.json"),
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			preflight := newMockPreflight(getCrdFromManifestFile(t, tc.oldCrdPath), tc.wantCrdGetErr, tc.validator)
+			preflight := newMockPreflight(getCrdFromManifestFile(t, tc.oldCrdPath), tc.wantCrdGetErr)
 			err := preflight.Install(context.Background(), tc.release)
-			if len(tc.wantErrMsgs) != 0 {
-				for _, expectedErrMsg := range tc.wantErrMsgs {
-					require.ErrorContainsf(t, err, expectedErrMsg, "")
-				}
+			if tc.requireErr != nil {
+				tc.requireErr(t, err)
 			} else {
 				require.NoError(t, err)
 			}
@@ -212,9 +210,8 @@ func TestUpgrade(t *testing.T) {
 	tests := []struct {
 		name          string
 		oldCrdPath    string
-		validator     *crdupgradesafety.Validator
 		release       *release.Release
-		wantErrMsgs   []string
+		requireErr    require.ErrorAssertionFunc
 		wantCrdGetErr error
 	}{
 		{
@@ -232,7 +229,7 @@ func TestUpgrade(t *testing.T) {
 				Name:     "test-release",
 				Manifest: "abcd",
 			},
-			wantErrMsgs: []string{"json: cannot unmarshal string into Go value of type unstructured.detector"},
+			requireErr: wantErrorMsgs([]string{"json: cannot unmarshal string into Go value of type unstructured.detector"}),
 		},
 		{
 			name: "release with no CRD objects",
@@ -248,7 +245,7 @@ func TestUpgrade(t *testing.T) {
 				Manifest: getManifestString(t, "crd-valid-upgrade.json"),
 			},
 			wantCrdGetErr: fmt.Errorf("error!"),
-			wantErrMsgs:   []string{"error!"},
+			requireErr:    wantErrorMsgs([]string{"error!"}),
 		},
 		{
 			name: "fail to get old crd, not found error",
@@ -264,23 +261,7 @@ func TestUpgrade(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-invalid"),
 			},
-			wantErrMsgs: []string{"json: cannot unmarshal"},
-		},
-		{
-			name:       "custom validator",
-			oldCrdPath: "old-crd.json",
-			release: &release.Release{
-				Name:     "test-release",
-				Manifest: getManifestString(t, "old-crd.json"),
-			},
-			validator: &crdupgradesafety.Validator{
-				Validations: []crdupgradesafety.Validation{
-					crdupgradesafety.NewValidationFunc("test", func(old, new apiextensionsv1.CustomResourceDefinition) error {
-						return fmt.Errorf("custom validation error!!")
-					}),
-				},
-			},
-			wantErrMsgs: []string{"custom validation error!!"},
+			requireErr: wantErrorMsgs([]string{"json: cannot unmarshal"}),
 		},
 		{
 			name:       "valid upgrade",
@@ -299,21 +280,21 @@ func TestUpgrade(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-invalid-upgrade.json"),
 			},
-			wantErrMsgs: []string{
-				`"NoScopeChange"`,
-				`"NoStoredVersionRemoved"`,
-				`enum constraints`,
-				`new required fields`,
-				`maximum: constraint`,
-				`maxItems: constraint`,
-				`maxLength: constraint`,
-				`maxProperties: constraint`,
-				`minimum: constraint`,
-				`minItems: constraint`,
-				`minLength: constraint`,
-				`minProperties: constraint`,
-				`default value`,
-			},
+			requireErr: wantErrorMsgs([]string{
+				`scope:`,
+				`storedVersionRemoval:`,
+				`enum:`,
+				`required:`,
+				`maximum:`,
+				`maxItems:`,
+				`maxLength:`,
+				`maxProperties:`,
+				`minimum:`,
+				`minItems:`,
+				`minLength:`,
+				`minProperties:`,
+				`default:`,
+			}),
 		},
 		{
 			name: "new crd validation failure for existing field removal",
@@ -324,9 +305,9 @@ func TestUpgrade(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-field-removed.json"),
 			},
-			wantErrMsgs: []string{
-				`"NoExistingFieldRemoved"`,
-			},
+			requireErr: wantErrorMsgs([]string{
+				`existingFieldRemoval:`,
+			}),
 		},
 		{
 			name:       "webhook conversion strategy exists",
@@ -343,23 +324,95 @@ func TestUpgrade(t *testing.T) {
 				Name:     "test-release",
 				Manifest: getManifestString(t, "crd-conversion-no-webhook.json"),
 			},
-			wantErrMsgs: []string{
-				`"ServedVersionValidator" validation failed: version upgrade "v1" to "v2", field "^.spec.foobarbaz": enums`,
+			requireErr: wantErrorMsgs([]string{
+				`validating upgrade for CRD "crontabs.stable.example.com": v1 -> v2: ^.spec.foobarbaz: enum: allowed enum values removed`,
+			}),
+		},
+		{
+			name: "new crd validation should not fail on description changes",
+			// Separate test from above as this error will cause the validator to
+			// return early and skip some of the above validations.
+			oldCrdPath: "old-crd.json",
+			release: &release.Release{
+				Name:     "test-release",
+				Manifest: getManifestString(t, "crd-description-changed.json"),
+			},
+		},
+		{
+			name:       "success when old crd and new crd contain the exact same validation issues",
+			oldCrdPath: "crd-conversion-no-webhook.json",
+			release: &release.Release{
+				Name:     "test-release",
+				Manifest: getManifestString(t, "crd-conversion-no-webhook.json"),
+			},
+		},
+		{
+			name:       "failure when old crd and new crd contain the exact same validation issues, but new crd introduces another validation issue",
+			oldCrdPath: "crd-conversion-no-webhook.json",
+			release: &release.Release{
+				Name:     "test-release",
+				Manifest: getManifestString(t, "crd-conversion-no-webhook-extra-issue.json"),
+			},
+			requireErr: func(t require.TestingT, err error, _ ...interface{}) {
+				require.ErrorContains(t, err,
+					`validating upgrade for CRD "crontabs.stable.example.com":`,
+				)
+				// The newly introduced issue is reported
+				require.Contains(t, err.Error(),
+					`v1 -> v2: ^.spec.extraField: type: type changed : "boolean" -> "string"`,
+				)
+				// The existing issue is not reported
+				require.NotContains(t, err.Error(),
+					`v1 -> v2: ^.spec.foobarbaz: enum: allowed enum values removed`,
+				)
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			preflight := newMockPreflight(getCrdFromManifestFile(t, tc.oldCrdPath), tc.wantCrdGetErr, tc.validator)
+			preflight := newMockPreflight(getCrdFromManifestFile(t, tc.oldCrdPath), tc.wantCrdGetErr)
 			err := preflight.Upgrade(context.Background(), tc.release)
-			if len(tc.wantErrMsgs) != 0 {
-				for _, expectedErrMsg := range tc.wantErrMsgs {
-					require.ErrorContainsf(t, err, expectedErrMsg, "")
-				}
+			if tc.requireErr != nil {
+				tc.requireErr(t, err)
 			} else {
 				require.NoError(t, err)
 			}
 		})
 	}
+}
+
+func TestUpgrade_UnhandledChanges_InSpec_DefaultPolicy(t *testing.T) {
+	t.Run("unhandled spec changes cause error by default", func(t *testing.T) {
+		preflight := newMockPreflight(getCrdFromManifestFile(t, "crd-unhandled-old.json"), nil)
+		rel := &release.Release{
+			Name:     "test-release",
+			Manifest: getManifestString(t, "crd-unhandled-new.json"),
+		}
+		err := preflight.Upgrade(context.Background(), rel)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "unhandled changes found")
+		require.ErrorContains(t, err, "Format \"\" -> \"email\"")
+		require.NotContains(t, err.Error(), "v1.JSONSchemaProps", "error message should be concise without raw diff")
+	})
+}
+
+func TestUpgrade_UnhandledChanges_PolicyError(t *testing.T) {
+	t.Run("unhandled changes error when policy is Error", func(t *testing.T) {
+		oldCrd := getCrdFromManifestFile(t, "crd-unhandled-old.json")
+		preflight := crdupgradesafety.NewPreflight(&MockCRDGetter{oldCrd: oldCrd}, crdupgradesafety.WithConfig(&crdifyconfig.Config{
+			Conversion:           crdifyconfig.ConversionPolicyIgnore,
+			UnhandledEnforcement: crdifyconfig.EnforcementPolicyError,
+		}))
+
+		rel := &release.Release{
+			Name:     "test-release",
+			Manifest: getManifestString(t, "crd-unhandled-new.json"),
+		}
+
+		err := preflight.Upgrade(context.Background(), rel)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "unhandled changes found")
+		require.ErrorContains(t, err, "Format \"\" -> \"email\"")
+	})
 }
