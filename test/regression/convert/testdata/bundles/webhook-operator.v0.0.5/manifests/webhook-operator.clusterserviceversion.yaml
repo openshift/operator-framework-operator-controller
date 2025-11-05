@@ -14,6 +14,7 @@ metadata:
             },
             "name": "webhooktest-sample"
           },
+          "spec": null
         },
         {
           "apiVersion": "webhook.operators.coreos.io/v2",
@@ -25,13 +26,13 @@ metadata:
             },
             "name": "webhooktest-sample"
           },
+          "spec": null
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-09-04T14:17:32Z"
-    operators.operatorframework.io/builder: operator-sdk-v1.40.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.41.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: webhook-operator.v0.0.1
+  name: webhook-operator.v0.0.5
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -47,8 +48,8 @@ spec:
         kind: WebhookTest
         name: webhooktests.webhook.operators.coreos.io
         version: v2
-  description: Webhook Operator description. TODO.
-  displayName: Webhook Operator
+  description: webhook-operator test fixture
+  displayName: webhook-operator
   icon:
     - base64data: ""
       mediatype: ""
@@ -118,12 +119,13 @@ spec:
               spec:
                 containers:
                   - args:
+                      - --metrics-bind-address=:8443
                       - --leader-elect
                       - --health-probe-bind-address=:8081
                       - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
                     command:
                       - /manager
-                    image: quay.io/olmtest/webhook-operator:0.0.4
+                    image: quay.io/olmtest/webhook-operator:v0.0.5
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -213,18 +215,19 @@ spec:
     - supported: true
       type: AllNamespaces
   keywords:
-    - webhook-operator
+    - test
+    - operator
+    - webhooks
   links:
     - name: Webhook Operator
       url: https://webhook-operator.domain
   maintainers:
-    - email: your@email.com
-      name: Maintainer Name
+    - email: no-reply@operator-framework.io
+      name: no-reply
   maturity: alpha
   provider:
-    name: Provider Name
-    url: https://your.domain
-  version: 0.0.1
+    name: operator-framework
+  version: 0.0.5
   webhookdefinitions:
     - admissionReviewVersions:
         - v1
