@@ -37,6 +37,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	apimachineryrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/klog/v2"
@@ -77,6 +78,7 @@ import (
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/render/registryv1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/scheme"
 	sharedcontrollers "github.com/operator-framework/operator-controller/internal/shared/controllers"
+	cacheutil "github.com/operator-framework/operator-controller/internal/shared/util/cache"
 	fsutil "github.com/operator-framework/operator-controller/internal/shared/util/fs"
 	httputil "github.com/operator-framework/operator-controller/internal/shared/util/http"
 	imageutil "github.com/operator-framework/operator-controller/internal/shared/util/image"
@@ -231,6 +233,8 @@ func run() error {
 			cfg.systemNamespace: {LabelSelector: k8slabels.Everything()},
 		},
 		DefaultLabelSelector: k8slabels.Nothing(),
+		// Memory optimization: strip managed fields and large annotations from cached objects
+		DefaultTransform: cacheutil.StripManagedFieldsAndAnnotations(),
 	}
 
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
@@ -460,7 +464,7 @@ func run() error {
 	}
 
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
-		err = setupBoxcutter(mgr, ceReconciler, preflights, regv1ManifestProvider)
+		err = setupBoxcutter(mgr, ceReconciler, preflights, clusterExtensionFinalizers, regv1ManifestProvider)
 	} else {
 		err = setupHelm(mgr, ceReconciler, preflights, ceController, clusterExtensionFinalizers, regv1ManifestProvider)
 	}
@@ -527,6 +531,7 @@ func setupBoxcutter(
 	mgr manager.Manager,
 	ceReconciler *controllers.ClusterExtensionReconciler,
 	preflights []applier.Preflight,
+	clusterExtensionFinalizers crfinalizer.Registerer,
 	regv1ManifestProvider applier.ManifestProvider,
 ) error {
 	coreClient, err := corev1client.NewForConfig(mgr.GetConfig())
@@ -551,6 +556,19 @@ func setupBoxcutter(
 		return fmt.Errorf("unable to create helm action client getter: %w", err)
 	}
 
+	// Register a no-op finalizer handler for cleanup-contentmanager-cache.
+	// This finalizer was added by the Helm applier for ClusterExtensions created
+	// before BoxcutterRuntime was enabled. Boxcutter doesn't use contentmanager,
+	// so we just need to acknowledge the finalizer to allow deletion to proceed.
+	err = clusterExtensionFinalizers.Register(controllers.ClusterExtensionCleanupContentManagerCacheFinalizer, finalizers.FinalizerFunc(func(ctx context.Context, obj client.Object) (crfinalizer.Result, error) {
+		// No-op: Boxcutter doesn't use contentmanager, so no cleanup is needed
+		return crfinalizer.Result{}, nil
+	}))
+	if err != nil {
+		setupLog.Error(err, "unable to register content manager cleanup finalizer for boxcutter")
+		return err
+	}
+
 	// TODO: add support for preflight checks
 	// TODO: better scheme handling - which types do we want to support?
 	_ = apiextensionsv1.AddToScheme(mgr.GetScheme())
@@ -572,10 +590,13 @@ func setupBoxcutter(
 		RevisionGenerator:  rg,
 	}
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
+	baseDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
 		return fmt.Errorf("unable to create discovery client: %w", err)
 	}
+
+	// Wrap the discovery client with caching to reduce memory usage from repeated OpenAPI schema fetches
+	discoveryClient := memory.NewMemCacheClient(baseDiscoveryClient)
 
 	trackingCache, err := managedcache.NewTrackingCache(
 		ctrl.Log.WithName("trackingCache"),

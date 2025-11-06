@@ -29,17 +29,17 @@ $(CONTROLLER_GEN): $(BINGO_DIR)/controller-gen.mod
 	@echo "(re)installing $(GOBIN)/controller-gen-v0.19.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=controller-gen.mod -o=$(GOBIN)/controller-gen-v0.19.0 "sigs.k8s.io/controller-tools/cmd/controller-gen"
 
-CRD_DIFF := $(GOBIN)/crd-diff-v0.2.0
+CRD_DIFF := $(GOBIN)/crd-diff-v0.5.0
 $(CRD_DIFF): $(BINGO_DIR)/crd-diff.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/crd-diff-v0.2.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=crd-diff.mod -o=$(GOBIN)/crd-diff-v0.2.0 "github.com/everettraven/crd-diff"
+	@echo "(re)installing $(GOBIN)/crd-diff-v0.5.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=crd-diff.mod -o=$(GOBIN)/crd-diff-v0.5.0 "sigs.k8s.io/crdify"
 
-CRD_REF_DOCS := $(GOBIN)/crd-ref-docs-v0.1.0
+CRD_REF_DOCS := $(GOBIN)/crd-ref-docs-v0.2.0
 $(CRD_REF_DOCS): $(BINGO_DIR)/crd-ref-docs.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/crd-ref-docs-v0.1.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=crd-ref-docs.mod -o=$(GOBIN)/crd-ref-docs-v0.1.0 "github.com/elastic/crd-ref-docs"
+	@echo "(re)installing $(GOBIN)/crd-ref-docs-v0.2.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=crd-ref-docs.mod -o=$(GOBIN)/crd-ref-docs-v0.2.0 "github.com/elastic/crd-ref-docs"
 
 GOJQ := $(GOBIN)/gojq-v0.12.17
 $(GOJQ): $(BINGO_DIR)/gojq.mod
@@ -71,23 +71,23 @@ $(KIND): $(BINGO_DIR)/kind.mod
 	@echo "(re)installing $(GOBIN)/kind-v0.30.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kind.mod -o=$(GOBIN)/kind-v0.30.0 "sigs.k8s.io/kind"
 
-KUSTOMIZE := $(GOBIN)/kustomize-v5.6.0
+KUSTOMIZE := $(GOBIN)/kustomize-v5.7.1
 $(KUSTOMIZE): $(BINGO_DIR)/kustomize.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/kustomize-v5.6.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kustomize.mod -o=$(GOBIN)/kustomize-v5.6.0 "sigs.k8s.io/kustomize/kustomize/v5"
+	@echo "(re)installing $(GOBIN)/kustomize-v5.7.1"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kustomize.mod -o=$(GOBIN)/kustomize-v5.7.1 "sigs.k8s.io/kustomize/kustomize/v5"
 
-OPERATOR_SDK := $(GOBIN)/operator-sdk-v1.39.1
+OPERATOR_SDK := $(GOBIN)/operator-sdk-v1.41.1
 $(OPERATOR_SDK): $(BINGO_DIR)/operator-sdk.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/operator-sdk-v1.39.1"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -ldflags=-X=github.com/operator-framework/operator-sdk/internal/version.Version=v1.34.1 -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v1.39.1 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+	@echo "(re)installing $(GOBIN)/operator-sdk-v1.41.1"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v1.41.1 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
 
-OPM := $(GOBIN)/opm-v1.51.0
+OPM := $(GOBIN)/opm-v1.60.0
 $(OPM): $(BINGO_DIR)/opm.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/opm-v1.51.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.51.0 "github.com/operator-framework/operator-registry/cmd/opm"
+	@echo "(re)installing $(GOBIN)/opm-v1.60.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.60.0 "github.com/operator-framework/operator-registry/cmd/opm"
 
 SETUP_ENVTEST := $(GOBIN)/setup-envtest-v0.0.0-20250620151452-b9a9ca01fd37
 $(SETUP_ENVTEST): $(BINGO_DIR)/setup-envtest.mod
