@@ -1,25 +1,11 @@
 [
   {
-    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package/bundlemetadata/catalogmetadata from clustercatalog CR",
-    "labels": {
-      "Extended": {},
-      "NonHyperShiftHOST": {}
-    },
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {
-      "exclude": "topology==\"External\""
-    }
-  },
-  {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83069-olmv1 static networkpolicy.",
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[OTP][Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
+    "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
     "labels": {
       "Extended": {},
       "NonHyperShiftHOST": {},
-      "ReleaseGate": {}
+      "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR": {}
     },
     "resources": {
       "isolation": {}
@@ -31,10 +17,13 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83069-[OTP]olmv1 static networkpolicy.",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83069-olmv1 static networkpolicy.",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "ReleaseGate": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83069-olmv1 static networkpolicy.": {}
     },
     "resources": {
       "isolation": {}
@@ -46,10 +35,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand": {}
     },
     "resources": {
       "isolation": {}
@@ -61,11 +52,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object",
     "labels": {
       "Extended": {},
-      "LEVEL0": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object": {}
     },
     "resources": {
       "isolation": {}
@@ -77,11 +69,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[OTP][Level0][Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa",
     "labels": {
       "Extended": {},
-      "LEVEL0": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa": {}
     },
     "resources": {
       "isolation": {}
@@ -93,10 +86,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[OTP][Level0][Skipped:Disconnected]cluster extension can be installed with enough permission sa",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa": {}
     },
     "resources": {
       "isolation": {}
@@ -108,10 +103,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[OTP][Skipped:Disconnected]preflight check on permission on allns mode",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode": {}
     },
     "resources": {
       "isolation": {}
@@ -123,10 +120,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[OTP][Skipped:Disconnected]preflight check on permission on own ns mode",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode": {}
     },
     "resources": {
       "isolation": {}
@@ -138,10 +137,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[OTP][Skipped:Disconnected]preflight check on permission on single ns mode",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode": {}
     },
     "resources": {
       "isolation": {}
@@ -153,10 +154,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[OTP][Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only": {}
     },
     "resources": {
       "isolation": {}
@@ -168,10 +171,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[OTP][Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]": {}
     },
     "resources": {
       "isolation": {}
@@ -183,10 +188,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78193-[Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[OTP][Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]": {}
     },
     "resources": {
       "isolation": {}
@@ -198,10 +205,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78300-[Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78193-[OTP][Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Serial][Disruptive][Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78193-[Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:78193-[Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Serial][Disruptive][Slow]": {}
     },
     "resources": {
       "isolation": {}
@@ -213,10 +222,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76983-[Skipped:Disconnected]install index and bundle from private image[Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78300-[OTP][Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Serial][Disruptive][Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:78300-[Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:78300-[Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Serial][Disruptive][Slow]": {}
     },
     "resources": {
       "isolation": {}
@@ -228,10 +239,29 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76983-[OTP][Skipped:Disconnected]install index and bundle from private image[Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76983-[Skipped:Disconnected]install index and bundle from private image[Slow]",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76983-[Skipped:Disconnected]install index and bundle from private image[Slow]": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]": {}
     },
     "resources": {
       "isolation": {}
