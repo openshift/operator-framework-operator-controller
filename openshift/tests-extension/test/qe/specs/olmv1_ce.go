@@ -28,7 +28,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipNoOLMv1Core(oc)
 	})
 
-	g.It("PolarionID:83069-olmv1 static networkpolicy.", g.Label("ReleaseGate"), func() {
+	g.It("PolarionID:83069-[OTP]olmv1 static networkpolicy.", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83069-olmv1 static networkpolicy."), g.Label("ReleaseGate"), func() {
 		policies := []olmv1util.NpExpecter{
 			{
 				Name:      "catalogd-controller-manager",
@@ -159,7 +159,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand", func() {
+	g.It("PolarionID:68936-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand"), func() {
 		e2e.Logf("Testing ClusterExtension installation failure when ServiceAccount lacks sufficient permissions for operand resources. Originally case 75492, using 68936 for faster execution.")
 		exutil.SkipForSNOCluster(oc)
 		var (
@@ -227,7 +227,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object", func() {
+	g.It("PolarionID:68937-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object"), func() {
 		e2e.Logf("Testing ClusterExtension installation failure when ServiceAccount lacks sufficient permissions for operand RBAC objects. Originally case 75492, using 68937 for faster execution.")
 		exutil.SkipForSNOCluster(oc)
 		var (
@@ -295,7 +295,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa", g.Label("LEVEL0"), func() {
+	g.It("PolarionID:75492-[OTP][Level0][Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID                       = "75492"
@@ -382,7 +382,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		ce75492WrongSa.CheckClusterExtensionCondition(oc, "Installed", "message", "not found", 10, 60, 0)
 	})
 
-	g.It("PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa", g.Label("LEVEL0"), func() {
+	g.It("PolarionID:75493-[OTP][Level0][Skipped:Disconnected]cluster extension can be installed with enough permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID                       = "75493"
@@ -454,7 +454,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(olmv1util.Appearance(oc, exutil.Disappear, "services", "nginx-ok-v3283-75493-controller-manager-metrics-service", "-n", ns)).To(o.BeTrue())
 	})
 
-	g.It("PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode", func() {
+	g.It("PolarionID:81538-[OTP][Skipped:Disconnected]preflight check on permission on allns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode"), func() {
 		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
 			g.Skip("NewOLMPreflightPermissionChecks feature gate is disabled. This test requires preflight permission validation to be enabled.")
 		}
@@ -567,7 +567,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		ce.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 10, 600, 0)
 	})
 
-	g.It("PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode", func() {
+	g.It("PolarionID:81664-[OTP][Skipped:Disconnected]preflight check on permission on own ns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode"), func() {
 		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") ||
 			!olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
 			g.Skip("Required feature gates are disabled: NewOLMPreflightPermissionChecks and NewOLMOwnSingleNamespace must both be enabled for this test.")
@@ -676,7 +676,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		ce.Create(oc)
 	})
 
-	g.It("PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode", func() {
+	g.It("PolarionID:81696-[OTP][Skipped:Disconnected]preflight check on permission on single ns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode"), func() {
 		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") ||
 			!olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
 			g.Skip("Required feature gates are disabled: NewOLMPreflightPermissionChecks and NewOLMOwnSingleNamespace must both be enabled for this test.")
@@ -809,7 +809,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		ce.Create(oc)
 	})
 
-	g.It("PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only", func() {
+	g.It("PolarionID:74618-[OTP][Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			ns                           = "ns-74618"
@@ -931,7 +931,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Disruptive][Slow]", func() {
+	g.It("PolarionID:76843-[OTP][Skipped:Disconnected]support disc with icsp[Timeout:30m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID                       = "76843"
@@ -1012,7 +1012,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Disruptive][Slow]", func() {
+	g.It("PolarionID:76844-[OTP][Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
 		exutil.SkipOnProxyCluster(oc)
 		exutil.SkipForSNOCluster(oc)
 		var (
@@ -1094,7 +1094,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:78193-[Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Disruptive][Slow]", func() {
+	g.It("PolarionID:78193-[OTP][Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:78193-[Skipped:Disconnected]Runtime validation of container images using sigstore signatures [Serial][Disruptive][Slow]"), func() {
 		if !exutil.CheckAppearance(oc, 1*time.Second, 1*time.Second, exutil.Immediately,
 			exutil.AsAdmin, exutil.WithoutNamespace, exutil.Appear, "crd", "clusterimagepolicies.config.openshift.io") {
 			g.Skip("ClusterImagePolicy CRD not found. This test requires sigstore signature validation capabilities.")
@@ -1185,7 +1185,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:78300-[Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Disruptive][Slow]", func() {
+	g.It("PolarionID:78300-[OTP][Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:78300-[Skipped:Disconnected]validation of container images using sigstore signatures with different policy [Serial][Disruptive][Slow]"), func() {
 		if !exutil.CheckAppearance(oc, 1*time.Second, 1*time.Second, exutil.Immediately,
 			exutil.AsAdmin, exutil.WithoutNamespace, exutil.Appear, "crd", "clusterimagepolicies.config.openshift.io") {
 			g.Skip("ClusterImagePolicy CRD not found. This test requires sigstore signature validation capabilities.")
@@ -1267,7 +1267,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76983-[Skipped:Disconnected]install index and bundle from private image[Slow]", func() {
+	g.It("PolarionID:76983-[OTP][Skipped:Disconnected]install index and bundle from private image[Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76983-[Skipped:Disconnected]install index and bundle from private image[Slow]"), func() {
 		exutil.SkipForSNOCluster(oc)
 		// This test validates installation from private container images and depends on cluster-wide pull secrets
 		var (
@@ -1340,7 +1340,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Disruptive][Slow]", func() {
+	g.It("PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID = "76985"
