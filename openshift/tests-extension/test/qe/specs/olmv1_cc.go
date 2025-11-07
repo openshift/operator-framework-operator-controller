@@ -21,7 +21,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		exutil.SkipNoOLMv1Core(oc)
 	})
 
-	g.It("PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package/bundlemetadata/catalogmetadata from clustercatalog CR", func() {
+	g.It("PolarionID:69242-[OTP][Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR", g.Label("original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR"), func() {
 		g.By("get the old related crd package/bundlemetadata/bundledeployment")
 		crds, err := oc.WithoutNamespace().AsAdmin().Run("get").Args("crd").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
