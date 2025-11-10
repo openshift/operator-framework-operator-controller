@@ -295,3 +295,20 @@ More information:
 
 For help with the OpenShift Tests Extension (OTE), you can:
 #wg-openshift-tests-extension
+
+### How to update the go.mod/go.sum files with replaces?
+
+To get the latest replaces for ocp/* modules, run the following command:
+
+```shell
+$ ./hack/ocp-replace.sh 
+Discovering latest OCP commit from https://github.com/openshift/kubernetes.git…
+Resolving pseudo-version for k8s.io/kubernetes@891f5bb0306166d5625b89fc8dc86bbc8c85f549…
+Resolved OCP version: v0.0.0-20251108023427-891f5bb03061
+Updating go.mod replaces…
+
+Done.
+  OCP commit:  891f5bb0306166d5625b89fc8dc86bbc8c85f549
+  OCP version: v0.0.0-20251108023427-891f5bb03061
+go.mod and go.sum vendor/ updated.
+```
