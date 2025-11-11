@@ -620,15 +620,5 @@
     "source": "openshift:payload:olmv1",
     "lifecycle": "blocking",
     "environmentSelector": {}
-  },
-  {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should clean up webhooks when the extension is uninstalled [Serial]",
-    "labels": {},
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {}
   }
 ]

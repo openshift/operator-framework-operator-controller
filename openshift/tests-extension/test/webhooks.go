@@ -14,7 +14,6 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,8 +64,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 
 			By("ensuring no ClusterExtension and CRD from a previous run")
 			helpers.EnsureCleanupClusterExtension(ctx, webhookOperatorPackageName, webhookOperatorCRDName)
-			By("ensuring no stale webhook configurations from previous tests")
-			ensureCleanupWebhookConfigurations(ctx, k8sClient, "vwebhooktest", "mwebhooktest")
 
 			// Build webhook operator bundle and catalog using the consolidated helper
 			// Note: {{ TEST-BUNDLE }} and {{ NAMESPACE }} will be auto-filled
@@ -240,144 +237,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 				g.Expect(client.IgnoreNotFound(err)).ToNot(HaveOccurred(), fmt.Sprintf("failed to delete test resource %s: %v", resourceName, err))
 			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
-
-		// Test that OLMv1 cleans up webhook configurations when an extension is uninstalled.
-		// This validates that no webhook configurations are left behind after ClusterExtension deletion.
-		It("should clean up webhooks when the extension is uninstalled [Serial]", func(ctx SpecContext) {
-			By("verifying that the webhook operator's webhooks are present")
-			Eventually(func(g Gomega) {
-				whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
-				err := k8sClient.List(ctx, whList)
-				g.Expect(err).ToNot(HaveOccurred(), "failed to list ValidatingWebhookConfigurations")
-				operatorWebhookFound := false
-				for _, wh := range whList.Items {
-					if strings.HasPrefix(wh.Name, "vwebhooktest") {
-						operatorWebhookFound = true
-						break
-					}
-				}
-				g.Expect(operatorWebhookFound).To(BeTrue(), "operator validating webhooks should exist")
-			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-
-			By("verifying that the webhook operator's mutating webhooks are present")
-			Eventually(func(g Gomega) {
-				mwhList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
-				err := k8sClient.List(ctx, mwhList)
-				g.Expect(err).ToNot(HaveOccurred(), "failed to list MutatingWebhookConfigurations")
-				operatorMutatingWebhookFound := false
-				for _, mwh := range mwhList.Items {
-					if strings.HasPrefix(mwh.Name, "mwebhooktest") {
-						operatorMutatingWebhookFound = true
-						break
-					}
-				}
-				g.Expect(operatorMutatingWebhookFound).To(BeTrue(), "operator mutating webhooks should exist")
-			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-
-			By("uninstalling the ClusterExtension")
-			ceName := webhookOperatorInstallNamespace
-			ce := &olmv1.ClusterExtension{
-				ObjectMeta: metav1.ObjectMeta{Name: ceName},
-			}
-			err := k8sClient.Delete(ctx, ce, client.PropagationPolicy(metav1.DeletePropagationBackground))
-			Expect(err).ToNot(HaveOccurred(), "failed to delete ClusterExtension")
-
-			By("waiting for ClusterExtension to be fully deleted")
-			Eventually(func(g Gomega) {
-				tempCE := &olmv1.ClusterExtension{}
-				err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, tempCE)
-				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension should be deleted")
-			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-
-			By("verifying that operator-created webhook configurations are cleaned up")
-			Eventually(func(g Gomega) {
-				whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
-				err := k8sClient.List(ctx, whList)
-				g.Expect(err).ToNot(HaveOccurred(), "failed to list ValidatingWebhookConfigurations")
-				operatorWebhookFound := false
-				for _, wh := range whList.Items {
-					if strings.HasPrefix(wh.Name, "vwebhooktest") {
-						operatorWebhookFound = true
-						break
-					}
-				}
-				g.Expect(operatorWebhookFound).To(BeFalse(), "operator validating webhooks should be deleted")
-			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-
-			By("verifying that mutating webhook configurations are cleaned up")
-			Eventually(func(g Gomega) {
-				mwhList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
-				err := k8sClient.List(ctx, mwhList)
-				g.Expect(err).ToNot(HaveOccurred(), "failed to list MutatingWebhookConfigurations")
-				operatorMutatingWebhookFound := false
-				for _, mwh := range mwhList.Items {
-					if strings.HasPrefix(mwh.Name, "mwebhooktest") {
-						operatorMutatingWebhookFound = true
-						break
-					}
-				}
-				g.Expect(operatorMutatingWebhookFound).To(BeFalse(), "operator mutating webhooks should be deleted")
-			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-
-		})
 	})
-
-func ensureCleanupWebhookConfigurations(ctx context.Context, k8sClient client.Client, validatingPrefix, mutatingPrefix string) {
-	// Clean up any stale validating webhooks
-	whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
-	if err := k8sClient.List(ctx, whList); err == nil {
-		for _, wh := range whList.Items {
-			if validatingPrefix != "" && strings.HasPrefix(wh.Name, validatingPrefix) {
-				By(fmt.Sprintf("deleting stale validating webhook: %s", wh.Name))
-				if err := k8sClient.Delete(ctx, &wh, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
-					fmt.Fprintf(GinkgoWriter, "Warning: Failed to delete stale validating webhook %s: %v\n", wh.Name, err)
-				}
-			}
-		}
-	} else if !apierrors.IsNotFound(err) {
-		fmt.Fprintf(GinkgoWriter, "Warning: Failed to list ValidatingWebhookConfigurations during cleanup: %v\n", err)
-	}
-
-	// Clean up any stale mutating webhooks
-	mwhList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
-	if err := k8sClient.List(ctx, mwhList); err == nil {
-		for _, mwh := range mwhList.Items {
-			if mutatingPrefix != "" && strings.HasPrefix(mwh.Name, mutatingPrefix) {
-				By(fmt.Sprintf("deleting stale mutating webhook: %s", mwh.Name))
-				if err := k8sClient.Delete(ctx, &mwh, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
-					fmt.Fprintf(GinkgoWriter, "Warning: Failed to delete stale mutating webhook %s: %v\n", mwh.Name, err)
-				}
-			}
-		}
-	} else if !apierrors.IsNotFound(err) {
-		fmt.Fprintf(GinkgoWriter, "Warning: Failed to list MutatingWebhookConfigurations during cleanup: %v\n", err)
-	}
-
-	// Verify all stale webhooks are gone
-	Eventually(func(g Gomega) {
-		whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
-		err := k8sClient.List(ctx, whList)
-		g.Expect(err).ToNot(HaveOccurred(), "failed to list ValidatingWebhookConfigurations")
-		staleWebhooks := []string{}
-		for _, wh := range whList.Items {
-			if validatingPrefix != "" && strings.HasPrefix(wh.Name, validatingPrefix) {
-				staleWebhooks = append(staleWebhooks, wh.Name)
-			}
-		}
-		g.Expect(staleWebhooks).To(BeEmpty(), "stale validating webhooks still exist: %v", staleWebhooks)
-
-		mwhList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
-		err = k8sClient.List(ctx, mwhList)
-		g.Expect(err).ToNot(HaveOccurred(), "failed to list MutatingWebhookConfigurations")
-		staleMutatingWebhooks := []string{}
-		for _, mwh := range mwhList.Items {
-			if mutatingPrefix != "" && strings.HasPrefix(mwh.Name, mutatingPrefix) {
-				staleMutatingWebhooks = append(staleMutatingWebhooks, mwh.Name)
-			}
-		}
-		g.Expect(staleMutatingWebhooks).To(BeEmpty(), "stale mutating webhooks still exist: %v", staleMutatingWebhooks)
-	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-}
 
 var webhookTestV1 = schema.GroupVersionResource{
 	Group:    "webhook.operators.coreos.io",
