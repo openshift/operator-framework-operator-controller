@@ -106,11 +106,11 @@ CATALOGS_MANIFEST := $(MANIFEST_HOME)/default-catalogs.yaml
 
 .PHONY: help
 help: #HELP Display essential help.
-	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-21s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9\/%-]+:.*#HELP / { printf "  \033[36m%-21s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
 
 .PHONY: help-extended
 help-extended: #HELP Display extended help.
-	@awk 'BEGIN {FS = ":.*#(EX)?HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*#(EX)?HELP / { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^#SECTION / { printf "\n\033[1m%s\033[0m\n", substr($$0, 10) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*#(EX)?HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9\/%-]+:.*#(EX)?HELP / { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^#SECTION / { printf "\n\033[1m%s\033[0m\n", substr($$0, 10) } ' $(MAKEFILE_LIST)
 
 #SECTION Development
 
@@ -174,7 +174,7 @@ manifests: update-crds $(MANIFESTS) $(HELM) #EXHELP Generate OLMv1 manifests
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	@find api cmd hack internal -name "zz_generated.deepcopy.go" -delete # Need to delete the files for them to be generated properly
+	@find api cmd hack internal -name "zz_generated.deepcopy.go" -not -path "*/vendor/*" -delete # Need to delete the files for them to be generated properly
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
@@ -284,13 +284,14 @@ test-experimental-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
 test-experimental-e2e: GO_BUILD_EXTRA_FLAGS := -cover
 test-experimental-e2e: COVERAGE_NAME := experimental-e2e
 test-experimental-e2e: export MANIFEST := $(EXPERIMENTAL_RELEASE_MANIFEST)
+test-experimental-e2e: PROMETHEUS_VALUES := helm/prom_experimental.yaml
 test-experimental-e2e: run-internal image-registry prometheus e2e e2e-coverage kind-clean #HELP Run experimental e2e test suite on local kind cluster
 
 .PHONY: prometheus
 prometheus: PROMETHEUS_NAMESPACE := olmv1-system
 prometheus: PROMETHEUS_VERSION := v0.83.0
 prometheus: $(KUSTOMIZE) #EXHELP Deploy Prometheus into specified namespace
-	./hack/test/install-prometheus.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(VERSION)
+	./hack/test/install-prometheus.sh $(PROMETHEUS_NAMESPACE) $(PROMETHEUS_VERSION) $(VERSION) $(PROMETHEUS_VALUES)
 
 .PHONY: test-extension-developer-e2e
 test-extension-developer-e2e: SOURCE_MANIFEST := $(STANDARD_E2E_MANIFEST)
@@ -336,6 +337,27 @@ test-upgrade-experimental-e2e: $(TEST_UPGRADE_E2E_TASKS) #HELP Run upgrade e2e t
 .PHONY: e2e-coverage
 e2e-coverage:
 	COVERAGE_NAME=$(COVERAGE_NAME) ./hack/test/e2e-coverage.sh
+
+TEST_PROFILE_BIN := bin/test-profile
+.PHONY: build-test-profiler
+build-test-profiler: #EXHELP Build the test profiling tool
+	cd hack/tools/test-profiling && go build -o ../../../$(TEST_PROFILE_BIN) ./cmd/test-profile
+
+.PHONY: test-test-profiler
+test-test-profiler: #EXHELP Run unit tests for the test profiling tool
+	cd hack/tools/test-profiling && go test -v ./...
+
+.PHONY: start-profiling
+start-profiling: build-test-profiler #EXHELP Start profiling in background with auto-generated name (timestamp). Use start-profiling/<name> for custom name.
+	$(TEST_PROFILE_BIN) start
+
+.PHONY: start-profiling/%
+start-profiling/%: build-test-profiler #EXHELP Start profiling in background with specified name. Usage: make start-profiling/<name>
+	$(TEST_PROFILE_BIN) start $*
+
+.PHONY: stop-profiling
+stop-profiling: build-test-profiler #EXHELP Stop profiling and generate analysis report
+	$(TEST_PROFILE_BIN) stop
 
 #SECTION KIND Cluster Operations
 

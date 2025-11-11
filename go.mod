@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.18.2
-	github.com/containerd/containerd v1.7.28
+	github.com/containerd/containerd v1.7.29
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.4.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -29,7 +29,7 @@ require (
 	go.podman.io/image/v5 v5.38.0
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
 	golang.org/x/mod v0.29.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 	golang.org/x/tools v0.38.0
 	helm.sh/helm/v3 v3.19.0
 	k8s.io/api v0.34.1
