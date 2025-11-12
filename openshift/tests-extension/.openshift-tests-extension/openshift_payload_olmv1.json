@@ -35,7 +35,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[OTP]cluster extension can not be installed with insufficient permission sa for operand",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand",
     "labels": {
       "Extended": {},
@@ -52,7 +52,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[OTP][Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[OTP]cluster extension can not be installed with insufficient permission sa for operand rbac object",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object",
     "labels": {
       "Extended": {},
@@ -69,7 +69,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[OTP][Level0][Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[OTP][Level0]cluster extension can not be installed with wrong sa or insufficient permission sa",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa",
     "labels": {
       "Extended": {},
@@ -86,7 +86,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[OTP][Level0][Skipped:Disconnected]cluster extension can be installed with enough permission sa",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[OTP][Level0]cluster extension can be installed with enough permission sa",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa",
     "labels": {
       "Extended": {},
@@ -103,7 +103,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[OTP][Skipped:Disconnected]preflight check on permission on allns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[OTP]preflight check on permission on allns mode",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode",
     "labels": {
       "Extended": {},
@@ -120,7 +120,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[OTP][Skipped:Disconnected]preflight check on permission on own ns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[OTP]preflight check on permission on own ns mode",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode",
     "labels": {
       "Extended": {},
@@ -137,7 +137,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[OTP][Skipped:Disconnected]preflight check on permission on single ns mode",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[OTP]preflight check on permission on single ns mode",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode",
     "labels": {
       "Extended": {},
@@ -154,7 +154,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[OTP][Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[OTP]ClusterExtension supports simple registry vzero bundles only",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
     "labels": {
       "Extended": {},
