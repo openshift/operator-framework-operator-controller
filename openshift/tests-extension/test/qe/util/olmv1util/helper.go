@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	o "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -558,4 +559,140 @@ func expectedResource(oc *exutil.CLI, asAdmin bool, withoutNamespace bool, isCom
 		e2e.Logf("---> Not as expected! Return false")
 		return false, nil
 	})
+}
+
+// HasExternalNetworkAccess tests network connectivity from a cluster master node
+// by attempting to access an external container registry (quay.io).
+// This method uses DebugNodeWithChroot to avoid creating pods and pulling images,
+// which would fail in disconnected environments.
+//
+// Parameters:
+//   - oc: CLI client for interacting with the OpenShift cluster
+//
+// Returns:
+//   - bool: true if external network access is available, false otherwise
+func HasExternalNetworkAccess(oc *exutil.CLI) bool {
+	if oc == nil {
+		e2e.Logf("CLI client is nil, assuming connected environment")
+		return true
+	}
+
+	e2e.Logf("Testing external network connectivity from master node using DebugNodeWithChroot")
+
+	masterNode, masterErr := exutil.GetFirstMasterNode(oc)
+	if masterErr != nil {
+		e2e.Logf("Failed to get master node: %v", masterErr)
+		g.Skip(fmt.Sprintf("Cannot determine network connectivity: %v", masterErr))
+	}
+
+	// Test connectivity to quay.io (container registry)
+	// Use timeout to avoid hanging, and redirect output to check connection status
+	// Note: In disconnected environments, curl will fail and bash will return non-zero exit code,
+	// causing DebugNodeWithChroot to return an error. We ignore this error and rely on output checking.
+	cmd := `timeout 10 curl -k https://quay.io > /dev/null 2>&1; [ $? -eq 0 ] && echo "connected"`
+	output, _ := exutil.DebugNodeWithChroot(oc, masterNode, "bash", "-c", cmd)
+
+	// Check if the output contains "connected"
+	// - Connected environment: curl succeeds -> echo "connected" -> output contains "connected"
+	// - Disconnected environment: curl fails -> no echo -> output empty or only debug messages
+	if strings.Contains(output, "connected") {
+		e2e.Logf("External network connectivity test succeeded (output: %s), cluster can access quay.io", strings.TrimSpace(output))
+		return true
+	}
+
+	e2e.Logf("External network connectivity test failed (output: %s), cluster cannot access quay.io", strings.TrimSpace(output))
+	return false
+}
+
+// IsProxyCluster checks whether the cluster is configured with HTTP/HTTPS proxy.
+// Proxy clusters are treated as connected environments since they can access external networks through the proxy.
+//
+// Parameters:
+//   - oc: CLI client for interacting with the OpenShift cluster
+//
+// Returns:
+//   - true if cluster has HTTP or HTTPS proxy configured in status
+//   - false if no proxy is configured
+//
+// Behavior:
+//   - Skips the test if oc is nil or if error occurs while checking proxy configuration
+func IsProxyCluster(oc *exutil.CLI) bool {
+	if oc == nil {
+		e2e.Logf("CLI client is nil, cannot check proxy configuration")
+		g.Skip("CLI client is nil, cannot check proxy configuration")
+	}
+
+	// Get proxy status in one call to check both httpProxy and httpsProxy
+	// Format: {"httpProxy":"<value>","httpsProxy":"<value>"}
+	proxyStatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("proxy", "cluster", "-o=jsonpath={.status}").Output()
+	if err != nil {
+		e2e.Logf("Failed to get proxy status: %v", err)
+		g.Skip(fmt.Sprintf("cannot get proxy status: %v", err))
+	}
+
+	// If either httpProxy or httpsProxy is configured, the status will contain http
+	// Connected cluster status is empty "{}"
+	// Proxy cluster status contains "httpProxy" or "httpsProxy" fields with non-empty values
+	if strings.Contains(proxyStatus, "httpProxy") || strings.Contains(proxyStatus, "httpsProxy") {
+		e2e.Logf("Proxy cluster detected")
+		return true
+	}
+
+	e2e.Logf("No proxy configuration detected in cluster (status=%s)", proxyStatus)
+	return false
+}
+
+// ValidateAccessEnvironment checks if the cluster is in a disconnected environment
+// and validates that required mirror configurations (ImageTagMirrorSet) are present.
+// This should be called at the beginning of test cases that support disconnected environments.
+//
+// The function recognizes three types of cluster network access:
+//  1. Connected: Direct access to external networks (no proxy, no disconnected)
+//  2. Proxy: Access through HTTP/HTTPS proxy (treated as connected)
+//  3. Disconnected: No external access, requires ImageTagMirrorSet for image mirroring
+//
+// Parameters:
+//   - oc: CLI client for interacting with the OpenShift cluster
+//
+// Behavior:
+//   - Skips the test if master node cannot be accessed (cannot determine environment)
+//   - Returns immediately if proxy cluster detected (no mirror validation needed)
+//   - Skips the test if in disconnected environment but ImageTagMirrorSet is not configured
+//   - Continues normally if in connected environment or disconnected with proper configuration
+//
+// Usage:
+//
+//	g.It("test case supporting disconnected", func() {
+//	    olmv1util.ValidateAccessEnvironment(oc)
+//	    // rest of test code
+//	})
+func ValidateAccessEnvironment(oc *exutil.CLI) {
+	// First check if this is a proxy cluster
+	// Proxy clusters can access external networks through proxy, so they don't need mirror validation
+	if IsProxyCluster(oc) {
+		e2e.Logf("Proxy cluster detected, treating as connected environment (no mirror validation needed)")
+		return
+	}
+
+	// Check if we can access external network directly
+	hasNetwork := HasExternalNetworkAccess(oc)
+
+	// If connected (and not proxy, already checked above), no validation needed
+	if hasNetwork {
+		e2e.Logf("Cluster has external network access (connected environment), no mirror validation needed")
+		return
+	}
+
+	// In disconnected environment (not proxy, no external access), check for required ImageTagMirrorSet
+	e2e.Logf("Cluster is in disconnected environment, validating ImageTagMirrorSet configuration")
+
+	// Check if ImageTagMirrorSet "image-policy-aosqe" exists
+	itmsOutput, itmsErr := oc.AsAdmin().WithoutNamespace().Run("get").Args("imagetagmirrorset", "image-policy-aosqe", "--ignore-not-found").Output()
+	if itmsErr != nil || !strings.Contains(itmsOutput, "image-policy-aosqe") {
+		g.Skip(fmt.Sprintf("Disconnected environment detected but ImageTagMirrorSet 'image-policy-aosqe' is not configured. "+
+			"This test requires proper mirror configuration to run in disconnected clusters. "+
+			"ITMS check result: output=%q, error=%v", itmsOutput, itmsErr))
+	}
+
+	e2e.Logf("Disconnected environment validation passed: ImageTagMirrorSet 'image-policy-aosqe' is configured")
 }
