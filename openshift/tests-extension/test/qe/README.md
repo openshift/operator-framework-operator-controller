@@ -227,6 +227,39 @@ All migrated test case code needs the following changes to run in the new test f
     - Do NOT add `[OCPFeatureGate:xxxx]` label
 20. **Exclusive**: change to `Serial`
 
+## Disconnected Environment Support for Migrated QE cases
+
+**IMPORTANT**: With IDMS/ITMS mirror configuration in place, disconnected environments work exactly like connected environments.
+
+**What this means:**
+- Write test cases the same way you would for connected environments
+- Create ClusterCatalogs directly - no environment detection needed
+- IDMS/ITMS automatically redirects image pulls to mirror registry
+- No special helper functions or conditional logic required
+
+**Image Requirements for Migrated QE Cases:**
+- All operator images (bundle, base, index) must be hosted under `quay.io/openshifttest` or `quay.io/olmqe`
+- This ensures images are mirrored to disconnected environments via IDMS/ITMS configuration
+- Images from other registries will not be available in disconnected clusters
+
+**Environment Validation for Disconnected-Supporting Migrated Test Cases:**
+
+If your test case supports disconnected environments, you MUST call `ValidateAccessEnvironment` at the beginning of the test:
+
+```go
+g.It("test case supporting disconnected", func() {
+    olmv1util.ValidateAccessEnvironment(oc)
+    // rest of test code
+})
+```
+
+**What ValidateAccessEnvironment does:**
+- **Proxy clusters**: Returns immediately (no validation needed, proxy provides external access)
+- **Connected clusters**: Returns immediately after quick network check (no validation needed)
+- **Disconnected clusters**: Validates that ImageTagMirrorSet `image-policy-aosqe` is configured
+  - If ITMS is configured: Test proceeds normally
+  - If ITMS is missing: Test is skipped with clear message explaining what's missing
+
 ## Test Automation Code Requirements
 
 Consider these requirements when writing and reviewing code:
@@ -276,6 +309,10 @@ Consider these requirements when writing and reviewing code:
 
 ## Local Development Workflow
 
+### Environment Configuration for Migrated QE cases
+
+**IMPORTANT**: With IDMS/ITMS in place, tests work the same in both connected and disconnected environments. No special configuration is needed.
+
 ### Before Submitting PR
 
 1. **Build and compile**:
@@ -288,7 +325,7 @@ Consider these requirements when writing and reviewing code:
    ```bash
    # List all test names and search for your test using a keyword
    ./bin/olmv1-tests-ext list -o names | grep "keyword_from_your_test_name"
-   
+
    # Example: If your test is about "catalog installation", search for:
    ./bin/olmv1-tests-ext list -o names | grep "catalog"
    # This will show the full test name like:
