@@ -1,11 +1,45 @@
 [
   {
+    "name": "[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:80078-[OTP]Downstream feature gate promotion mechanics",
+    "originalName": "[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:80078-Downstream feature gate promotion mechanics",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:80078-Downstream feature gate promotion mechanics": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[OTP][Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
     "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
     "labels": {
       "Extended": {},
       "NonHyperShiftHOST": {},
       "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:80458-[OTP][Level0][Skipped:Disconnected]clustercatalog get x509 error since it cannot get the custom CA automatically [Serial]",
+    "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:80458-[Skipped:Disconnected]clustercatalog get x509 error since it cannot get the custom CA automatically [Serial]",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:80458-[Skipped:Disconnected]clustercatalog get x509 error since it cannot get the custom CA automatically [Serial]": {}
     },
     "resources": {
       "isolation": {}
@@ -262,6 +296,23 @@
       "Extended": {},
       "NonHyperShiftHOST": {},
       "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[OTP][Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe",
+    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe": {}
     },
     "resources": {
       "isolation": {}
