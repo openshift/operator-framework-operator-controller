@@ -1453,4 +1453,44 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
+	g.It("PolarionID:83026-[OTP][Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe"), func() {
+		baseDir := exutil.FixturePath("testdata", "olm")
+		clusterextensionTemplate := filepath.Join(baseDir, "clusterextension.yaml")
+		saAdminTemplate := filepath.Join(baseDir, "sa-admin.yaml")
+		g.By("1)install Argocd operator v0.4.0 in a random namespace")
+		sa := "argocd-83026"
+		oc.SetupProject()
+
+		saCrb := olmv1util.SaCLusterRolebindingDescription{
+			Name:      sa,
+			Namespace: oc.Namespace(),
+			Template:  saAdminTemplate,
+		}
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		ceArgocd := olmv1util.ClusterExtensionDescription{
+			Name:             "extension-argocd-83026",
+			PackageName:      "argocd-operator",
+			Channel:          "alpha",
+			Version:          "v0.4.0",
+			InstallNamespace: oc.Namespace(),
+			SaName:           sa,
+			Template:         clusterextensionTemplate,
+		}
+		defer ceArgocd.Delete(oc)
+		ceArgocd.Create(oc)
+
+		g.By("2)upgrade it to v0.5.0")
+		if err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("clusterextension", "extension-argocd-83026", "-p", "{\"spec\": {\"source\": {\"catalog\": {\"version\": \"v0.5.0\"}}}}", "--type=merge").Execute(); err != nil {
+			e2e.Failf("patch clusterextension failed:%v", err)
+		}
+		ceArgocd.WaitProgressingMessage(oc, "Desired state reached")
+		g.By("3)upgrade it to v0.7.0")
+		if err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("clusterextension", "extension-argocd-83026", "-p", "{\"spec\": {\"source\": {\"catalog\": {\"version\": \"v0.7.0\"}}}}", "--type=merge").Execute(); err != nil {
+			e2e.Failf("patch clusterextension failed:%v", err)
+		}
+		ceArgocd.WaitProgressingMessage(oc, "Desired state reached")
+	})
+
 })
