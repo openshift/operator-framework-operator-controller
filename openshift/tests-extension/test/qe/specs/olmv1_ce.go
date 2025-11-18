@@ -299,6 +299,66 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
+	g.It("PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[Skipped:Disconnected]olmv1 downgrade version"), func() {
+		olmv1util.ValidateAccessEnvironment(oc)
+		var (
+			ns                           = "ns-70723"
+			sa                           = "sa70723"
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:     "clustercatalog-70723",
+				Imageref: "quay.io/openshifttest/nginxolm-operator-index:nginxolm70723",
+				Template: clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-70723",
+				InstallNamespace: ns,
+				PackageName:      "nginx70723",
+				Channel:          "candidate-v2",
+				Version:          "2.2.1",
+				SaName:           sa,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("Install version 2.2.1")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("2.2.1"))
+
+		g.By("Attempt to downgrade to version 2.0.0 with CatalogProvided policy and expect failure")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version": "2.0.0"}}}}`)
+		clusterextension.CheckClusterExtensionCondition(oc, "Progressing", "message", "error upgrading", 3, 150, 0)
+
+		g.By("Change UpgradeConstraintPolicy to SelfCertified and allow downgrade")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "SelfCertified"}}}}`)
+		clusterextension.WaitClusterExtensionVersion(oc, "2.0.0")
+	})
+
 	g.It("PolarionID:75492-[OTP][Level0]cluster extension can not be installed with wrong sa or insufficient permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa"), func() {
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
