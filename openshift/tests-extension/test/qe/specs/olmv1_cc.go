@@ -127,6 +127,23 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		clustercatalog.CheckClusterCatalogCondition(oc, "Progressing", "message", "manifest unknown", 5, 90, 0)
 	})
 
+	g.It("PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly", g.Label("original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly"), func() {
+		g.By("Verify built-in ClusterCatalogs report Serving=True")
+		checks := []olmv1util.CheckDescription{
+			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
+				[]string{"clustercatalog", "openshift-certified-operators", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
+			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
+				[]string{"clustercatalog", "openshift-community-operators", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
+			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
+				[]string{"clustercatalog", "openshift-redhat-operators", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
+			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
+				[]string{"clustercatalog", "openshift-redhat-marketplace", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
+		}
+		for _, check := range checks {
+			check.Check(oc)
+		}
+	})
+
 	g.It("PolarionID:69123-[OTP][Skipped:Disconnected]Catalogd clustercatalog offer the operator content through http server", func() {
 		var (
 			baseDir                = exutil.FixturePath("testdata", "olm")
