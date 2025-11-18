@@ -152,4 +152,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] cluster-olm-operator", g.Label("NonHyp
 		g.By("3) test SUCCESS")
 	})
 
+	g.It("PolarionID:75877-[OTP]Make sure that rukpak is removed from payload", g.Label("original-name:[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:75877-Make sure that rukpak is removed from payload"), func() {
+		g.By("1) Ensure bundledeployments.core.rukpak.io CRD is not installed")
+		_, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("crd", "bundledeployments.core.rukpak.io").Output()
+		o.Expect(err).To(o.HaveOccurred())
+
+		g.By("2) Ensure openshift-rukpak namespace is not created")
+		_, err = oc.AsAdmin().WithoutNamespace().Run("get").Args("ns", "openshift-rukpak").Output()
+		o.Expect(err).To(o.HaveOccurred())
+	})
+
 })
