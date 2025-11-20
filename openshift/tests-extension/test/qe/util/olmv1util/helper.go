@@ -590,7 +590,7 @@ func HasExternalNetworkAccess(oc *exutil.CLI) bool {
 	// Note: In disconnected environments, curl will fail and bash will return non-zero exit code,
 	// causing DebugNodeWithChroot to return an error. We ignore this error and rely on output checking.
 	cmd := `timeout 10 curl -k https://quay.io > /dev/null 2>&1; [ $? -eq 0 ] && echo "connected"`
-	output, _ := exutil.DebugNodeWithChroot(oc, masterNode, "bash", "-c", cmd)
+	output, _ := exutil.DebugNodeWithOptionsAndChroot(oc, masterNode, []string{"--to-namespace=default"}, "bash", "-c", cmd)
 
 	// Check if the output contains "connected"
 	// - Connected environment: curl succeeds -> echo "connected" -> output contains "connected"
