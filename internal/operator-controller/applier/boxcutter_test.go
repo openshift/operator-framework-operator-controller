@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8scheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +28,6 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/controllers"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
 )
 
@@ -87,11 +85,12 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 				"olm.operatorframework.io/package-name":     "my-package",
 			},
 			Labels: map[string]string{
-				"olm.operatorframework.io/owner": "test-123",
+				labels.OwnerNameKey: "test-123",
 			},
 		},
 		Spec: ocv1.ClusterExtensionRevisionSpec{
-			Revision: 1,
+			LifecycleState: ocv1.ClusterExtensionRevisionLifecycleStateActive,
+			Revision:       1,
 			Phases: []ocv1.ClusterExtensionRevisionPhase{
 				{
 					Name: "deploy",
@@ -178,9 +177,9 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 	rev, err := b.GenerateRevision(t.Context(), fstest.MapFS{}, ext, map[string]string{}, map[string]string{})
 	require.NoError(t, err)
 
-	t.Log("by checking the olm.operatorframework.io/owner label is set to the name of the ClusterExtension")
+	t.Log("by checking the olm.operatorframework.io/owner-name label is set to the name of the ClusterExtension")
 	require.Equal(t, map[string]string{
-		controllers.ClusterExtensionRevisionOwnerLabel: "test-extension",
+		labels.OwnerNameKey: "test-extension",
 	}, rev.Labels)
 	t.Log("by checking the revision number is 0")
 	require.Equal(t, int64(0), rev.Spec.Revision)
@@ -344,7 +343,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 			Name: "test-ext-1",
 			UID:  "rev-uid-1",
 			Labels: map[string]string{
-				controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+				labels.OwnerNameKey: ext.Name,
 			},
 		},
 		Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -402,7 +401,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: revisionAnnotations,
 							Labels: map[string]string{
-								controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+								labels.OwnerNameKey: ext.Name,
 							},
 						},
 						Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -430,7 +429,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 			},
 			validate: func(t *testing.T, c client.Client) {
 				revList := &ocv1.ClusterExtensionRevisionList{}
-				err := c.List(t.Context(), revList, client.MatchingLabels{controllers.ClusterExtensionRevisionOwnerLabel: ext.Name})
+				err := c.List(t.Context(), revList, client.MatchingLabels{labels.OwnerNameKey: ext.Name})
 				require.NoError(t, err)
 				require.Len(t, revList.Items, 1)
 
@@ -450,7 +449,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: revisionAnnotations,
 							Labels: map[string]string{
-								controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+								labels.OwnerNameKey: ext.Name,
 							},
 						},
 						Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -481,7 +480,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 			},
 			validate: func(t *testing.T, c client.Client) {
 				revList := &ocv1.ClusterExtensionRevisionList{}
-				err := c.List(context.Background(), revList, client.MatchingLabels{controllers.ClusterExtensionRevisionOwnerLabel: ext.Name})
+				err := c.List(context.Background(), revList, client.MatchingLabels{labels.OwnerNameKey: ext.Name})
 				require.NoError(t, err)
 				// No new revision should be created
 				require.Len(t, revList.Items, 1)
@@ -496,7 +495,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: revisionAnnotations,
 							Labels: map[string]string{
-								controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+								labels.OwnerNameKey: ext.Name,
 							},
 						},
 						Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -528,7 +527,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 			},
 			validate: func(t *testing.T, c client.Client) {
 				revList := &ocv1.ClusterExtensionRevisionList{}
-				err := c.List(context.Background(), revList, client.MatchingLabels{controllers.ClusterExtensionRevisionOwnerLabel: ext.Name})
+				err := c.List(context.Background(), revList, client.MatchingLabels{labels.OwnerNameKey: ext.Name})
 				require.NoError(t, err)
 				require.Len(t, revList.Items, 2)
 
@@ -544,9 +543,6 @@ func TestBoxcutter_Apply(t *testing.T) {
 
 				assert.Equal(t, "test-ext-2", newRev.Name)
 				assert.Equal(t, int64(2), newRev.Spec.Revision)
-				require.Len(t, newRev.Spec.Previous, 1)
-				assert.Equal(t, "test-ext-1", newRev.Spec.Previous[0].Name)
-				assert.Equal(t, types.UID("rev-uid-1"), newRev.Spec.Previous[0].UID)
 			},
 		},
 		{
@@ -560,7 +556,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 			validate: func(t *testing.T, c client.Client) {
 				// Ensure no revisions were created
 				revList := &ocv1.ClusterExtensionRevisionList{}
-				err := c.List(context.Background(), revList, client.MatchingLabels{controllers.ClusterExtensionRevisionOwnerLabel: ext.Name})
+				err := c.List(context.Background(), revList, client.MatchingLabels{labels.OwnerNameKey: ext.Name})
 				require.NoError(t, err)
 				assert.Empty(t, revList.Items)
 			},
@@ -573,7 +569,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: revisionAnnotations,
 							Labels: map[string]string{
-								controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+								labels.OwnerNameKey: ext.Name,
 							},
 						},
 						Spec: ocv1.ClusterExtensionRevisionSpec{},
@@ -585,7 +581,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-1",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -597,7 +593,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-2",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -609,7 +605,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-3",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -621,7 +617,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-4",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -633,7 +629,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-5",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -645,7 +641,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-6",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -661,10 +657,12 @@ func TestBoxcutter_Apply(t *testing.T) {
 				require.Error(t, err)
 				assert.True(t, apierrors.IsNotFound(err))
 
-				latest := &ocv1.ClusterExtensionRevision{}
-				err = c.Get(t.Context(), client.ObjectKey{Name: "test-ext-7"}, latest)
+				// Verify garbage collection: should only keep the limit + 1 (current) revisions
+				revList := &ocv1.ClusterExtensionRevisionList{}
+				err = c.List(t.Context(), revList)
 				require.NoError(t, err)
-				assert.Len(t, latest.Spec.Previous, applier.ClusterExtensionRevisionPreviousLimit)
+				// Should have ClusterExtensionRevisionRetentionLimit (5) + current (1) = 6 revisions max
+				assert.LessOrEqual(t, len(revList.Items), applier.ClusterExtensionRevisionRetentionLimit+1)
 			},
 		},
 		{
@@ -675,7 +673,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: revisionAnnotations,
 							Labels: map[string]string{
-								controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+								labels.OwnerNameKey: ext.Name,
 							},
 						},
 						Spec: ocv1.ClusterExtensionRevisionSpec{},
@@ -687,7 +685,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-1",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -699,7 +697,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-2",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -712,7 +710,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-3",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -724,7 +722,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-4",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -737,7 +735,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-5",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -749,7 +747,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-6",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -761,7 +759,7 @@ func TestBoxcutter_Apply(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "rev-7",
 						Labels: map[string]string{
-							controllers.ClusterExtensionRevisionOwnerLabel: ext.Name,
+							labels.OwnerNameKey: ext.Name,
 						},
 					},
 					Spec: ocv1.ClusterExtensionRevisionSpec{
@@ -781,15 +779,97 @@ func TestBoxcutter_Apply(t *testing.T) {
 				err = c.Get(t.Context(), client.ObjectKey{Name: "rev-2"}, rev2)
 				require.NoError(t, err)
 
+				// Verify active revisions are kept even if beyond the limit
 				rev4 := &ocv1.ClusterExtensionRevision{}
 				err = c.Get(t.Context(), client.ObjectKey{Name: "rev-4"}, rev4)
+				require.NoError(t, err, "active revision 4 should still exist even though it's beyond the limit")
+			},
+		},
+		{
+			name: "annotation-only update (same phases, different annotations)",
+			mockBuilder: &mockBundleRevisionBuilder{
+				makeRevisionFunc: func(ctx context.Context, bundleFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (*ocv1.ClusterExtensionRevision, error) {
+					return &ocv1.ClusterExtensionRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: revisionAnnotations,
+							Labels: map[string]string{
+								labels.OwnerNameKey: ext.Name,
+							},
+						},
+						Spec: ocv1.ClusterExtensionRevisionSpec{
+							Phases: []ocv1.ClusterExtensionRevisionPhase{
+								{
+									Name: string(applier.PhaseDeploy),
+									Objects: []ocv1.ClusterExtensionRevisionObject{
+										{
+											Object: unstructured.Unstructured{
+												Object: map[string]interface{}{
+													"apiVersion": "v1",
+													"kind":       "ConfigMap",
+													"metadata": map[string]interface{}{
+														"name": "test-cm",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}, nil
+				},
+			},
+			existingObjs: []client.Object{
+				ext,
+				&ocv1.ClusterExtensionRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-ext-1",
+						Annotations: map[string]string{
+							labels.BundleVersionKey: "1.0.0",
+							labels.PackageNameKey:   "test-package",
+						},
+						Labels: map[string]string{
+							labels.OwnerNameKey: ext.Name,
+						},
+					},
+					Spec: ocv1.ClusterExtensionRevisionSpec{
+						Revision: 1,
+						Phases: []ocv1.ClusterExtensionRevisionPhase{
+							{
+								Name: string(applier.PhaseDeploy),
+								Objects: []ocv1.ClusterExtensionRevisionObject{
+									{
+										Object: unstructured.Unstructured{
+											Object: map[string]interface{}{
+												"apiVersion": "v1",
+												"kind":       "ConfigMap",
+												"metadata": map[string]interface{}{
+													"name": "test-cm",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			validate: func(t *testing.T, c client.Client) {
+				revList := &ocv1.ClusterExtensionRevisionList{}
+				err := c.List(context.Background(), revList, client.MatchingLabels{labels.OwnerNameKey: ext.Name})
 				require.NoError(t, err)
+				// Should still be only 1 revision (in-place update, not new revision)
+				require.Len(t, revList.Items, 1)
 
-				latest := &ocv1.ClusterExtensionRevision{}
-				err = c.Get(t.Context(), client.ObjectKey{Name: "test-ext-8"}, latest)
-				require.NoError(t, err)
-				assert.Len(t, latest.Spec.Previous, 6)
-				assert.Contains(t, latest.Spec.Previous, ocv1.ClusterExtensionRevisionPrevious{Name: "rev-4"})
+				rev := revList.Items[0]
+				assert.Equal(t, "test-ext-1", rev.Name)
+				assert.Equal(t, int64(1), rev.Spec.Revision)
+				// Verify annotations were updated
+				assert.Equal(t, "1.0.1", rev.Annotations[labels.BundleVersionKey])
+				assert.Equal(t, "test-package", rev.Annotations[labels.PackageNameKey])
+				// Verify owner label is still present
+				assert.Equal(t, ext.Name, rev.Labels[labels.OwnerNameKey])
 			},
 		},
 	}
@@ -814,7 +894,15 @@ func TestBoxcutter_Apply(t *testing.T) {
 			testFS := fstest.MapFS{}
 
 			// Execute
-			installSucceeded, installStatus, err := boxcutter.Apply(t.Context(), testFS, ext, nil, nil)
+			revisionAnnotations := map[string]string{}
+			if tc.name == "annotation-only update (same phases, different annotations)" {
+				// For annotation-only update test, pass NEW annotations
+				revisionAnnotations = map[string]string{
+					labels.BundleVersionKey: "1.0.1",
+					labels.PackageNameKey:   "test-package",
+				}
+			}
+			installSucceeded, installStatus, err := boxcutter.Apply(t.Context(), testFS, ext, nil, revisionAnnotations)
 
 			// Assert
 			if tc.expectedErr != "" {
@@ -842,6 +930,9 @@ func TestBoxcutter_Apply(t *testing.T) {
 
 func TestBoxcutterStorageMigrator(t *testing.T) {
 	t.Run("creates revision", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
 		brb := &mockBundleRevisionBuilder{}
 		mag := &mockActionGetter{}
 		client := &clientMock{}
@@ -849,6 +940,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			RevisionGenerator:  brb,
 			ActionClientGetter: mag,
 			Client:             client,
+			Scheme:             testScheme,
 		}
 
 		ext := &ocv1.ClusterExtension{
@@ -861,6 +953,22 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		client.
 			On("Create", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
 			Once().
+			Run(func(args mock.Arguments) {
+				// Simulate real Kubernetes behavior: Create() populates server-managed fields
+				rev := args.Get(1).(*ocv1.ClusterExtensionRevision)
+				rev.Generation = 1
+				rev.ResourceVersion = "1"
+			}).
+			Return(nil)
+		client.
+			On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Once().
+			Run(func(args mock.Arguments) {
+				// Simulate Get() returning the created revision with server-managed fields
+				rev := args.Get(2).(*ocv1.ClusterExtensionRevision)
+				rev.Generation = 1
+				rev.ResourceVersion = "1"
+			}).
 			Return(nil)
 
 		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
@@ -870,6 +978,9 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 	})
 
 	t.Run("does not create revision when revisions exist", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
 		brb := &mockBundleRevisionBuilder{}
 		mag := &mockActionGetter{}
 		client := &clientMock{}
@@ -877,6 +988,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			RevisionGenerator:  brb,
 			ActionClientGetter: mag,
 			Client:             client,
+			Scheme:             testScheme,
 		}
 
 		ext := &ocv1.ClusterExtension{
@@ -900,6 +1012,9 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 	})
 
 	t.Run("does not create revision when no helm release", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
 		brb := &mockBundleRevisionBuilder{}
 		mag := &mockActionGetter{
 			getClientErr: driver.ErrReleaseNotFound,
@@ -909,6 +1024,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			RevisionGenerator:  brb,
 			ActionClientGetter: mag,
 			Client:             client,
+			Scheme:             testScheme,
 		}
 
 		ext := &ocv1.ClusterExtension{
@@ -940,7 +1056,15 @@ func (m *mockBundleRevisionBuilder) GenerateRevisionFromHelmRelease(
 	helmRelease *release.Release, ext *ocv1.ClusterExtension,
 	objectLabels map[string]string,
 ) (*ocv1.ClusterExtensionRevision, error) {
-	return nil, nil
+	return &ocv1.ClusterExtensionRevision{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-revision",
+			Labels: map[string]string{
+				labels.OwnerNameKey: ext.Name,
+			},
+		},
+		Spec: ocv1.ClusterExtensionRevisionSpec{},
+	}, nil
 }
 
 type clientMock struct {
@@ -952,7 +1076,33 @@ func (m *clientMock) List(ctx context.Context, list client.ObjectList, opts ...c
 	return args.Error(0)
 }
 
+func (m *clientMock) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	args := m.Called(ctx, key, obj, opts)
+	return args.Error(0)
+}
+
 func (m *clientMock) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	args := m.Called(ctx, obj, opts)
 	return args.Error(0)
+}
+
+func (m *clientMock) Status() client.StatusWriter {
+	return &statusWriterMock{mock: &m.Mock}
+}
+
+type statusWriterMock struct {
+	mock *mock.Mock
+}
+
+func (s *statusWriterMock) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+	// Status updates are expected during migration - return success by default
+	return nil
+}
+
+func (s *statusWriterMock) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+	return nil
+}
+
+func (s *statusWriterMock) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	return nil
 }

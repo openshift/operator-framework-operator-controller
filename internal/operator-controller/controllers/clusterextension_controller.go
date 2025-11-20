@@ -280,7 +280,8 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1.Cl
 		return ctrl.Result{}, err
 	}
 
-	storeLbls := map[string]string{
+	// The following values will be stored as annotations and not labels
+	revisionAnnotations := map[string]string{
 		labels.BundleNameKey:      resolvedRevisionMetadata.Name,
 		labels.PackageNameKey:     resolvedRevisionMetadata.Package,
 		labels.BundleVersionKey:   resolvedRevisionMetadata.Version,
@@ -297,7 +298,7 @@ func (r *ClusterExtensionReconciler) reconcile(ctx context.Context, ext *ocv1.Cl
 	// to ensure exponential backoff can occur:
 	//   - Permission errors (it is not possible to watch changes to permissions.
 	//     The only way to eventually recover from permission errors is to keep retrying).
-	rolloutSucceeded, rolloutStatus, err := r.Applier.Apply(ctx, imageFS, ext, objLbls, storeLbls)
+	rolloutSucceeded, rolloutStatus, err := r.Applier.Apply(ctx, imageFS, ext, objLbls, revisionAnnotations)
 
 	// Set installed status
 	if rolloutSucceeded {
@@ -531,7 +532,7 @@ func (d *BoxcutterRevisionStatesGetter) GetRevisionStates(ctx context.Context, e
 	//   recent revisions. We should consolidate to avoid code duplication.
 	existingRevisionList := &ocv1.ClusterExtensionRevisionList{}
 	if err := d.Reader.List(ctx, existingRevisionList, client.MatchingLabels{
-		ClusterExtensionRevisionOwnerLabel: ext.Name,
+		labels.OwnerNameKey: ext.Name,
 	}); err != nil {
 		return nil, fmt.Errorf("listing revisions: %w", err)
 	}
@@ -549,11 +550,11 @@ func (d *BoxcutterRevisionStatesGetter) GetRevisionStates(ctx context.Context, e
 			continue
 		}
 
-		// TODO: the setting of these annotations (happens in boxcutter applier when we pass in "storageLabels")
+		// TODO: the setting of these annotations (happens in boxcutter applier when we pass in "revisionAnnotations")
 		//   is fairly decoupled from this code where we get the annotations back out. We may want to co-locate
 		//   the set/get logic a bit better to make it more maintainable and less likely to get out of sync.
 		rm := &RevisionMetadata{
-			Package: rev.Labels[labels.PackageNameKey],
+			Package: rev.Annotations[labels.PackageNameKey],
 			Image:   rev.Annotations[labels.BundleReferenceKey],
 			BundleMetadata: ocv1.BundleMetadata{
 				Name:    rev.Annotations[labels.BundleNameKey],

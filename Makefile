@@ -178,8 +178,12 @@ generate: $(CONTROLLER_GEN) #EXHELP Generate code containing DeepCopy, DeepCopyI
 	$(CONTROLLER_GEN) --load-build-tags=$(GO_BUILD_TAGS) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: verify
-verify: k8s-pin kind-verify-versions fmt generate manifests update-tls-profiles crd-ref-docs #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
+verify: k8s-pin kind-verify-versions fmt generate manifests update-tls-profiles crd-ref-docs verify-bingo #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
 	git diff --exit-code
+
+.PHONY: verify-bingo
+verify-bingo: $(BINGO)
+	$(BINGO) get -v -t 15
 
 .PHONY: fix-lint
 fix-lint: $(GOLANGCI_LINT) #EXHELP Fix lint issues
@@ -385,7 +389,7 @@ kind-clean: $(KIND) #EXHELP Delete the kind cluster.
 	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
 
 .PHONY: kind-verify-versions
-kind-verify-versions:
+kind-verify-versions: $(KIND)
 	env K8S_VERSION=v$(K8S_VERSION) KIND=$(KIND) GOBIN=$(GOBIN) hack/tools/validate_kindest_node.sh
 
 
