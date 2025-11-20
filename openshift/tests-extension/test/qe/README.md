@@ -244,7 +244,20 @@ All migrated test case code needs the following changes to run in the new test f
 
 **Environment Validation for Disconnected-Supporting Migrated Test Cases:**
 
-If your test case supports disconnected environments, you MUST call `ValidateAccessEnvironment` at the beginning of the test:
+**When to use `ValidateAccessEnvironment`:**
+
+1. **Test cases that create ClusterCatalog or ClusterExtension**:
+   - If your test supports disconnected environments (both connected+disconnected, or disconnected-only)
+   - AND your test creates ClusterCatalog or ClusterExtension resources
+   - **MUST** call `ValidateAccessEnvironment(oc)` at the beginning of the test
+   - This applies to both newly created test cases and migrated test cases
+
+2. **Test cases that do NOT create both ClusterCatalog or ClusterExtension**:
+   - Optional to use `ValidateAccessEnvironment(oc)`
+   - Using it won't cause errors, but it's not required
+   - The validation is primarily for ensuring catalog images can be mirrored
+
+**Usage example:**
 
 ```go
 g.It("test case supporting disconnected", func() {
