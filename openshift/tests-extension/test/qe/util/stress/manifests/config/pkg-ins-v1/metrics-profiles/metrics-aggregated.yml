@@ -1,0 +1,7 @@
+# Containers & pod metrics
+
+- query: (sum(irate(container_cpu_usage_seconds_total{container="manager",namespace="openshift-catalogd"}[2m]) * 100) by (container, pod)) > 0
+  metricName: containerCPU-Catlogd
+
+- query: (sum(irate(container_cpu_usage_seconds_total{container="manager",namespace="openshift-operator-controller"}[2m]) * 100) by (container, pod)) > 0
+  metricName: containerCPU-OpCon
