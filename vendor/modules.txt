@@ -1995,7 +1995,7 @@ sigs.k8s.io/controller-tools/pkg/genall
 sigs.k8s.io/controller-tools/pkg/loader
 sigs.k8s.io/controller-tools/pkg/markers
 sigs.k8s.io/controller-tools/pkg/version
-# sigs.k8s.io/crdify v0.4.1-0.20250825182107-69e65223aee0
+# sigs.k8s.io/crdify v0.5.0
 ## explicit; go 1.24.0
 sigs.k8s.io/crdify/pkg/config
 sigs.k8s.io/crdify/pkg/runner
