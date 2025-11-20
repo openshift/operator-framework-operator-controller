@@ -1,0 +1,182 @@
+{
+  "schema": "olm.package",
+  "name": "{{ TEST-BUNDLE }}",
+  "defaultChannel": "stable"
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v1.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v2.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "2.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v3.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "3.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v4.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "4.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v5.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "5.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v6.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "6.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v7.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "7.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v8.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "8.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.bundle",
+  "name": "{{ TEST-BUNDLE }}.v9.0.0",
+  "package": "{{ TEST-BUNDLE }}",
+  "image": "image-registry.openshift-image-registry.svc:5000/{{ NAMESPACE }}/{{ TEST-BUNDLE }}:latest",
+  "properties": [
+    {
+      "type": "olm.package",
+      "value": {
+        "packageName": "{{ TEST-BUNDLE }}",
+        "version": "9.0.0"
+      }
+    }
+  ]
+}
+{
+  "schema": "olm.channel",
+  "name": "stable",
+  "package": "{{ TEST-BUNDLE }}",
+  "entries": [
+    {
+      "name": "{{ TEST-BUNDLE }}.v1.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v2.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v1.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v3.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v2.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v4.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v3.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v5.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v4.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v6.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v5.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v7.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v6.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v8.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v7.0.0"
+    },
+    {
+      "name": "{{ TEST-BUNDLE }}.v9.0.0",
+      "replaces": "{{ TEST-BUNDLE }}.v8.0.0"
+    }
+  ]
+}
