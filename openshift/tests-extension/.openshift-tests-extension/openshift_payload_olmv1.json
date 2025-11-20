@@ -566,6 +566,22 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] OLM v1 for stress PolarionID:81509-[OTP][Skipped:Disconnected][OlmStress]olmv1 create mass operator to see if they all are installed successfully [Slow][Timeout:330m]",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "StressTest": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 Catalogs should be installed",
     "labels": {},
     "resources": {
