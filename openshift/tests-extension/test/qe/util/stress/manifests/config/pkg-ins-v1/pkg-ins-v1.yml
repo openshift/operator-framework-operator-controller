@@ -1,0 +1,67 @@
+---
+global:
+  gc: {{.GC}}
+  gcMetrics: {{.GC_METRICS}}
+  measurements:
+    - name: podLatency
+
+
+jobs:
+  - name: {{.OPERATION}}
+    jobType: create
+    jobIterations: {{.JOB_ITERATIONS}}
+    namespace: {{.OPERATION}}
+    namespacedIterations: {{.NAMESPACED_ITERATIONS}}
+    iterationsPerNamespace: {{.ITERATIONS_PER_NAMESPACE}}
+    cleanup: true
+    podWait: true
+    waitWhenFinished: true
+    maxWaitTimeout: {{.MAX_WAIT_TIMEOUT}}
+    jobIterationDelay: {{.JOB_ITERATION_DELAY}}
+    jobPause: {{.JOB_PAUSE}}
+    qps: {{.QPS}}
+    burst: {{.BURST}}
+    executionMode: parallel
+    verifyObjects: true
+    errorOnVerify: true
+    skipIndexing: false
+    preLoadImages: true
+    preLoadPeriod: 15s
+    churn: false
+    defaultMissingKeysWithZero: false
+    namespaceLabels:
+      security.openshift.io/scc.podSecurityLabelSync: false
+      pod-security.kubernetes.io/enforce: privileged
+      pod-security.kubernetes.io/audit: privileged
+      pod-security.kubernetes.io/warn: privileged
+    objects:
+
+      - objectTemplate: templates/catalogd.yml
+        replicas: 1
+        inputVars:
+          prefixImageName: "quay.io/olmqe/stress-index:vokv"
+        waitOptions:
+          customStatusPaths:
+            - key: ".conditions[] | select(.type==\"Serving\") | .status"
+              value: "True"
+
+      - objectTemplate: templates/clusterrole.yml
+        replicas: 1
+
+      - objectTemplate: templates/sa.yml
+        replicas: 1
+
+      - objectTemplate: templates/clusterrolebinding.yml
+        replicas: 1
+        inputVars:
+          prefixNamespace: {{.OPERATION}}
+
+      - objectTemplate: templates/ce.yml
+        replicas: 1
+        inputVars:
+          prefixNamespace: {{.OPERATION}}
+          prefixPkgName: {{.PREFIX_PKG_NAME_V1}}
+        waitOptions:
+          customStatusPaths:
+            - key: ".conditions[] | select(.type==\"Installed\") | .status"
+              value: "True"
