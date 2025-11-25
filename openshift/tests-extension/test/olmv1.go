@@ -9,7 +9,6 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
-	"github.com/openshift/origin/test/extended/util/image"
 	corev1 "k8s.io/api/core/v1"
 	apiextclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -134,7 +133,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 
 			// Using the shell image provided by origin as the controller image.
 			// The image is mirrored into disconnected environments for testing.
-			"{{ TEST-CONTROLLER }}": image.ShellImage(),
+			"{{ TEST-CONTROLLER }}": "registry.k8s.io/e2e-test-images/busybox:1.36.1-1",
 		}
 		unique, nsName, ccName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
 			catalogdata.AssetNames, catalogdata.Asset,
