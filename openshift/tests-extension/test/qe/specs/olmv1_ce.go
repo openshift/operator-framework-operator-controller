@@ -1,6 +1,7 @@
 package specs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	o "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/util/wait"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 
 	exutil "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util"
@@ -1491,6 +1493,1436 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			e2e.Failf("patch clusterextension failed:%v", err)
 		}
 		ceArgocd.WaitProgressingMessage(oc, "Desired state reached")
+	})
+
+	g.It("PolarionID:69196-[OTP][Level0][Skipped:Disconnected]Supports Version Ranges during clusterextension upgrade", func() {
+		var (
+			caseID                       = "69196"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-69196"
+			sa                           = "sa69196"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-69196",
+				LabelValue: labelValue,
+				Imageref:   "quay.io/olmqe/olmtest-operator-index:nginxolm69196",
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-69196",
+				InstallNamespace: ns,
+				PackageName:      "nginx69196",
+				Channel:          "candidate-v1.0",
+				Version:          "1.0.1",
+				SaName:           sa,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("Create clusterextension with channel candidate-v1.0, version 1.0.1")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.1"))
+
+		g.By("update version to be 1.0.3")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version": "1.0.3"}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			conditions, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions}")
+			if !strings.Contains(conditions, "error upgrading") {
+				e2e.Logf("error message is not raised")
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "error message is not raised")
+		}
+
+		g.By("update version to be >=1.0.1")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version": ">=1.0.1"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			resolvedBundle, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.install.bundle.name}")
+			if !strings.Contains(resolvedBundle, "v1.0.2") {
+				e2e.Logf("clusterextension.resolvedBundle is %s, not v1.0.2, and try next", resolvedBundle)
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "clusterextension resolvedBundle is not v1.0.2")
+		}
+		conditions, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions}")
+		o.Expect(strings.ToLower(conditions)).To(o.ContainSubstring("desired state reached"))
+		o.Expect(conditions).NotTo(o.ContainSubstring("error"))
+
+		g.By("update channel to be candidate-v1.1")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.1"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			resolvedBundle, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.install.bundle.name}")
+			if !strings.Contains(resolvedBundle, "v1.1.0") {
+				e2e.Logf("clusterextension.resolvedBundle is %s, not v1.1.0, and try next", resolvedBundle)
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "clusterextension resolvedBundle is not v1.1.0")
+		}
+	})
+
+	g.It("PolarionID:68821-[OTP][Skipped:Disconnected]Supports Version Ranges during Installation", func() {
+		var (
+			caseID                                        = "68821"
+			labelValue                                    = caseID
+			baseDir                                       = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate                        = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate                      = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			clusterextensionWithoutChannelTemplate        = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			clusterextensionWithoutChannelVersionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
+			saClusterRoleBindingTemplate                  = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                                            = "ns-68821"
+			sa                                            = "sa68821"
+			saCrb                                         = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-68821",
+				LabelValue: labelValue,
+				Imageref:   "quay.io/olmqe/olmtest-operator-index:nginxolm68821",
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-68821",
+				PackageName:      "nginx68821",
+				Channel:          "candidate-v0.0",
+				Version:          ">=0.0.1",
+				LabelValue:       labelValue,
+				InstallNamespace: ns,
+				SaName:           sa,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("Create clusterextension with channel candidate-v0.0, version >=0.0.1")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v0.0.3"))
+		clusterextension.Delete(oc)
+
+		g.By("Create clusterextension with channel candidate-v1.0, version 1.0.x")
+		clusterextension.Channel = "candidate-v1.0"
+		clusterextension.Version = "1.0.x"
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.2"))
+		clusterextension.Delete(oc)
+
+		g.By("Create clusterextension with channel empty, version >=0.0.1 !=1.1.0 <1.1.2")
+		clusterextension.Channel = ""
+		clusterextension.Version = ">=0.0.1 !=1.1.0 <1.1.2"
+		clusterextension.Template = clusterextensionWithoutChannelTemplate
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.2"))
+		clusterextension.Delete(oc)
+
+		g.By("Create clusterextension with channel empty, version empty")
+		clusterextension.Channel = ""
+		clusterextension.Version = ""
+		clusterextension.Template = clusterextensionWithoutChannelVersionTemplate
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.1.0"))
+		clusterextension.Delete(oc)
+
+		g.By("Create clusterextension with invalid version")
+		clusterextension.Version = "!1.0.1"
+		clusterextension.Template = clusterextensionTemplate
+		err = clusterextension.CreateWithoutCheck(oc)
+		o.Expect(err).To(o.HaveOccurred())
+
+	})
+
+	g.It("PolarionID:74108-[OTP][Skipped:Disconnected][Slow]olm v1 supports legacy upgrade edges", func() {
+		var (
+			caseID                       = "74108"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutVersion.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-74108"
+			sa                           = "sa74108"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-74108",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74108",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-74108",
+				InstallNamespace: ns,
+				PackageName:      "nginx74108",
+				Channel:          "candidate-v0.0",
+				LabelValue:       labelValue,
+				SaName:           sa,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("1) Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) Install clusterextension with channel candidate-v0.0")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("0.0.2"))
+
+		g.By("3) Attempt to update to channel candidate-v2.1 with CatalogProvided policy, that should fail")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v2.1"]}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")]}`)
+			if strings.Contains(message, "error upgrading") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "no error message raised")
+
+		g.By("4) Attempt to update to channel candidate-v0.1 with CatalogProvided policy, that should success")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v0.1"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "0.1.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 0.1.0 is not installed")
+
+		g.By("5) Attempt to update to channel candidate-v1.0 with CatalogProvided policy, that should fail")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.0"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")]}`)
+			if strings.Contains(message, "error upgrading") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "no error message raised")
+
+		g.By("6) update policy to SelfCertified, upgrade should success")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "SelfCertified"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.0.2") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 1.0.2 is not installed")
+
+		g.By("7) Attempt to update to channel candidate-v1.1 with CatalogProvided policy, that should success")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "CatalogProvided"}}}}`)
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.1"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.1.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 0.1.0 is not installed")
+
+		g.By("8) Attempt to update to channel candidate-v1.2 with CatalogProvided policy, that should fail")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.2"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")]}`)
+			if strings.Contains(message, "error upgrading") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "no error message raised")
+
+		g.By("9) update policy to SelfCertified, upgrade should success")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "SelfCertified"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.2.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 1.2.0 is not installed")
+
+		g.By("10) Attempt to update to channel candidate-v2.0 with CatalogProvided policy, that should fail")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "CatalogProvided"}}}}`)
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v2.0"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")]}`)
+			if strings.Contains(message, "error upgrading") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "no error message raised")
+
+		g.By("11) Attempt to update to channel candidate-v2.1 with CatalogProvided policy, that should success")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v2.1"]}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "2.1.1") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 2.1.1 is not installed")
+
+		g.By("8) downgrade to version 1.0.1 with SelfCertified policy, that should work")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"upgradeConstraintPolicy": "SelfCertified"}}}}`)
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.0"],"version":"1.0.1"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.0.1") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "nginx74108 1.0.1 is not installed")
+
+	})
+
+	g.It("PolarionID:74923-[OTP][Skipped:Disconnected]no two ClusterExtensions can manage the same underlying object", func() {
+		var (
+			caseID                       = "74923"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns1                          = "ns-74923-1"
+			ns2                          = "ns-74923-2"
+			sa1                          = "sa74923-1"
+			sa2                          = "sa74923-2"
+			saCrb1                       = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa1,
+				Namespace: ns1,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			saCrb2 = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa2,
+				Namespace: ns2,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-74923-1",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74923",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension1 = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-74923-1",
+				PackageName:      "nginx74923",
+				InstallNamespace: ns1,
+				SaName:           sa1,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+			clusterextension2 = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-74923-2",
+				PackageName:      "nginx74923",
+				InstallNamespace: ns2,
+				SaName:           sa2,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1. Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2. Create clusterextension1")
+		g.By("2.1 Create namespace 1")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns1, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns1).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns1)).To(o.BeTrue())
+
+		g.By("2.2 Create SA for clusterextension1")
+		defer saCrb1.Delete(oc)
+		saCrb1.Create(oc)
+
+		g.By("2.3 Create clusterextension1")
+		defer clusterextension1.Delete(oc)
+		clusterextension1.Create(oc)
+		o.Expect(clusterextension1.InstalledBundle).To(o.ContainSubstring("v1.0.2"))
+
+		g.By("3 Create clusterextension2")
+		g.By("3.1 Create namespace 2")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns2, "--ignore-not-found").Execute()
+		}()
+		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns2).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns2)).To(o.BeTrue())
+
+		g.By("3.2 Create SA for clusterextension2")
+		defer saCrb2.Delete(oc)
+		saCrb2.Create(oc)
+
+		g.By("3.3 Create clusterextension2")
+		defer clusterextension2.Delete(oc)
+		_ = clusterextension2.CreateWithoutCheck(oc)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension2.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "already exists in namespace") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "clusterextension2 should not be installed")
+		clusterextension2.Delete(oc)
+		clusterextension1.Delete(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			status, _ := oc.AsAdmin().WithoutNamespace().Run("get").Args("crd", "nginxolm74923s.cache.example.com").Output()
+			if !strings.Contains(status, "NotFound") {
+				e2e.Logf("crd status: %s", status)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "crd nginxolm74923s.cache.example.com is not deleted")
+
+		g.By("4 Create crd")
+		crdFilePath := filepath.Join(baseDir, "crd-nginxolm74923.yaml")
+		defer func() {
+			_, _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("crd", "nginxolm74923s.cache.example.com").Output()
+		}()
+		_, _ = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", crdFilePath).Output()
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			status, _ := oc.AsAdmin().WithoutNamespace().Run("get").Args("crd", "nginxolm74923s.cache.example.com").Output()
+			if strings.Contains(status, "NotFound") {
+				e2e.Logf("crd status: %s", status)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "crd nginxolm74923s.cache.example.com is not deleted")
+
+		_ = clusterextension1.CreateWithoutCheck(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension1.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "already exists in namespace") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "clusterextension1 should not be installed")
+
+	})
+
+	g.It("PolarionID:75501-[OTP][Skipped:Disconnected]the updates of various status fields is orthogonal", func() {
+		var (
+			caseID                       = "75501"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-75501"
+			sa                           = "sa75501"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-75501",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm75501",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-75501",
+				InstallNamespace: ns,
+				PackageName:      "nginx75501",
+				Channel:          "candidate-v2.1",
+				Version:          "2.1.0",
+				SaName:           sa,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("Create clusterextension with channel candidate-v2.1, version 2.1.0")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+		reason, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].reason}`)
+		o.Expect(reason).To(o.ContainSubstring("Succeeded"))
+		status, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Installed")].status}`)
+		o.Expect(status).To(o.ContainSubstring("True"))
+		reason, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Installed")].reason}`)
+		o.Expect(reason).To(o.ContainSubstring("Succeeded"))
+		installedBundleVersion, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.install.bundle.version}`)
+		o.Expect(installedBundleVersion).To(o.ContainSubstring("2.1.0"))
+		installedBundleName, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.install.bundle.name}`)
+		o.Expect(installedBundleName).To(o.ContainSubstring("nginx75501.v2.1.0"))
+		resolvedBundleVersion, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.install.bundle.version}`)
+		o.Expect(resolvedBundleVersion).To(o.ContainSubstring("2.1.0"))
+		resolvedBundleName, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.install.bundle.name}`)
+		o.Expect(resolvedBundleName).To(o.ContainSubstring("nginx75501.v2.1.0"))
+
+		clusterextension.Delete(oc)
+
+		g.By("Test UnpackFailed, bundle image cannot be pulled successfully")
+		clusterextension.Channel = "candidate-v2.0"
+		clusterextension.Version = "2.0.0"
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			unpackedReason, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].reason}`)
+			unpackedMessage, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].message}`)
+			if !strings.Contains(unpackedReason, "Retrying") || !strings.Contains(unpackedMessage, "manifest unknown") {
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "clusterextension status is not correct")
+		}
+		clusterextension.Delete(oc)
+
+		g.By("Test ResolutionFailed, wrong version")
+		clusterextension.Version = "3.0.0"
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			resolvedReason, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].reason}`)
+			resolvedMessage, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].message}`)
+			if !strings.Contains(resolvedReason, "Retrying") || !strings.Contains(resolvedMessage, "no bundles found for package") {
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "clusterextension status is not correct")
+		}
+		clusterextension.Delete(oc)
+
+		g.By("Test ResolutionFailed, no package")
+		clusterextension.PackageName = "nginxfake"
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			resolvedReason, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].reason}`)
+			resolvedMessage, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")].message}`)
+			if !strings.Contains(resolvedReason, "Retrying") || !strings.Contains(resolvedMessage, "no bundles found for package") {
+				return false, nil
+			}
+			return true, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "clusterextension status is not correct")
+		}
+
+	})
+
+	g.It("PolarionID:76685-[OTP][Skipped:Disconnected]olm v1 supports selecting catalogs [Serial]", func() {
+		var (
+			baseDir                                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate                   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate                 = filepath.Join(baseDir, "clusterextensionWithoutChannelVersion.yaml")
+			clusterextensionLabelTemplate            = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
+			clusterextensionExpressionsTemplate      = filepath.Join(baseDir, "clusterextension-withselectorExpressions-WithoutChannelVersion.yaml")
+			clusterextensionLableExpressionsTemplate = filepath.Join(baseDir, "clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml")
+
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-76685"
+			sa                           = "sa76685"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog1 = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: "ocp-76685-1",
+				Name:       "clustercatalog-76685-1",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginx76685v1",
+				Template:   clustercatalogTemplate,
+			}
+			clustercatalog2 = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: "ocp-76685-2",
+				Name:       "clustercatalog-76685-2",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginx76685v2",
+				Template:   clustercatalogTemplate,
+			}
+			clustercatalog3 = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: "ocp-76685-3",
+				Name:       "clustercatalog-76685-3",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginx76685v3",
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-76685",
+				InstallNamespace: ns,
+				PackageName:      "nginx76685",
+				SaName:           sa,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1) Create namespace, sa, clustercatalog1 and clustercatalog2")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog1.Delete(oc)
+		clustercatalog1.Create(oc)
+		defer clustercatalog2.Delete(oc)
+		clustercatalog2.Create(oc)
+
+		g.By("2) 2 clustercatalogs with same priority, install clusterextension, selector of clusterextension is empty")
+		defer clusterextension.Delete(oc)
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", `jsonpath={.status.conditions[?(@.type=="Progressing")]}`)
+			if strings.Contains(message, "multiple catalogs with the same priority") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "no error message raised")
+		clusterextension.Delete(oc)
+
+		g.By("3) 2 clustercatalogs with same priority, install clusterextension, selector of clusterextension is not empty")
+		clusterextension.Template = clusterextensionLabelTemplate
+		clusterextension.LabelKey = "olm.operatorframework.io/metadata.name"
+		clusterextension.LabelValue = clustercatalog1.Name
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v1.0.1")
+		clusterextension.Delete(oc)
+
+		g.By("4) Install 2 clustercatalogs with different priorities, and the selector of  clusterextension is empty")
+		clustercatalog1.Patch(oc, `{"spec":{"priority": 100}}`)
+		clustercatalog2.Patch(oc, `{"spec":{"priority": 1000}}`)
+		clusterextension.Template = clusterextensionTemplate
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v2.0.0")
+		clusterextension.Delete(oc)
+
+		g.By("5) Install 2 clustercatalogs with different priorities, and the selector of clusterextension is not empty")
+		clusterextension.Template = clusterextensionLabelTemplate
+		clusterextension.LabelKey = "olm.operatorframework.io/metadata.name"
+		clusterextension.LabelValue = clustercatalog1.Name
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v1.0.1")
+
+		g.By("6) add ClusterCatalog 3, and modify the selector of clusterextension to use ClusterCatalog 3")
+		defer clustercatalog3.Delete(oc)
+		clustercatalog3.Create(oc)
+		clusterextension.LabelKey = clustercatalog3.LabelKey
+		clusterextension.LabelValue = clustercatalog3.LabelValue
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v3.0.0")
+		clusterextension.Delete(oc)
+
+		g.By("7) matchExpressions")
+		clusterextension.Template = clusterextensionExpressionsTemplate
+		clusterextension.ExpressionsKey = clustercatalog3.LabelKey
+		clusterextension.ExpressionsOperator = "NotIn"
+		clusterextension.ExpressionsValue1 = clustercatalog3.LabelValue
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v2.0.0")
+
+		g.By("8) test both matchLabels and matchExpressions")
+		clusterextension.Template = clusterextensionLableExpressionsTemplate
+		clusterextension.LabelKey = "olm.operatorframework.io/metadata.name"
+		clusterextension.LabelValue = clustercatalog3.Name
+		clusterextension.ExpressionsKey = clustercatalog3.LabelKey
+		clusterextension.ExpressionsOperator = "In"
+		clusterextension.ExpressionsValue1 = clustercatalog1.LabelValue
+		clusterextension.ExpressionsValue2 = clustercatalog2.LabelValue
+		clusterextension.ExpressionsValue3 = clustercatalog3.LabelValue
+		clusterextension.Create(oc)
+		clusterextension.WaitClusterExtensionVersion(oc, "v3.0.0")
+
+	})
+
+	g.It("PolarionID:77972-[OTP][Skipped:Disconnected]olm v1 Supports MaxOCPVersion in properties file", func() {
+		var (
+			caseID                       = "77972"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-77972"
+			sa                           = "sa77972"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: labelValue,
+				Name:       "clustercatalog-77972",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm77972",
+				Template:   clustercatalogTemplate,
+			}
+
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-77972",
+				InstallNamespace: ns,
+				PackageName:      "nginx77972",
+				SaName:           sa,
+				Version:          "0.0.1",
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1) Create namespace, sa, clustercatalog1 and clustercatalog2")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) install clusterextension, version 0.0.1, without setting olm.maxOpenShiftVersion")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v0.0.1"))
+		status, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("True"))
+		message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+		o.Expect(message).To(o.ContainSubstring("All is well"))
+
+		g.By("3) upgrade clusterextension to 1.1.0, olm.maxOpenShiftVersion is 4.19")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.1.0"}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, "InstalledOLMOperatorsUpgradeable") && strings.Contains(message, "nginx77972.v1.1.0") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("False"))
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
+
+		g.By("4) upgrade clusterextension to 1.2.0, olm.maxOpenShiftVersion is 4.20")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.2.0"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, "InstalledOLMOperatorsUpgradeable") && strings.Contains(message, "nginx77972.v1.2.0") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("False"))
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
+	})
+
+	g.It("PolarionID:82249-[OTP][Skipped:Disconnected]Verify olmv1 support for float type maxOCPVersion in properties file", func() {
+		var (
+			caseID                       = "82249"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-82249"
+			sa                           = "sa82249"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				Name:       "clustercatalog-82249",
+				LabelValue: labelValue,
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm82249",
+				Template:   clustercatalogTemplate,
+			}
+
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-82249",
+				InstallNamespace: ns,
+				PackageName:      "nginx82249",
+				SaName:           sa,
+				Version:          "0.0.1",
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1) Create namespace, sa, clustercatalog")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) install clusterextension, version 0.0.1, without setting olm.maxOpenShiftVersion")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v0.0.1"))
+		status, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("True"))
+		message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+		o.Expect(message).To(o.ContainSubstring("All is well"))
+
+		g.By("3) upgrade clusterextension to 1.2.0, olm.maxOpenShiftVersion is 4.20")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.2.0"}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, "InstalledOLMOperatorsUpgradeable") && strings.Contains(message, "nginx82249.v1.2.0") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("False"))
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
+
+		g.By("4) upgrade clusterextension to 1.3.0, olm.maxOpenShiftVersion is 4.21")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.3.0"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, "InstalledOLMOperatorsUpgradeable") && strings.Contains(message, "nginx82249.v1.3.0") {
+				e2e.Logf("status is %s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("False"))
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
+
+		g.By("5) Test PASS")
+
+	})
+
+	g.It("PolarionID:80117-[OTP][Skipped:Disconnected] Single Namespace Install Mode should be supported", func() {
+		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
+			g.Skip("SingleOwnNamespaceInstallSupport is not enable, so skip it")
+		}
+		var (
+			caseID                            = "80117"
+			labelValue                        = caseID
+			baseDir                           = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate            = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionOwnSingleTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml")
+			clusterextensionTemplate          = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-80117"
+			nsWatch                      = "ns-80117-watch"
+			sa                           = "sa80117"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: labelValue,
+				Name:       "clustercatalog-80117",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm80117",
+				Template:   clustercatalogTemplate,
+			}
+
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-80117",
+				InstallNamespace: ns,
+				PackageName:      "nginx80117",
+				SaName:           sa,
+				Version:          "1.0.1",
+				WatchNamespace:   nsWatch,
+				LabelValue:       labelValue,
+				Template:         clusterextensionOwnSingleTemplate,
+			}
+			clusterextensionAllNs = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-80117",
+				InstallNamespace: ns,
+				PackageName:      "nginx80117",
+				SaName:           sa,
+				Version:          "1.1.0",
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1) Create namespace, sa, clustercatalog")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) install clusterextension, version 1.0.1, without creating watch ns")
+		defer clusterextension.Delete(oc)
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "failed to create resource") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "status is not correct")
+		clusterextension.Delete(oc)
+
+		g.By("3) create watch ns")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", nsWatch, "--ignore-not-found").Execute()
+		}()
+		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", nsWatch).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsWatch)).To(o.BeTrue())
+
+		g.By("4) create clusterextension, version 1.0.1")
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.1"))
+
+		g.By("4.1) check deployment")
+		deploymentTargetNS, _ := olmv1util.GetNoEmpty(oc, "deployment", "nginx80117-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+		o.Expect(deploymentTargetNS).To(o.ContainSubstring(nsWatch))
+		g.By("4.2) check rolebinding")
+		rdNS, _ := olmv1util.GetNoEmpty(oc, "rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", nsWatch, "-o", `jsonpath={..subjects[].namespace}`)
+		o.Expect(rdNS).To(o.ContainSubstring(ns))
+
+		g.By("5) upgrade clusterextension to 1.0.2, v1.0.2 only support singleNamespace")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.0.2"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.0.2") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80117 1.0.2 is not installed")
+		g.By("5.1) check deployment")
+		deploymentTargetNS, _ = olmv1util.GetNoEmpty(oc, "deployment", "nginx80117-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+		o.Expect(deploymentTargetNS).To(o.ContainSubstring(nsWatch))
+		g.By("5.2) check rolebinding")
+		rdNS, _ = olmv1util.GetNoEmpty(oc, "rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", nsWatch, "-o", `jsonpath={..subjects[].namespace}`)
+		o.Expect(rdNS).To(o.ContainSubstring(ns))
+
+		g.By("6) upgrade clusterextension to 1.1.0, support allnamespace")
+		clusterextensionAllNs.Create(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.1.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80117 1.1.0 is not installed")
+		g.By("6.1) check deployment")
+		deploymentTargetNS, _ = oc.AsAdmin().WithoutNamespace().Run("get").Args("deployment", "nginx80117-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`).Output()
+		o.Expect(deploymentTargetNS).To(o.BeEmpty())
+		g.By("6.2) check rolebinding")
+		rdNS, _ = oc.AsAdmin().WithoutNamespace().Run("get").Args("rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", nsWatch).Output()
+		o.Expect(rdNS).To(o.ContainSubstring("No resources found"))
+
+		g.By("7) upgrade clusterextension to 2.0.0, support singleNamespace")
+		clusterextension.Version = "2.0.0"
+		clusterextension.Create(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "2.0.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80117 2.0.0 is not installed")
+		g.By("7.1) check deployment")
+		deploymentTargetNS, _ = olmv1util.GetNoEmpty(oc, "deployment", "nginx80117-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+		o.Expect(deploymentTargetNS).To(o.ContainSubstring(nsWatch))
+		g.By("7.2) check rolebinding")
+		rdNS, _ = olmv1util.GetNoEmpty(oc, "rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", nsWatch, "-o", `jsonpath={..subjects[].namespace}`)
+		o.Expect(rdNS).To(o.ContainSubstring(ns))
+
+		g.By("8) check not support install two same clusterextensions")
+		ns2 := ns + "-2"
+		nsWatch2 := nsWatch + "-2"
+		sa2 := "sa80117-2"
+		saCrb2 := olmv1util.SaCLusterRolebindingDescription{
+			Name:      sa2,
+			Namespace: ns2,
+			Template:  saClusterRoleBindingTemplate,
+		}
+
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns2, "--ignore-not-found").Execute()
+		}()
+		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns2).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns2)).To(o.BeTrue())
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", nsWatch2, "--ignore-not-found").Execute()
+		}()
+		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", nsWatch2).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsWatch2)).To(o.BeTrue())
+
+		defer saCrb2.Delete(oc)
+		saCrb2.Create(oc)
+		clusterextension2 := olmv1util.ClusterExtensionDescription{
+			Name:             "clusterextension-80117-2",
+			InstallNamespace: ns2,
+			PackageName:      "nginx80117",
+			SaName:           sa2,
+			Version:          "1.0.1",
+			WatchNamespace:   nsWatch2,
+			LabelKey:         "olmv1-test",
+			LabelValue:       labelValue,
+			Template:         clusterextensionOwnSingleTemplate,
+		}
+		defer clusterextension2.Delete(oc)
+		_ = clusterextension2.CreateWithoutCheck(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension2.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "already exists") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "status is not correct")
+
+		g.By("9) Test SUCCESS")
+
+	})
+
+	g.It("PolarionID:80120-[OTP][Skipped:Disconnected] Own Namespace Install Mode should be supported", func() {
+		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
+			g.Skip("SingleOwnNamespaceInstallSupport is not enable, so skip it")
+		}
+		var (
+			caseID                            = "80120"
+			labelValue                        = caseID
+			baseDir                           = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate            = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionOwnSingleTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml")
+			clusterextensionTemplate          = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-80120"
+			sa                           = "sa80120"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: labelValue,
+				Name:       "clustercatalog-80120",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm80120",
+				Template:   clustercatalogTemplate,
+			}
+
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-80120",
+				InstallNamespace: ns,
+				PackageName:      "nginx80120",
+				SaName:           sa,
+				Version:          "1.0.1",
+				LabelKey:         "olmv1-test",
+				LabelValue:       labelValue,
+				WatchNamespace:   ns,
+				Template:         clusterextensionOwnSingleTemplate,
+			}
+			clusterextensionAllNs = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-80120",
+				InstallNamespace: ns,
+				PackageName:      "nginx80120",
+				SaName:           sa,
+				Version:          "3.0.0",
+				LabelKey:         "olmv1-test",
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("1) Create namespace, sa, clustercatalog")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) install clusterextension, version 1.0.1")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.1"))
+		g.By("2.1) check deployment")
+		deploymentTargetNS, _ := olmv1util.GetNoEmpty(oc, "deployment", "nginx80120-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+		o.Expect(deploymentTargetNS).To(o.ContainSubstring(ns))
+		g.By("2.2) check rolebinding")
+		rdNS, _ := olmv1util.GetNoEmpty(oc, "rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", ns, "-o", `jsonpath={..subjects[].namespace}`)
+		o.Expect(rdNS).To(o.ContainSubstring(ns))
+
+		g.By("3) upgrade clusterextension to 1.0.2, v1.0.2 only support OwnNamespace")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.0.2"}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.0.2") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80120 1.0.2 is not installed")
+
+		g.By("4) upgrade clusterextension to 3.0.0, support allnamespace")
+		clusterextensionAllNs.Create(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "3.0.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80120 3.0.0 is not installed")
+		g.By("4.1) check deployment")
+		deploymentTargetNS, _ = oc.AsAdmin().WithoutNamespace().Run("get").Args("deployment", "nginx80120-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`).Output()
+		o.Expect(deploymentTargetNS).To(o.BeEmpty())
+		g.By("4.2) check rolebinding")
+		rdNS, _ = oc.AsAdmin().WithoutNamespace().Run("get").Args("rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", ns).Output()
+		o.Expect(rdNS).To(o.ContainSubstring("No resources found"))
+
+		g.By("5) upgrade clusterextension to 4.0.0, support OwnNamespace")
+		clusterextension.Version = "4.0.0"
+		clusterextension.Create(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "4.0.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80120 4.0.0 is not installed")
+		g.By("5.1) check deployment")
+		deploymentTargetNS, _ = olmv1util.GetNoEmpty(oc, "deployment", "nginx80120-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+		o.Expect(deploymentTargetNS).To(o.ContainSubstring(ns))
+		g.By("5.2) check rolebinding")
+		rdNS, _ = olmv1util.GetNoEmpty(oc, "rolebinding", "-l", "olm.operatorframework.io/owner-name="+clusterextension.Name, "-n", ns, "-o", `jsonpath={..subjects[].namespace}`)
+		o.Expect(rdNS).To(o.ContainSubstring(ns))
+
+		g.By("6) if the annotations is not correct, error should be raised")
+		clusterextension.Delete(oc)
+		clusterextension = olmv1util.ClusterExtensionDescription{
+			Name:             "clusterextension-80120",
+			InstallNamespace: ns,
+			PackageName:      "nginx80120",
+			SaName:           sa,
+			Version:          "1.0.1",
+			WatchNamespace:   ns + "flake",
+			LabelKey:         "olmv1-test",
+			LabelValue:       labelValue,
+			Template:         clusterextensionOwnSingleTemplate,
+		}
+		_ = clusterextension.CreateWithoutCheck(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "invalid configuration") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx80120 status is not correct")
+
+		g.By("7) Test SUCCESS")
+
+	})
+
+	g.It("PolarionID:82136-[OTP][Skipped:Disconnected]olm v1 supports NetworkPolicy resources", func() {
+		var (
+			caseID                       = "82136"
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			ns                           = "ns-82136"
+			sa                           = "sa82136"
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				LabelKey:   "olmv1-test",
+				LabelValue: labelValue,
+				Name:       "clustercatalog-82136",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm82136",
+				Template:   clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             "clusterextension-82136",
+				InstallNamespace: ns,
+				PackageName:      "nginx82136",
+				Version:          "1.0.1",
+				SaName:           sa,
+				LabelKey:         "olmv1-test",
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create SA for clusterextension")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("1) Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("2) Installnginx82136.v1.0.1, no networkpolicy")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("1.0.1"))
+		networkpolicies, err := oc.WithoutNamespace().AsAdmin().Run("get").Args("networkpolicy", "-n", ns).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(networkpolicies).To(o.ContainSubstring("No resources found"))
+
+		g.By("3) upgrade to nginx82136.v1.1.0, 1 networkpolicy, allow all ingress and all egress traffic")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"1.1.0"}}}}`)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.1.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx82136 1.1.0 is not installed")
+		networkpolicies, err = oc.WithoutNamespace().AsAdmin().Run("get").Args("networkpolicy", "-n", ns).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(networkpolicies).To(o.ContainSubstring("nginx82136-controller-acceptall"))
+
+		g.By("4) upgrade to nginx82136.v2.0.0, 2 networkpolicy, one default deny all traffic, one for controller-manager")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"2.0.0"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "2.0.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx82136 2.2.0 is not installed")
+		networkpolicies, err = oc.WithoutNamespace().AsAdmin().Run("get").Args("networkpolicy", "-n", ns).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(networkpolicies).To(o.ContainSubstring("default-deny-all"))
+		o.Expect(networkpolicies).To(o.ContainSubstring("nginx82136-controller"))
+		o.Expect(networkpolicies).NotTo(o.ContainSubstring("nginx82136-controller-acceptall"))
+
+		g.By("5) upgrade to nginx82136.v2.1.0, wrong networkpolicy")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"2.1.0"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions[*].message}")
+			if !strings.Contains(message, "Unsupported value") {
+				e2e.Logf("status is %s", message)
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx82136.v2.1.0 should not be installed, wrong error message")
+
+		g.By("6) upgrade to nginx82136.v2.2.0, no networkpolicy")
+		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"version":"2.2.0"}}}}`)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "2.2.0") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx82136 2.2.0 is not installed")
+		networkpolicies, err = oc.WithoutNamespace().AsAdmin().Run("get").Args("networkpolicy", "-n", ns).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(networkpolicies).To(o.ContainSubstring("No resources found"))
+
+		g.By("7) Test SUCCESS")
 	})
 
 })
