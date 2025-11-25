@@ -52,12 +52,21 @@ spec:
               labels:
                 control-plane: controller-manager
             spec:
+              volumes:
+              - name: scripts
+                configMap:
+                  name: httpd-script
+                  defaultMode: 0755
               containers:
               - args:
-                command:
-                - sleep
-                - "1000"
+                command: ["/scripts/httpd.sh"]
                 image: "{{ TEST-CONTROLLER }}"
+                ports:
+                  - containerPort: 8081
+                volumeMounts:
+                  - name: scripts
+                    mountPath: /scripts
+                    readOnly: true
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -83,6 +92,12 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                startupProbe:
+                  httpGet:
+                    path: /started
+                    port: 8081
+                  failureThreshold: 30
+                  periodSeconds: 10
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: default
