@@ -100,6 +100,24 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
+    "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69123-[OTP][Skipped:Disconnected]Catalogd clustercatalog offer the operator content through http server",
     "labels": {
       "ClusterCatalog": {},
@@ -329,23 +347,6 @@
       "ClusterCatalog": {},
       "Extended": {},
       "NonHyperShiftHOST": {}
-    },
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {
-      "exclude": "topology==\"External\""
-    }
-  },
-  {
-    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
-    "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
-    "labels": {
-      "Extended": {},
-      "NonHyperShiftHOST": {},
-      "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly": {}
     },
     "resources": {
       "isolation": {}
