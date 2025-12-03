@@ -47,6 +47,21 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:75877-[OTP]Make sure that rukpak is removed from payload",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[OTP][Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
     "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:69242-[Skipped:Disconnected]Catalogd deprecated package bundlemetadata catalogmetadata from clustercatalog CR",
     "labels": {
@@ -72,6 +87,22 @@
       "Extended": {},
       "NonHyperShiftHOST": {},
       "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:80458-[Skipped:Disconnected]clustercatalog get x509 error since it cannot get the custom CA automatically [Serial]": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
     },
     "resources": {
       "isolation": {}
@@ -364,6 +395,21 @@
       "Extended": {},
       "NonHyperShiftHOST": {},
       "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
     },
     "resources": {
       "isolation": {}
