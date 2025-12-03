@@ -299,7 +299,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[Skipped:Disconnected]olmv1 downgrade version"), func() {
+	g.It("PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version", func() {
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
 			ns                           = "ns-70723"
