@@ -127,7 +127,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		clustercatalog.CheckClusterCatalogCondition(oc, "Progressing", "message", "manifest unknown", 5, 90, 0)
 	})
 
-	g.It("PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly", g.Label("original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly"), func() {
+	g.It("PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly", func() {
 		g.By("Verify built-in ClusterCatalogs report Serving=True")
 		checks := []olmv1util.CheckDescription{
 			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
