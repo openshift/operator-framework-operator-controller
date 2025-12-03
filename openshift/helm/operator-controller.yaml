@@ -8,6 +8,8 @@ options:
     enabled: true
     deployment:
       image: ${OPERATOR_CONTROLLER_IMAGE}
+    podDisruptionBudget:
+      enabled: false
   catalogd:
     enabled: false
   openshift:
