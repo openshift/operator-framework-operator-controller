@@ -48,11 +48,9 @@
   },
   {
     "name": "[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:75877-[OTP]Make sure that rukpak is removed from payload",
-    "originalName": "[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:75877-Make sure that rukpak is removed from payload",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {},
-      "original-name:[sig-olmv1][Jira:OLM] cluster-olm-operator PolarionID:75877-Make sure that rukpak is removed from payload": {}
+      "NonHyperShiftHOST": {}
     },
     "resources": {
       "isolation": {}
@@ -101,12 +99,10 @@
   },
   {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[OTP][Level0][Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
-    "originalName": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly",
     "labels": {
       "ClusterCatalog": {},
       "Extended": {},
-      "NonHyperShiftHOST": {},
-      "original-name:[sig-olmv1][Jira:OLM] clustercatalog PolarionID:77413-[Skipped:Disconnected]Check if ClusterCatalog is in Serving properly": {}
+      "NonHyperShiftHOST": {}
     },
     "resources": {
       "isolation": {}
@@ -411,11 +407,9 @@
   },
   {
     "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version",
-    "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[Skipped:Disconnected]olmv1 downgrade version",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {},
-      "original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:70723-[Skipped:Disconnected]olmv1 downgrade version": {}
+      "NonHyperShiftHOST": {}
     },
     "resources": {
       "isolation": {}
