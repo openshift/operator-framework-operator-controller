@@ -9,7 +9,7 @@ options:
     deployment:
       image: ${OPERATOR_CONTROLLER_IMAGE}
     podDisruptionBudget:
-      enabled: false
+      enabled: true
   catalogd:
     enabled: false
   openshift:
