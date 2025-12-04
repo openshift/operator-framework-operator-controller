@@ -8,8 +8,10 @@ options:
     enabled: true
     deployment:
       image: ${CATALOGD_IMAGE}
+      replicas: 2
     podDisruptionBudget:
-      enabled: false
+      enabled: true
+      minAvailable: 1
   operatorController:
     enabled: false
   openshift:
