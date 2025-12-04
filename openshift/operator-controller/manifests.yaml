@@ -1053,7 +1053,7 @@ metadata:
   name: operator-controller-controller-manager
   namespace: openshift-operator-controller
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:

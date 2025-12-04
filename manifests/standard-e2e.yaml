@@ -1795,7 +1795,7 @@ metadata:
   namespace: olmv1-system
 spec:
   minReadySeconds: 5
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -1945,7 +1945,7 @@ metadata:
   name: operator-controller-controller-manager
   namespace: olmv1-system
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
