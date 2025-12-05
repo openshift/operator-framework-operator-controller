@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"slices"
 	"testing"
 	"time"
 
@@ -198,8 +197,7 @@ func TestClusterExtensionInstallRegistryMultipleBundles(t *testing.T) {
 	t.Log("When a cluster extension is installed from a catalog")
 
 	clusterExtension, extensionCatalog, sa, ns := TestInit(t)
-	extraCatalogName := fmt.Sprintf("extra-test-catalog-%s", rand.String(8))
-	extraCatalog, err := CreateTestCatalog(context.Background(), extraCatalogName, os.Getenv(testCatalogRefEnvVar))
+	extraCatalog, err := CreateTestCatalog(context.Background(), "extra-test-catalog", os.Getenv(testCatalogRefEnvVar))
 	require.NoError(t, err)
 
 	defer TestCleanup(t, extensionCatalog, clusterExtension, sa, ns)
@@ -240,11 +238,7 @@ func TestClusterExtensionInstallRegistryMultipleBundles(t *testing.T) {
 		require.NotNil(ct, cond)
 		require.Equal(ct, metav1.ConditionTrue, cond.Status)
 		require.Equal(ct, ocv1.ReasonRetrying, cond.Reason)
-		// Catalog names are sorted alphabetically in the error message
-		catalogs := []string{extensionCatalog.Name, extraCatalog.Name}
-		slices.Sort(catalogs)
-		expectedMessage := fmt.Sprintf("in multiple catalogs with the same priority %v", catalogs)
-		require.Contains(ct, cond.Message, expectedMessage)
+		require.Contains(ct, cond.Message, "in multiple catalogs with the same priority [extra-test-catalog test-catalog]")
 	}, pollDuration, pollInterval)
 }
 
@@ -447,7 +441,7 @@ func TestClusterExtensionInstallReResolvesWhenCatalogIsPatched(t *testing.T) {
 	// patch imageRef tag on test-catalog image with v2 image
 	t.Log("By patching the catalog ImageRef to point to the v2 catalog")
 	updatedCatalogImage := fmt.Sprintf("%s/e2e/test-catalog:v2", os.Getenv("CLUSTER_REGISTRY_HOST"))
-	err := patchTestCatalog(context.Background(), extensionCatalog.Name, updatedCatalogImage)
+	err := patchTestCatalog(context.Background(), testCatalogName, updatedCatalogImage)
 	require.NoError(t, err)
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		require.NoError(ct, c.Get(context.Background(), types.NamespacedName{Name: extensionCatalog.Name}, extensionCatalog))
@@ -480,9 +474,8 @@ func TestClusterExtensionInstallReResolvesWhenNewCatalog(t *testing.T) {
 	require.NoError(t, err)
 
 	// create a test-catalog with latest image tag
-	catalogName := fmt.Sprintf("test-catalog-%s", rand.String(8))
 	latestCatalogImage := fmt.Sprintf("%s/e2e/test-catalog:latest", os.Getenv("CLUSTER_REGISTRY_HOST"))
-	extensionCatalog, err := CreateTestCatalog(context.Background(), catalogName, latestCatalogImage)
+	extensionCatalog, err := CreateTestCatalog(context.Background(), testCatalogName, latestCatalogImage)
 	require.NoError(t, err)
 	clusterExtensionName := fmt.Sprintf("clusterextension-%s", rand.String(8))
 	clusterExtension := &ocv1.ClusterExtension{
