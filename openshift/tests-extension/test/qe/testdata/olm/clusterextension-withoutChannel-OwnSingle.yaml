@@ -7,22 +7,17 @@ objects:
   kind: ClusterExtension
   metadata:
     name: "${NAME}"
+    annotations:
+      olm.operatorframework.io/watch-namespace: "${WATCHNS}"
   spec:
     namespace: "${INSTALLNAMESPACE}"
     serviceAccount:
       name: "${SANAME}"
-    config:
-      configType: Inline
-      inline:
-        watchNamespace: "${WATCHNS}"
     source:
       sourceType: "${SOURCETYPE}"
       catalog:
         packageName: "${PACKAGE}"
         version: "${VERSION}"
-        selector:
-          matchLabels:
-            "${LABELKEY}": "${LABELVALUE}"
         upgradeConstraintPolicy: "${POLICY}"
 parameters:
 - name: NAME
@@ -35,11 +30,4 @@ parameters:
   value: "CatalogProvided"
 - name: SOURCETYPE
   value: "Catalog"
-- name: LABELVALUE
-  # suggest to use case id
-- name: LABELKEY
-  value: "olmv1-test"
-
-
-
 
