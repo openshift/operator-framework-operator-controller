@@ -27,7 +27,6 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
-	"github.com/operator-framework/operator-controller/internal/shared/util/cache"
 )
 
 const (
@@ -67,9 +66,6 @@ func (r *SimpleRevisionGenerator) GenerateRevisionFromHelmRelease(
 		maps.Copy(labels, objectLabels)
 		obj.SetLabels(labels)
 
-		// Memory optimization: strip large annotations
-		// Note: ApplyStripTransform never returns an error in practice
-		_ = cache.ApplyStripAnnotationsTransform(&obj)
 		sanitizedUnstructured(ctx, &obj)
 
 		objs = append(objs, ocv1.ClusterExtensionRevisionObject{
@@ -121,10 +117,6 @@ func (r *SimpleRevisionGenerator) GenerateRevision(
 		unstr := unstructured.Unstructured{Object: unstrObj}
 		unstr.SetGroupVersionKind(gvk)
 
-		// Memory optimization: strip large annotations
-		if err := cache.ApplyStripAnnotationsTransform(&unstr); err != nil {
-			return nil, err
-		}
 		sanitizedUnstructured(ctx, &unstr)
 
 		objs = append(objs, ocv1.ClusterExtensionRevisionObject{
