@@ -176,12 +176,14 @@ type ClusterExtensionConfig struct {
 	// inline contains JSON or YAML values specified directly in the
 	// ClusterExtension.
 	//
-	// inline must be set if configType is 'Inline'.
-	// inline accepts arbitrary JSON/YAML objects.
-	// inline is validation at runtime against the schema provided by the bundle if a schema is provided.
+	// inline is used to specify arbitrary configuration values for the ClusterExtension.
+	// It must be set if configType is 'Inline' and must be a valid JSON/YAML object containing at least one property.
+	// The configuration values are validated at runtime against a JSON schema provided by the bundle.
 	//
 	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:MinProperties=1
 	// +optional
+	// +unionMember
 	Inline *apiextensionsv1.JSON `json:"inline,omitempty"`
 }
 
@@ -482,6 +484,9 @@ type ClusterExtensionStatus struct {
 	// When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.
 	// When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.
 	// When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.
+	// <opcon:experimental:description>
+	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterExtensionRevisions in active roll out.
+	// </opcon:experimental:description>
 	//
 	// When the ClusterExtension is sourced from a catalog, if may also communicate a deprecation condition.
 	// These are indications from a package owner to guide users away from a particular package, channel, or bundle.
