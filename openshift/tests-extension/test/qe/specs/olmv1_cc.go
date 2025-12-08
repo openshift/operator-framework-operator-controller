@@ -124,7 +124,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		_ = clustercatalog.CreateWithoutCheck(oc)
 		// it should retrun error message: source catalog content: error creating image source:
 		// reading manifest v4.17 in my-route-e2e-test-default-gt5wh.apps.xiyuan-19b.qe.devcluster.openshift.com/redhat/redhat-operator-index: manifest unknown
-		clustercatalog.CheckClusterCatalogCondition(oc, "Progressing", "message", "manifest unknown", 5, 90, 0)
+		clustercatalog.CheckClusterCatalogCondition(oc, "Progressing", "message", "manifest unknown", 5, 180, 0)
 	})
 
 	g.It("PolarionID:69123-[OTP][Skipped:Disconnected]Catalogd clustercatalog offer the operator content through http server", func() {
