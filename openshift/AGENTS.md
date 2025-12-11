@@ -11,7 +11,7 @@ This repository (`openshift/operator-framework-operator-controller`) is OpenShif
 **Upstream Repository:** https://github.com/operator-framework/operator-controller
 
 **Key Constraints for AI Agents:**
-- This fork is **rebased regularly** against upstream (with each upstream release)
+- This fork is **synced daily** against upstream by automated tooling
 - Changes must use **strict commit message conventions** enforced by CI
 - **Minimize divergence** from upstream - every downstream change creates maintenance burden
 - **DO NOT create `UPSTREAM: <PR>:` backport commits** - automated tooling handles upstream sync
@@ -28,6 +28,8 @@ This repository (`openshift/operator-framework-operator-controller`) is OpenShif
 
 **Use for:** OpenShift-specific changes to non-generated content that must persist across rebases.
 
+**Important:** 99% of carry changes should be in the `openshift/` directory. Code outside `openshift/` should generally be modified upstream and synced downstream.
+
 **Examples:**
 ```
 UPSTREAM: <carry>: Add OpenShift-specific test for disconnected environments
@@ -35,27 +37,35 @@ UPSTREAM: <carry>: Update OCP catalogs to v4.21
 UPSTREAM: <carry>: Use busybox/httpd to simulate probes
 ```
 
-**Important:** Creates ongoing maintenance burden. Only use when change cannot go upstream.
+**Note:** Creates ongoing maintenance burden. Only use when change cannot go upstream.
 
 ### `UPSTREAM: <drop>:`
 
-**Use for:** Temporary changes needed ONLY to resolve current failures. Dropped during rebases.
+**Use for:** Temporary commits that will be dropped on the next upstream sync.
 
-**When to use:** ONLY when absolutely necessary (e.g., merge conflicts that cannot be resolved by local regeneration).
+**When to use:**
+- Pulling down an upstream fix early before the next scheduled sync
+- Resolving merge conflicts that cannot be fixed by local regeneration
+- Changes that are easier to recreate than rebase/cherry-pick (e.g., removing upstream configuration)
 
 **Examples:**
 ```
 UPSTREAM: <drop>: make manifests
 UPSTREAM: <drop>: go mod tidy
+UPSTREAM: <drop>: Remove upstream GitHub configuration
 ```
 
-**DO NOT use routinely.** Only use to unblock critical failures.
+**Note:** These commits are dropped during the next sync, so they're temporary by design.
 
 ### `UPSTREAM: <PR>:`
 
 **AI AGENTS: DO NOT CREATE THESE COMMITS.**
 
-Automated tooling handles upstream sync. Manual backports are for exceptional maintainer-only cases.
+This prefix is **ALMOST NEVER USED** on the main branch because it creates conflicts on the next upstream sync. The bumper tool automatically synchronizes upstream changes during scheduled rebases.
+
+**For urgent fixes:** Use `UPSTREAM: <drop>:` instead to pull the fix early - it will be dropped on the next sync when the real upstream commit comes down.
+
+**Note:** Cherry-picking with this prefix may be done on release branches, but since most work is on main, this is extremely uncommon.
 
 ---
 
@@ -63,7 +73,7 @@ Automated tooling handles upstream sync. Manual backports are for exceptional ma
 
 | Change Type | Action | Commit Prefix | AI Agent Action |
 |------------|--------|--------------|----------------|
-| General bug fix | Fix upstream first | None (tooling syncs) | **DO NOT create PR** - direct user to upstream |
+| General bug fix | Fix upstream, then let tooling synchronize | None | **DO NOT create PR** - direct user to upstream |
 | OpenShift-specific test | Downstream only | `UPSTREAM: <carry>:` | Create in `openshift/tests-extension/` |
 | OpenShift-specific config | Downstream only | `UPSTREAM: <carry>:` | Create in `openshift/` |
 | Generated files (to fix failures) | Only when necessary | `UPSTREAM: <drop>:` | **Only if absolutely necessary** |
