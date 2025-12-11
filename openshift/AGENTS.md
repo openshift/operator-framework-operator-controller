@@ -104,7 +104,6 @@ This prefix is **ALMOST NEVER USED** on the main branch because it creates confl
 3. **Check upstream first** before fixing bugs - should it go upstream?
 4. **Separate commits:** Never mix code changes with generated files
 5. **Run verification:** `make verify` and `make test-unit` before completion
-6. **Sign commits:** Use `git commit -s` for DCO
 
 ### DO NOT:
 1. **DO NOT create `UPSTREAM: <PR>:` backport commits** - tooling handles this
