@@ -254,7 +254,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `configType` _[ClusterExtensionConfigType](#clusterextensionconfigtype)_ | configType is a required reference to the type of configuration source.<br />Allowed values are "Inline"<br />When this field is set to "Inline", the cluster extension configuration is defined inline within the<br />ClusterExtension resource. |  | Enum: [Inline] <br />Required: \{\} <br /> |
-| `inline` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions-k8s-io)_ | inline contains JSON or YAML values specified directly in the<br />ClusterExtension.<br />inline must be set if configType is 'Inline'.<br />inline accepts arbitrary JSON/YAML objects.<br />inline is validation at runtime against the schema provided by the bundle if a schema is provided. |  | Type: object <br /> |
+| `inline` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#json-v1-apiextensions-k8s-io)_ | inline contains JSON or YAML values specified directly in the<br />ClusterExtension.<br />inline is used to specify arbitrary configuration values for the ClusterExtension.<br />It must be set if configType is 'Inline' and must be a valid JSON/YAML object containing at least one property.<br />The configuration values are validated at runtime against a JSON schema provided by the bundle. |  | MinProperties: 1 <br />Type: object <br /> |
 
 
 #### ClusterExtensionConfigType
@@ -343,7 +343,7 @@ _Appears in:_
 | `serviceAccount` _[ServiceAccountReference](#serviceaccountreference)_ | serviceAccount is a reference to a ServiceAccount used to perform all interactions<br />with the cluster that are required to manage the extension.<br />The ServiceAccount must be configured with the necessary permissions to perform these interactions.<br />The ServiceAccount must exist in the namespace referenced in the spec.<br />serviceAccount is required. |  | Required: \{\} <br /> |
 | `source` _[SourceConfig](#sourceconfig)_ | source is a required field which selects the installation source of content<br />for this ClusterExtension. Selection is performed by setting the sourceType.<br />Catalog is currently the only implemented sourceType, and setting the<br />sourcetype to "Catalog" requires the catalog field to also be defined.<br />Below is a minimal example of a source definition (in yaml):<br />source:<br />  sourceType: Catalog<br />  catalog:<br />    packageName: example-package |  | Required: \{\} <br /> |
 | `install` _[ClusterExtensionInstallConfig](#clusterextensioninstallconfig)_ | install is an optional field used to configure the installation options<br />for the ClusterExtension such as the pre-flight check configuration. |  |  |
-| `config` _[ClusterExtensionConfig](#clusterextensionconfig)_ | config is an optional field used to specify bundle specific configuration<br />used to configure the bundle. Configuration is bundle specific and a bundle may provide<br />a configuration schema. When not specified, the default configuration of the resolved bundle will be used.<br />config is validated against a configuration schema provided by the resolved bundle. If the bundle does not provide<br />a configuration schema the final manifests will be derived on a best-effort basis. More information on how<br />to configure the bundle should be found in its end-user documentation.<br /><opcon:experimental> |  |  |
+| `config` _[ClusterExtensionConfig](#clusterextensionconfig)_ | config is an optional field used to specify bundle specific configuration<br />used to configure the bundle. Configuration is bundle specific and a bundle may provide<br />a configuration schema. When not specified, the default configuration of the resolved bundle will be used.<br />config is validated against a configuration schema provided by the resolved bundle. If the bundle does not provide<br />a configuration schema the bundle is deemed to not be configurable. More information on how<br />to configure bundles can be found in the OLM documentation associated with your current OLM version.<br /><opcon:experimental> |  |  |
 
 
 #### ClusterExtensionStatus
@@ -359,8 +359,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | The set of condition types which apply to all spec.source variations are Installed and Progressing.<br />The Installed condition represents whether or not the bundle has been installed for this ClusterExtension.<br />When Installed is True and the Reason is Succeeded, the bundle has been successfully installed.<br />When Installed is False and the Reason is Failed, the bundle has failed to install.<br />The Progressing condition represents whether or not the ClusterExtension is advancing towards a new state.<br />When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.<br />When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.<br />When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.<br />When the ClusterExtension is sourced from a catalog, if may also communicate a deprecation condition.<br />These are indications from a package owner to guide users away from a particular package, channel, or bundle.<br />BundleDeprecated is set if the requested bundle version is marked deprecated in the catalog.<br />ChannelDeprecated is set if the requested channel is marked deprecated in the catalog.<br />PackageDeprecated is set if the requested package is marked deprecated in the catalog.<br />Deprecated is a rollup condition that is present when any of the deprecated conditions are present. |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | The set of condition types which apply to all spec.source variations are Installed and Progressing.<br />The Installed condition represents whether or not the bundle has been installed for this ClusterExtension.<br />When Installed is True and the Reason is Succeeded, the bundle has been successfully installed.<br />When Installed is False and the Reason is Failed, the bundle has failed to install.<br />The Progressing condition represents whether or not the ClusterExtension is advancing towards a new state.<br />When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.<br />When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.<br />When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.<br /><opcon:experimental:description><br />When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterExtensionRevisions in active roll out.<br /></opcon:experimental:description><br />When the ClusterExtension is sourced from a catalog, if may also communicate a deprecation condition.<br />These are indications from a package owner to guide users away from a particular package, channel, or bundle.<br />BundleDeprecated is set if the requested bundle version is marked deprecated in the catalog.<br />ChannelDeprecated is set if the requested channel is marked deprecated in the catalog.<br />PackageDeprecated is set if the requested package is marked deprecated in the catalog.<br />Deprecated is a rollup condition that is present when any of the deprecated conditions are present. |  |  |
 | `install` _[ClusterExtensionInstallStatus](#clusterextensioninstallstatus)_ | install is a representation of the current installation status for this ClusterExtension. |  |  |
+| `activeRevisions` _[RevisionStatus](#revisionstatus) array_ | activeRevisions holds a list of currently active (non-archived) ClusterExtensionRevisions,<br />including both installed and rolling out revisions.<br /><opcon:experimental> |  |  |
 
 
 
@@ -433,6 +434,23 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `ref` _string_ | ref contains the resolved image digest-based reference.<br />The digest format is used so users can use other tooling to fetch the exact<br />OCI manifests that were used to extract the catalog contents. |  | MaxLength: 1000 <br />Required: \{\} <br /> |
+
+
+#### RevisionStatus
+
+
+
+RevisionStatus defines the observed state of a ClusterExtensionRevision.
+
+
+
+_Appears in:_
+- [ClusterExtensionStatus](#clusterextensionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | name of the ClusterExtensionRevision resource |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | conditions optionally expose Progressing and Available condition of the revision,<br />in case when it is not yet marked as successfully installed (condition Succeeded is not set to True).<br />Given that a ClusterExtension should remain available during upgrades, an observer may use these conditions<br />to get more insights about reasons for its current state. |  |  |
 
 
 #### ServiceAccountReference
