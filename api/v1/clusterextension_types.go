@@ -103,8 +103,8 @@ type ClusterExtensionSpec struct {
 	// a configuration schema. When not specified, the default configuration of the resolved bundle will be used.
 	//
 	// config is validated against a configuration schema provided by the resolved bundle. If the bundle does not provide
-	// a configuration schema the bundle is deemed to not be configurable. More information on how
-	// to configure bundles can be found in the OLM documentation associated with your current OLM version.
+	// a configuration schema the final manifests will be derived on a best-effort basis. More information on how
+	// to configure the bundle should be found in its end-user documentation.
 	//
 	// <opcon:experimental>
 	// +optional
@@ -176,14 +176,12 @@ type ClusterExtensionConfig struct {
 	// inline contains JSON or YAML values specified directly in the
 	// ClusterExtension.
 	//
-	// inline is used to specify arbitrary configuration values for the ClusterExtension.
-	// It must be set if configType is 'Inline' and must be a valid JSON/YAML object containing at least one property.
-	// The configuration values are validated at runtime against a JSON schema provided by the bundle.
+	// inline must be set if configType is 'Inline'.
+	// inline accepts arbitrary JSON/YAML objects.
+	// inline is validation at runtime against the schema provided by the bundle if a schema is provided.
 	//
 	// +kubebuilder:validation:Type=object
-	// +kubebuilder:validation:MinProperties=1
 	// +optional
-	// +unionMember
 	Inline *apiextensionsv1.JSON `json:"inline,omitempty"`
 }
 
@@ -472,21 +470,6 @@ type BundleMetadata struct {
 	Version string `json:"version"`
 }
 
-// RevisionStatus defines the observed state of a ClusterExtensionRevision.
-type RevisionStatus struct {
-	// name of the ClusterExtensionRevision resource
-	Name string `json:"name"`
-	// conditions optionally expose Progressing and Available condition of the revision,
-	// in case when it is not yet marked as successfully installed (condition Succeeded is not set to True).
-	// Given that a ClusterExtension should remain available during upgrades, an observer may use these conditions
-	// to get more insights about reasons for its current state.
-	//
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-}
-
 // ClusterExtensionStatus defines the observed state of a ClusterExtension.
 type ClusterExtensionStatus struct {
 	// The set of condition types which apply to all spec.source variations are Installed and Progressing.
@@ -499,9 +482,6 @@ type ClusterExtensionStatus struct {
 	// When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.
 	// When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.
 	// When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.
-	// <opcon:experimental:description>
-	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterExtensionRevisions in active roll out.
-	// </opcon:experimental:description>
 	//
 	// When the ClusterExtension is sourced from a catalog, if may also communicate a deprecation condition.
 	// These are indications from a package owner to guide users away from a particular package, channel, or bundle.
@@ -519,14 +499,6 @@ type ClusterExtensionStatus struct {
 	//
 	// +optional
 	Install *ClusterExtensionInstallStatus `json:"install,omitempty"`
-
-	// activeRevisions holds a list of currently active (non-archived) ClusterExtensionRevisions,
-	// including both installed and rolling out revisions.
-	// +listType=map
-	// +listMapKey=name
-	// +optional
-	// <opcon:experimental>
-	ActiveRevisions []RevisionStatus `json:"activeRevisions,omitempty"`
 }
 
 // ClusterExtensionInstallStatus is a representation of the status of the identified bundle.

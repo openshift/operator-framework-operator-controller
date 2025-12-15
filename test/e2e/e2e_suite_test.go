@@ -8,20 +8,18 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/scheme"
-	testutil "github.com/operator-framework/operator-controller/internal/shared/util/test"
+	utils "github.com/operator-framework/operator-controller/internal/shared/util/testutils"
 )
 
 var (
 	cfg *rest.Config
 	c   client.Client
-	cs  *kubernetes.Clientset
 )
 
 const (
@@ -37,15 +35,12 @@ func TestMain(m *testing.M) {
 	c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	utilruntime.Must(err)
 
-	cs, err = kubernetes.NewForConfig(cfg)
-	utilruntime.Must(err)
-
 	res := m.Run()
 	path := os.Getenv(testSummaryOutputEnvVar)
 	if path == "" {
 		fmt.Printf("Note: E2E_SUMMARY_OUTPUT is unset; skipping summary generation")
 	} else {
-		err = testutil.PrintSummary(path)
+		err = utils.PrintSummary(path)
 		if err != nil {
 			// Fail the run if alerts are found
 			fmt.Printf("%v", err)

@@ -24,18 +24,26 @@ import (
 const (
 	ClusterExtensionRevisionKind = "ClusterExtensionRevision"
 
-	// Condition Types
-	ClusterExtensionRevisionTypeAvailable   = "Available"
-	ClusterExtensionRevisionTypeProgressing = "Progressing"
-	ClusterExtensionRevisionTypeSucceeded   = "Succeeded"
+	// ClusterExtensionRevisionTypeAvailable is the condition type that represents whether the
+	// ClusterExtensionRevision is available and has been successfully rolled out.
+	ClusterExtensionRevisionTypeAvailable = "Available"
 
-	// Condition Reasons
-	ClusterExtensionRevisionReasonArchived        = "Archived"
-	ClusterExtensionRevisionReasonBlocked         = "Blocked"
-	ClusterExtensionRevisionReasonProbeFailure    = "ProbeFailure"
-	ClusterExtensionRevisionReasonProbesSucceeded = "ProbesSucceeded"
-	ClusterExtensionRevisionReasonReconciling     = "Reconciling"
-	ClusterExtensionRevisionReasonRetrying        = "Retrying"
+	// ClusterExtensionRevisionTypeSucceeded is the condition type that represents whether the
+	// ClusterExtensionRevision rollout has succeeded.
+	ClusterExtensionRevisionTypeSucceeded = "Succeeded"
+
+	// Condition reasons
+	ClusterExtensionRevisionReasonAvailable                 = "Available"
+	ClusterExtensionRevisionReasonReconcileFailure          = "ReconcileFailure"
+	ClusterExtensionRevisionReasonRevisionValidationFailure = "RevisionValidationFailure"
+	ClusterExtensionRevisionReasonPhaseValidationError      = "PhaseValidationError"
+	ClusterExtensionRevisionReasonObjectCollisions          = "ObjectCollisions"
+	ClusterExtensionRevisionReasonRolloutSuccess            = "RolloutSuccess"
+	ClusterExtensionRevisionReasonProbeFailure              = "ProbeFailure"
+	ClusterExtensionRevisionReasonIncomplete                = "Incomplete"
+	ClusterExtensionRevisionReasonProgressing               = "Progressing"
+	ClusterExtensionRevisionReasonArchived                  = "Archived"
+	ClusterExtensionRevisionReasonMigrated                  = "Migrated"
 )
 
 // ClusterExtensionRevisionSpec defines the desired state of ClusterExtensionRevision.
@@ -95,6 +103,9 @@ type ClusterExtensionRevisionLifecycleState string
 const (
 	// ClusterExtensionRevisionLifecycleStateActive / "Active" is the default lifecycle state.
 	ClusterExtensionRevisionLifecycleStateActive ClusterExtensionRevisionLifecycleState = "Active"
+	// ClusterExtensionRevisionLifecycleStatePaused / "Paused" disables reconciliation of the ClusterExtensionRevision.
+	// Object changes will not be reconciled. However, status updates will be propagated.
+	ClusterExtensionRevisionLifecycleStatePaused ClusterExtensionRevisionLifecycleState = "Paused"
 	// ClusterExtensionRevisionLifecycleStateArchived / "Archived" archives the revision for historical or auditing purposes.
 	// The revision is removed from the owner list of all other objects previously under management and all objects
 	// that did not transition to a succeeding revision are deleted.
@@ -179,21 +190,22 @@ type ClusterExtensionRevisionStatus struct {
 	// ClusterExtensionRevision.
 	//
 	// The Progressing condition represents whether the revision is actively rolling out:
-	//   - When status is True and reason is RollingOut, the ClusterExtensionRevision rollout is actively making progress and is in transition.
-	//   - When status is True and reason is Retrying, the ClusterExtensionRevision has encountered an error that could be resolved on subsequent reconciliation attempts.
-	//   - When status is True and reason is Succeeded, the ClusterExtensionRevision has reached the desired state.
-	//   - When status is False and reason is Blocked, the ClusterExtensionRevision has encountered an error that requires manual intervention for recovery.
-	//   - When status is False and reason is Archived, the ClusterExtensionRevision is archived and not being actively reconciled.
+	//   - When status is True and reason is Progressing, the revision rollout is actively making progress and is in transition.
+	//   - When Progressing is not present, the revision is not currently in transition.
 	//
 	// The Available condition represents whether the revision has been successfully rolled out and is available:
-	//   - When status is True and reason is ProbesSucceeded, the ClusterExtensionRevision has been successfully rolled out and all objects pass their readiness probes.
+	//   - When status is True and reason is Available, the revision has been successfully rolled out and all objects pass their readiness probes.
+	//   - When status is False and reason is Incomplete, the revision rollout has not yet completed but no specific failures have been detected.
 	//   - When status is False and reason is ProbeFailure, one or more objects are failing their readiness probes during rollout.
-	//   - When status is Unknown and reason is Reconciling, the ClusterExtensionRevision has encountered an error that prevented it from observing the probes.
-	//   - When status is Unknown and reason is Archived, the ClusterExtensionRevision has been archived and its objects have been torn down.
-	//   - When status is Unknown and reason is Migrated, the ClusterExtensionRevision was migrated from an existing release and object status probe results have not yet been observed.
+	//   - When status is False and reason is ReconcileFailure, the revision has encountered a general reconciliation failure.
+	//   - When status is False and reason is RevisionValidationFailure, the revision failed preflight validation checks.
+	//   - When status is False and reason is PhaseValidationError, a phase within the revision failed preflight validation checks.
+	//   - When status is False and reason is ObjectCollisions, objects in the revision collide with existing cluster objects that cannot be adopted.
+	//   - When status is Unknown and reason is Archived, the revision has been archived and its objects have been torn down.
+	//   - When status is Unknown and reason is Migrated, the revision was migrated from an existing release and object status probe results have not yet been observed.
 	//
 	// The Succeeded condition represents whether the revision has successfully completed its rollout:
-	//   - When status is True and reason is Succeeded, the ClusterExtensionRevision has successfully completed its rollout. This condition is set once and persists even if the revision later becomes unavailable.
+	//   - When status is True and reason is RolloutSuccess, the revision has successfully completed its rollout. This condition is set once and persists even if the revision later becomes unavailable.
 	//
 	// +listType=map
 	// +listMapKey=type
@@ -205,7 +217,6 @@ type ClusterExtensionRevisionStatus struct {
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
-// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
 // +kubebuilder:printcolumn:name=Age,type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ClusterExtensionRevision represents an immutable snapshot of Kubernetes objects

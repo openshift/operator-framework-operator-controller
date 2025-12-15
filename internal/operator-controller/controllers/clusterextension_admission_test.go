@@ -462,17 +462,8 @@ func Test_ClusterExtensionAdmissionInlineConfig(t *testing.T) {
 			errMsg:      "spec.config.inline in body must be of type object",
 		},
 		{
-			name:        "rejects empty json object",
-			configBytes: []byte(`{}`),
-			errMsg:      "spec.config.inline in body should have at least 1 properties",
-		},
-		{
-			name:        "accepts valid json object with configuration",
+			name:        "accepts valid json object",
 			configBytes: []byte(`{"key": "value"}`),
-		},
-		{
-			name:        "accepts valid json object with nested configuration",
-			configBytes: []byte(`{"key": {"foo": ["bar", "baz"], "h4x0r": 1337}}`),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
-	testutil "github.com/operator-framework/operator-controller/internal/shared/util/test"
+	utils "github.com/operator-framework/operator-controller/internal/shared/util/testutils"
 	. "github.com/operator-framework/operator-controller/test/helpers"
 )
 
@@ -29,7 +29,7 @@ var dynamicClient dynamic.Interface
 func TestWebhookSupport(t *testing.T) {
 	SkipIfFeatureGateDisabled(t, "WebhookProviderCertManager")
 	t.Log("Test support for bundles with webhooks")
-	defer testutil.CollectTestArtifacts(t, artifactName, c, cfg)
+	defer utils.CollectTestArtifacts(t, artifactName, c, cfg)
 
 	if dynamicClient == nil {
 		var err error

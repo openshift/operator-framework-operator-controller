@@ -266,6 +266,20 @@ func (m *BoxcutterStorageMigrator) Migrate(ctx context.Context, ext *ocv1.Cluste
 		return fmt.Errorf("getting created revision: %w", err)
 	}
 
+	// Set Available=Unknown so the revision controller will verify cluster state through probes.
+	// During migration, ClusterExtension will briefly show as not installed until verification completes.
+	meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+		Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
+		Status:             metav1.ConditionUnknown,
+		Reason:             ocv1.ClusterExtensionRevisionReasonMigrated,
+		Message:            "Migrated from Helm storage, awaiting cluster state verification",
+		ObservedGeneration: rev.Generation,
+	})
+
+	if err := m.Client.Status().Update(ctx, rev); err != nil {
+		return fmt.Errorf("updating migrated revision status: %w", err)
+	}
+
 	return nil
 }
 
@@ -391,14 +405,9 @@ func (bc *Boxcutter) apply(ctx context.Context, contentFS fs.FS, ext *ocv1.Clust
 	if progressingCondition == nil && availableCondition == nil && succeededCondition == nil {
 		return false, "New revision created", nil
 	} else if progressingCondition != nil && progressingCondition.Status == metav1.ConditionTrue {
-		switch progressingCondition.Reason {
-		case ocv1.ReasonSucceeded:
-			return true, "", nil
-		case ocv1.ClusterExtensionRevisionReasonRetrying:
-			return false, "", errors.New(progressingCondition.Message)
-		default:
-			return false, progressingCondition.Message, nil
-		}
+		return false, progressingCondition.Message, nil
+	} else if availableCondition != nil && availableCondition.Status != metav1.ConditionTrue {
+		return false, "", errors.New(availableCondition.Message)
 	} else if succeededCondition != nil && succeededCondition.Status != metav1.ConditionTrue {
 		return false, succeededCondition.Message, nil
 	}

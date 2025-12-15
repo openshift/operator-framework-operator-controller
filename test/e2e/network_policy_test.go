@@ -15,7 +15,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	testutil "github.com/operator-framework/operator-controller/internal/shared/util/test"
+	utils "github.com/operator-framework/operator-controller/internal/shared/util/testutils"
 )
 
 const (
@@ -160,7 +160,7 @@ func TestNetworkPolicyJustifications(t *testing.T) {
 		}
 	}
 
-	clientForComponent := testutil.FindK8sClient(t)
+	clientForComponent := utils.FindK8sClient(t)
 
 	operatorControllerNamespace := getComponentNamespace(t, clientForComponent, operatorManagerSelector)
 	catalogDNamespace := getComponentNamespace(t, clientForComponent, catalogdManagerSelector)
