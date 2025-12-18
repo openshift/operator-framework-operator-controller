@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.24-openshift-4.21 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.25-openshift-4.22 AS builder
 
 ARG SOURCE_GIT_COMMIT
 ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
@@ -14,7 +14,7 @@ RUN make -f openshift/Makefile go-build-local && \
        cp ./bin/olmv1-tests-ext /tmp/build/olmv1-tests-ext && \
        gzip -f /tmp/build/olmv1-tests-ext
 
-FROM registry.ci.openshift.org/ocp/4.21:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
 COPY --from=builder /tmp/build/olmv1-tests-ext.gz /usr/bin/olmv1-tests-ext.gz
