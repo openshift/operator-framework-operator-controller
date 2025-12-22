@@ -98,10 +98,13 @@ type ClusterExtensionSpec struct {
 	// +optional
 	Install *ClusterExtensionInstallConfig `json:"install,omitempty"`
 
-	// config contains optional configuration values applied during rendering of the
-	// ClusterExtension's manifests. Values can be specified inline.
+	// config is an optional field used to specify bundle specific configuration
+	// used to configure the bundle. Configuration is bundle specific and a bundle may provide
+	// a configuration schema. When not specified, the default configuration of the resolved bundle will be used.
 	//
-	// config is optional. When not specified, the default configuration of the resolved bundle will be used.
+	// config is validated against a configuration schema provided by the resolved bundle. If the bundle does not provide
+	// a configuration schema the final manifests will be derived on a best-effort basis. More information on how
+	// to configure the bundle should be found in its end-user documentation.
 	//
 	// <opcon:experimental>
 	// +optional
@@ -174,6 +177,8 @@ type ClusterExtensionConfig struct {
 	// ClusterExtension.
 	//
 	// inline must be set if configType is 'Inline'.
+	// inline accepts arbitrary JSON/YAML objects.
+	// inline is validation at runtime against the schema provided by the bundle if a schema is provided.
 	//
 	// +kubebuilder:validation:Type=object
 	// +optional
@@ -485,12 +490,10 @@ type ClusterExtensionStatus struct {
 	// PackageDeprecated is set if the requested package is marked deprecated in the catalog.
 	// Deprecated is a rollup condition that is present when any of the deprecated conditions are present.
 	//
-	// +patchMergeKey=type
-	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// install is a representation of the current installation status for this ClusterExtension.
 	//
