@@ -1457,7 +1457,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:83026-[OTP][Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe"), func() {
 		baseDir := exutil.FixturePath("testdata", "olm")
-		clusterextensionTemplate := filepath.Join(baseDir, "clusterextension.yaml")
+		clusterextensionTemplate := filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 		saAdminTemplate := filepath.Join(baseDir, "sa-admin.yaml")
 		g.By("1)install Argocd operator v0.4.0 in a random namespace")
 		sa := "argocd-83026"
@@ -1478,6 +1478,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			Version:          "v0.4.0",
 			InstallNamespace: oc.Namespace(),
 			SaName:           sa,
+			LabelKey:         "olm.operatorframework.io/metadata.name",
+			LabelValue:       "openshift-community-operators",
 			Template:         clusterextensionTemplate,
 		}
 		defer ceArgocd.Delete(oc)
