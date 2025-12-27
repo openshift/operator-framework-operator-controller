@@ -23,6 +23,12 @@ $(BINGO): $(BINGO_DIR)/bingo.mod
 	@echo "(re)installing $(GOBIN)/bingo-v0.9.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.9.0 "github.com/bwplotka/bingo"
 
+CONFTEST := $(GOBIN)/conftest-v0.62.0
+$(CONFTEST): $(BINGO_DIR)/conftest.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/conftest-v0.62.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=conftest.mod -o=$(GOBIN)/conftest-v0.62.0 "github.com/open-policy-agent/conftest"
+
 CONTROLLER_GEN := $(GOBIN)/controller-gen-v0.19.0
 $(CONTROLLER_GEN): $(BINGO_DIR)/controller-gen.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
@@ -47,17 +53,17 @@ $(GOJQ): $(BINGO_DIR)/gojq.mod
 	@echo "(re)installing $(GOBIN)/gojq-v0.12.17"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=gojq.mod -o=$(GOBIN)/gojq-v0.12.17 "github.com/itchyny/gojq/cmd/gojq"
 
-GOLANGCI_LINT := $(GOBIN)/golangci-lint-v2.6.2
+GOLANGCI_LINT := $(GOBIN)/golangci-lint-v2.7.2
 $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/golangci-lint-v2.6.2"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v2.6.2 "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+	@echo "(re)installing $(GOBIN)/golangci-lint-v2.7.2"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v2.7.2 "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 
-GORELEASER := $(GOBIN)/goreleaser-v1.26.2
+GORELEASER := $(GOBIN)/goreleaser-v2.11.2
 $(GORELEASER): $(BINGO_DIR)/goreleaser.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/goreleaser-v1.26.2"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=goreleaser.mod -o=$(GOBIN)/goreleaser-v1.26.2 "github.com/goreleaser/goreleaser"
+	@echo "(re)installing $(GOBIN)/goreleaser-v2.11.2"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=goreleaser.mod -o=$(GOBIN)/goreleaser-v2.11.2 "github.com/goreleaser/goreleaser/v2"
 
 HELM := $(GOBIN)/helm-v3.18.4
 $(HELM): $(BINGO_DIR)/helm.mod
@@ -70,6 +76,12 @@ $(KIND): $(BINGO_DIR)/kind.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/kind-v0.30.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kind.mod -o=$(GOBIN)/kind-v0.30.0 "sigs.k8s.io/kind"
+
+KUBE_SCORE := $(GOBIN)/kube-score-v1.20.0
+$(KUBE_SCORE): $(BINGO_DIR)/kube-score.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/kube-score-v1.20.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kube-score.mod -o=$(GOBIN)/kube-score-v1.20.0 "github.com/zegl/kube-score/cmd/kube-score"
 
 KUSTOMIZE := $(GOBIN)/kustomize-v5.7.1
 $(KUSTOMIZE): $(BINGO_DIR)/kustomize.mod
