@@ -104,11 +104,14 @@ pkg/bindata/singleown/index/index.go: $(shell find testdata/singleown/index -typ
 	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/qe/bindata.go
-pkg/bindata/qe/bindata.go: $(shell find test/qe/testdata -type f)
+pkg/bindata/qe/bindata.go: FORCE
 	mkdir -p $(@D)
 	$(GO_BINDATA) -nocompress -nometadata \
 		-pkg testdata -o $@ -prefix "testextended" test/qe/testdata/...
 	gofmt -s -w $@
+
+.PHONY: FORCE
+FORCE:
 
 # GO_COMPLIANCE_POLICY="exempt_all" must only be used for test related binaries.
 # It prevents various FIPS compliance policies from being applied to this compilation.
