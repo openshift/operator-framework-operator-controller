@@ -523,7 +523,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[OTP][Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[OTP][Skipped:Disconnected]support disc with icsp[Timeout:40m] [Serial][Disruptive][Slow]",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
@@ -540,7 +540,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[OTP][Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[OTP][Skipped:Disconnected]support disc with itms and idms[Timeout:40m] [Serial][Disruptive][Slow]",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76844-[Skipped:Disconnected]support disc with itms and idms[Timeout:30m] [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
@@ -608,7 +608,7 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]",
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:40m] [Serial][Disruptive][Slow]",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]",
     "labels": {
       "Extended": {},
