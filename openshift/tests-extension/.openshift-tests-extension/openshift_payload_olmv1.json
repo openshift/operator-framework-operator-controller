@@ -807,6 +807,96 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85510-watchNamespace configuration with AllNamespaces InstallMode",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85543-watchNamespace configuration with AllNamespaces+OwnNamespace+SingleNamespace InstallModes",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85546-watchNamespace configuration with OwnNamespace+SingleNamespace InstallModes",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85547-watchNamespace configuration with SingleNamespace InstallMode",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85549-watchNamespace configuration with OwnNamespace InstallMode",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85650-[Skipped:Disconnected]API-level error validation for watchNamespace configuration",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] OLM v1 for stress PolarionID:81509-[OTP][Skipped:Disconnected][OlmStress]olmv1 create mass operator to see if they all are installed successfully [Slow][Timeout:330m]",
     "labels": {
       "Extended": {},
