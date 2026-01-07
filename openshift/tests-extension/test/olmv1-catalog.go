@@ -11,6 +11,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +78,7 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 		strings.ReplaceAll(endpoint, "?", ""),
 		strings.ReplaceAll(catalog, "-", ""))
 
-	job := buildCurlJob(jobNamePrefix, "default", serviceURL)
+	job := buildCurlJob(ctx, jobNamePrefix, "default", serviceURL)
 	err = k8sClient.Create(ctx, job)
 	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
 
@@ -228,7 +229,29 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 })
 
-func buildCurlJob(prefix, namespace, url string) *batchv1.Job {
+func buildCurlJob(ctx SpecContext, prefix, namespace, url string) *batchv1.Job {
+	// create service account object
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prefix,
+			Namespace: namespace,
+		},
+	}
+
+	serviceAccount.SetName(prefix)
+	serviceAccount.SetNamespace(namespace)
+
+	k8sClient := env.Get().K8sClient
+
+	err := k8sClient.Create(ctx, serviceAccount)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", prefix, err))
+	}
+
+	DeferCleanup(func(ctx SpecContext) {
+		_ = k8sClient.Delete(ctx, serviceAccount)
+	})
+
 	backoff := int32(1)
 	// This means the k8s garbage collector will automatically delete the job 5 minutes
 	// after it has completed or failed.
@@ -257,7 +280,8 @@ func buildCurlJob(prefix, namespace, url string) *batchv1.Job {
 			BackoffLimit:            &backoff,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
+					ServiceAccountName: serviceAccount.Name,
+					RestartPolicy:      corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
 						Name:    "api-tester",
 						Image:   "registry.redhat.io/rhel8/httpd-24:latest",
