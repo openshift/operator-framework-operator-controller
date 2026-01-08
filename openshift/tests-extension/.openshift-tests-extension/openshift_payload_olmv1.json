@@ -853,16 +853,6 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/all endpoint",
-    "labels": {},
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {}
-  },
-  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-operators Catalog should serve FBC via the /v1/api/all endpoint",
     "labels": {},
     "resources": {
@@ -884,16 +874,6 @@
   },
   {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:Disconnected] OLMv1 openshift-certified-operators Catalog should serve FBC via the /v1/api/metas endpoint",
-    "labels": {},
-    "resources": {
-      "isolation": {}
-    },
-    "source": "openshift:payload:olmv1",
-    "lifecycle": "blocking",
-    "environmentSelector": {}
-  },
-  {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/metas endpoint",
     "labels": {},
     "resources": {
       "isolation": {}
