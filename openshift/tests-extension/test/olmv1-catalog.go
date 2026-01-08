@@ -38,7 +38,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		catalogs := []string{
 			"openshift-certified-operators",
 			"openshift-community-operators",
-			"openshift-redhat-marketplace",
 			"openshift-redhat-operators",
 		}
 
@@ -125,18 +124,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 })
 
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog", func() {
-	BeforeEach(func() {
-		helpers.RequireOLMv1CapabilityOnOpenshift()
-		if !env.Get().IsOpenShift {
-			Skip("This test requires OpenShift Catalogs")
-		}
-	})
-	It("should serve FBC via the /v1/api/all endpoint", func(ctx SpecContext) {
-		verifyCatalogEndpoint(ctx, "openshift-redhat-marketplace", "all", "")
-	})
-})
-
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-operators Catalog", func() {
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
@@ -170,18 +157,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:D
 	})
 	It("should serve FBC via the /v1/api/metas endpoint", func(ctx SpecContext) {
 		verifyCatalogEndpoint(ctx, "openshift-certified-operators", "metas", "?schema=olm.package")
-	})
-})
-
-var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog", func() {
-	BeforeEach(func() {
-		helpers.RequireOLMv1CapabilityOnOpenshift()
-		if !env.Get().IsOpenShift {
-			Skip("This test requires OpenShift Catalogs")
-		}
-	})
-	It("should serve FBC via the /v1/api/metas endpoint", func(ctx SpecContext) {
-		verifyCatalogEndpoint(ctx, "openshift-redhat-marketplace", "metas", "?schema=olm.package")
 	})
 })
 
