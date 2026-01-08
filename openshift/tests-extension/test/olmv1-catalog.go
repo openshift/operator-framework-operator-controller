@@ -78,12 +78,30 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 		strings.ReplaceAll(endpoint, "?", ""),
 		strings.ReplaceAll(catalog, "-", ""))
 
-	job := buildCurlJob(ctx, jobNamePrefix, "default", serviceURL)
+	// create service account object
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobNamePrefix,
+			Namespace: "default",
+		},
+	}
+
+	serviceAccount.SetName(jobNamePrefix)
+	serviceAccount.SetNamespace("default")
+
+	err = k8sClient.Create(ctx, serviceAccount)
+
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", jobNamePrefix, err))
+	}
+
+	job := buildCurlJob(jobNamePrefix, "default", serviceURL, serviceAccount)
 	err = k8sClient.Create(ctx, job)
 	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, job)
+		_ = k8sClient.Delete(ctx, serviceAccount)
 	})
 
 	By("Waiting for Job to succeed")
@@ -229,29 +247,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 })
 
-func buildCurlJob(ctx SpecContext, prefix, namespace, url string) *batchv1.Job {
-	// create service account object
-	serviceAccount := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      prefix,
-			Namespace: namespace,
-		},
-	}
-
-	serviceAccount.SetName(prefix)
-	serviceAccount.SetNamespace(namespace)
-
-	k8sClient := env.Get().K8sClient
-
-	err := k8sClient.Create(ctx, serviceAccount)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", prefix, err))
-	}
-
-	DeferCleanup(func(ctx SpecContext) {
-		_ = k8sClient.Delete(ctx, serviceAccount)
-	})
-
+func buildCurlJob(prefix, namespace, url string, serviceAccount *corev1.ServiceAccount) *batchv1.Job {
 	backoff := int32(1)
 	// This means the k8s garbage collector will automatically delete the job 5 minutes
 	// after it has completed or failed.
