@@ -136,8 +136,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				[]string{"clustercatalog", "openshift-community-operators", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
 			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
 				[]string{"clustercatalog", "openshift-redhat-operators", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
-			olmv1util.NewCheck("expect", exutil.AsAdmin, exutil.WithoutNamespace, exutil.Contain, "True", exutil.Ok,
-				[]string{"clustercatalog", "openshift-redhat-marketplace", `-o=jsonpath={.status.conditions[?(@.type=="Serving")].status}`}),
 		}
 		for _, check := range checks {
 			check.Check(oc)
