@@ -275,8 +275,10 @@ func main() {
 	// 3 - Remove the test in your test file.
 	// 4 - Run make build-update
 	ext.IgnoreObsoleteTests(
-	// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
-	// Add more removed test names below
+		// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
+		// Removed marketplace catalog tests (marketplace catalog removed from default catalogs)
+		"[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/all endpoint",
+		"[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/metas endpoint",
 	)
 
 	// Initialize the environment before running any tests.
