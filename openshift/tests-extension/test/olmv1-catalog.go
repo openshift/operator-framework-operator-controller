@@ -101,7 +101,7 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, job)
-		_ = k8sClient.Delete(ctx, serviceAccount)
+		// _ = k8sClient.Delete(ctx, serviceAccount)
 	})
 
 	By("Waiting for Job to succeed")
