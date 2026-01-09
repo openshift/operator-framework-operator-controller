@@ -90,6 +90,11 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 	serviceAccount.SetNamespace("default")
 
 	err = k8sClient.Create(ctx, serviceAccount)
+	Expect(err).NotTo(HaveOccurred(), "failed to create Service Account")
+
+	DeferCleanup(func(ctx SpecContext) {
+		_ = k8sClient.Delete(ctx, serviceAccount)
+	})
 
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", jobNamePrefix, err))
@@ -101,7 +106,6 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, job)
-		// _ = k8sClient.Delete(ctx, serviceAccount)
 	})
 
 	By("Waiting for Job to succeed")
