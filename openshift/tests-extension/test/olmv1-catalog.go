@@ -105,7 +105,15 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
 
 	DeferCleanup(func(ctx SpecContext) {
+		By("Deleting Job and waiting for pods to terminate")
 		_ = k8sClient.Delete(ctx, job)
+
+		// Wait for Job to be fully deleted.
+		Eventually(func() bool {
+			checkJob := &batchv1.Job{}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(job), checkJob)
+			return apierrors.IsNotFound(err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue())
 	})
 
 	By("Waiting for Job to succeed")
