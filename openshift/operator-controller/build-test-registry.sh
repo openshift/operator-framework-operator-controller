@@ -81,7 +81,7 @@ spec:
   - name: http
     port: 5000
     targetPort: 5000
-  type: NodePort
+  type: ClusterIP
 EOF
 
 oc wait --for=condition=Available -n "${namespace}" "deploy/${name}" --timeout=60s
@@ -118,3 +118,7 @@ spec:
 EOF
 
 oc wait --for=condition=Complete -n "${namespace}" "job/${name}-push" --timeout=60s
+
+oc create route passthrough ${name} --service ${name} -n ${namespace}
+
+oc get route ${name} -n ${namespace} -o yaml
