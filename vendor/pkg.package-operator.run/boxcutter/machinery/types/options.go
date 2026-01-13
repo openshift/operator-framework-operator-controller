@@ -127,7 +127,9 @@ var (
 )
 
 // ObjectTeardownOptions holds configuration options changing object teardown.
-type ObjectTeardownOptions struct{}
+type ObjectTeardownOptions struct {
+	Orphan bool
+}
 
 // Default sets empty Option fields to their default value.
 func (opts *ObjectTeardownOptions) Default() {}
@@ -214,27 +216,6 @@ func (p WithPaused) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptio
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }
 
-// ProgressProbeType is a well-known probe type used to guard phase progression.
-const ProgressProbeType = "Progress"
-
-// Prober needs to be implemented by any probing implementation.
-type Prober interface {
-	Probe(obj client.Object) (success bool, messages []string)
-}
-
-// ProbeFunc wraps the given function to work with the Prober interface.
-func ProbeFunc(fn func(obj client.Object) (success bool, messages []string)) Prober {
-	return &probeFn{Fn: fn}
-}
-
-type probeFn struct {
-	Fn func(obj client.Object) (success bool, messages []string)
-}
-
-func (p *probeFn) Probe(obj client.Object) (success bool, messages []string) {
-	return p.Fn(obj)
-}
-
 // WithProbe registers the given probe to evaluate state of objects.
 func WithProbe(t string, probe Prober) ObjectReconcileOption {
 	return &optionFn{
@@ -243,6 +224,17 @@ func WithProbe(t string, probe Prober) ObjectReconcileOption {
 				opts.Probes = map[string]Prober{}
 			}
 			opts.Probes[t] = probe
+		},
+	}
+}
+
+// WithOrphan exclude objects from Teardown.
+// use it as WithObjectTeardownOptions(obj, WithOrphan()) to exclude individual objects or
+// use it as WithPhaseTeardownOptions("my-phase", WithOrphan()) to exclude a whole phase.
+func WithOrphan() ObjectTeardownOption {
+	return &teardownOptionFn{
+		fn: func(opts *ObjectTeardownOptions) {
+			opts.Orphan = true
 		},
 	}
 }
@@ -361,5 +353,24 @@ func (p *optionFn) ApplyToPhaseReconcileOptions(opts *PhaseReconcileOptions) {
 
 // ApplyToRevisionReconcileOptions implements RevisionReconcileOptions.
 func (p *optionFn) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
+	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
+}
+
+type teardownOptionFn struct {
+	fn func(opts *ObjectTeardownOptions)
+}
+
+// ApplyToObjectTeardownOptions implements ObjectTeardownOption.
+func (p *teardownOptionFn) ApplyToObjectTeardownOptions(opts *ObjectTeardownOptions) {
+	p.fn(opts)
+}
+
+// ApplyToPhaseTeardownOptions implements PhaseOption.
+func (p *teardownOptionFn) ApplyToPhaseTeardownOptions(opts *PhaseTeardownOptions) {
+	opts.DefaultObjectOptions = append(opts.DefaultObjectOptions, p)
+}
+
+// ApplyToRevisionTeardownOptions implements RevisionTeardownOptions.
+func (p *teardownOptionFn) ApplyToRevisionTeardownOptions(opts *RevisionTeardownOptions) {
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }

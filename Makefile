@@ -62,6 +62,9 @@ ifeq ($(origin KIND_CLUSTER_NAME), undefined)
 KIND_CLUSTER_NAME := operator-controller
 endif
 
+ifeq ($(origin KIND_CONFIG), undefined)
+KIND_CONFIG := ./kind-config/kind-config.yaml
+endif
 
 ifneq (, $(shell command -v docker 2>/dev/null))
 CONTAINER_RUNTIME := docker
@@ -118,9 +121,25 @@ help-extended: #HELP Display extended help.
 lint: lint-custom $(GOLANGCI_LINT) #HELP Run golangci linter.
 	$(GOLANGCI_LINT) run --build-tags $(GO_BUILD_TAGS) $(GOLANGCI_LINT_ARGS)
 
-lint-helm: $(HELM) #HELP Run helm linter
+.PHONY: lint-helm
+lint-helm: $(HELM) $(CONFTEST) #HELP Run helm linter
 	helm lint helm/olmv1
 	helm lint helm/prometheus
+	(set -euo pipefail; helm template olmv1 helm/olmv1; helm template prometheus helm/prometheus) | $(CONFTEST) test --policy hack/conftest/policy/ --combine -n main -n prometheus -
+
+.PHONY: lint-deployed-resources
+lint-deployed-resources: $(KUBE_SCORE) #EXHELP Lint deployed resources.
+	(for ns in $$(printf "olmv1-system\n%s\n" "$(CATD_NAMESPACE)" | uniq); do \
+		for resource in $$(kubectl api-resources --verbs=list --namespaced -o name); do \
+			kubectl get $$resource -n $$ns -o yaml ; \
+			echo "---" ; \
+		done \
+	done) | $(KUBE_SCORE) score - \
+		`# TODO: currently these checks are failing, decide if resources should be fixed for them to pass (https://github.com/operator-framework/operator-controller/issues/2398)` \
+		--ignore-test container-resources \
+		--ignore-test container-image-pull-policy \
+		--ignore-test container-ephemeral-storage-request-and-limit \
+		--ignore-test container-security-context-user-group-id
 
 .PHONY: custom-linter-build
 custom-linter-build: #EXHELP Build custom linter
@@ -161,9 +180,10 @@ $(EXPERIMENTAL_MANIFEST) ?= helm/cert-manager.yaml helm/experimental.yaml
 $(EXPERIMENTAL_E2E_MANIFEST) ?= helm/cert-manager.yaml helm/experimental.yaml helm/e2e.yaml
 HELM_SETTINGS ?=
 .PHONY: $(MANIFESTS)
-$(MANIFESTS): $(HELM)
+$(MANIFESTS): $(HELM) $(CONFTEST)
 	@mkdir -p $(MANIFEST_HOME)
 	$(HELM) template olmv1 helm/olmv1 $(addprefix --values ,$($@)) $(addprefix --set ,$(HELM_SETTINGS)) > $@
+	$(CONFTEST) test --policy hack/conftest/policy/ -n main --combine $@
 
 # Generate manifests stored in source-control
 .PHONY: manifests
@@ -215,7 +235,7 @@ test: manifests generate fmt lint test-unit test-e2e test-regression #HELP Run a
 
 .PHONY: e2e
 e2e: #EXHELP Run the e2e tests.
-	go test -count=1 -v ./test/e2e/...
+	go test -count=1 -v ./test/e2e/features_test.go
 
 E2E_REGISTRY_NAME := docker-registry
 E2E_REGISTRY_NAMESPACE := operator-controller-e2e
@@ -266,7 +286,7 @@ image-registry: ## Build the testdata catalog used for e2e tests and push it to 
 	# or inject unintended characters into the binary (e.g., version metadata).
 	go build $(GO_BUILD_FLAGS) $(GO_BUILD_EXTRA_FLAGS) -tags '$(GO_BUILD_TAGS)' -ldflags "$(GO_BUILD_LDFLAGS)" -gcflags '$(GO_BUILD_GCFLAGS)' -asmflags '$(GO_BUILD_ASMFLAGS)' -o ./testdata/push/bin/push         ./testdata/push/push.go
 	$(CONTAINER_RUNTIME) build -f ./testdata/Dockerfile -t $(E2E_REGISTRY_IMAGE) ./testdata
-	$(CONTAINER_RUNTIME) save $(E2E_REGISTRY_IMAGE) | $(KIND) load image-archive /dev/stdin --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image $(E2E_REGISTRY_IMAGE) --name $(KIND_CLUSTER_NAME)
 	./testdata/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 
 # When running the e2e suite, you can set the ARTIFACT_PATH variable to the absolute path
@@ -285,6 +305,7 @@ test-e2e: run-internal image-registry prometheus e2e e2e-coverage kind-clean #HE
 .PHONY: test-experimental-e2e
 test-experimental-e2e: SOURCE_MANIFEST := $(EXPERIMENTAL_E2E_MANIFEST)
 test-experimental-e2e: KIND_CLUSTER_NAME := operator-controller-e2e
+test-experimental-e2e: KIND_CONFIG := ./kind-config/kind-config-2node.yaml
 test-experimental-e2e: GO_BUILD_EXTRA_FLAGS := -cover
 test-experimental-e2e: COVERAGE_NAME := experimental-e2e
 test-experimental-e2e: export MANIFEST := $(EXPERIMENTAL_RELEASE_MANIFEST)
@@ -385,8 +406,8 @@ stop-profiling: build-test-profiler #EXHELP Stop profiling and generate analysis
 
 .PHONY: kind-load
 kind-load: $(KIND) #EXHELP Loads the currently constructed images into the KIND cluster.
-	$(CONTAINER_RUNTIME) save $(OPCON_IMG) | $(KIND) load image-archive /dev/stdin --name $(KIND_CLUSTER_NAME)
-	$(CONTAINER_RUNTIME) save $(CATD_IMG) | $(KIND) load image-archive /dev/stdin --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image $(OPCON_IMG) --name $(KIND_CLUSTER_NAME)
+	$(KIND) load docker-image $(CATD_IMG) --name $(KIND_CLUSTER_NAME)
 
 .PHONY: kind-deploy
 kind-deploy: export DEFAULT_CATALOG := $(RELEASE_CATALOGS)
@@ -411,8 +432,9 @@ kind-deploy-experimental: manifests
 .PHONY: kind-cluster
 kind-cluster: $(KIND) kind-verify-versions #EXHELP Standup a kind cluster.
 	-$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
-	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config ./kind-config.yaml
+	$(KIND) create cluster --name $(KIND_CLUSTER_NAME) --config $(KIND_CONFIG)
 	$(KIND) export kubeconfig --name $(KIND_CLUSTER_NAME)
+	kubectl wait --for=condition=Ready nodes --all --timeout=2m
 
 .PHONY: kind-clean
 kind-clean: $(KIND) #EXHELP Delete the kind cluster.
@@ -475,7 +497,7 @@ go-build-linux: export GOARCH=amd64
 go-build-linux: $(BINARIES)
 
 .PHONY: run-internal
-run-internal: docker-build kind-cluster kind-load kind-deploy wait
+run-internal: docker-build kind-cluster kind-load kind-deploy lint-deployed-resources wait
 
 .PHONY: run
 run: SOURCE_MANIFEST := $(STANDARD_MANIFEST)

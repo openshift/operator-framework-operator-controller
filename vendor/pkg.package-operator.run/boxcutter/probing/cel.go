@@ -63,17 +63,30 @@ func NewCELProbe(rule, message string) (
 }
 
 // Probe executes the probe.
-func (p *CELProbe) Probe(obj client.Object) (success bool, messages []string) {
+func (p *CELProbe) Probe(obj client.Object) Result {
 	return probeUnstructuredSingleMsg(obj, p.probe)
 }
 
-func (p *CELProbe) probe(obj *unstructured.Unstructured) (success bool, message string) {
+func (p *CELProbe) probe(obj *unstructured.Unstructured) Result {
 	val, _, err := p.Program.Eval(map[string]any{
 		"self": obj.Object,
 	})
 	if err != nil {
-		return false, fmt.Sprintf("CEL program failed: %v", err)
+		return Result{
+			Status:   StatusUnknown,
+			Messages: []string{fmt.Sprintf("CEL program failed: %v", err)},
+		}
 	}
 
-	return val.Value().(bool), p.Message
+	success := val.Value().(bool)
+	if success {
+		return Result{
+			Status: StatusTrue,
+		}
+	}
+
+	return Result{
+		Status:   StatusFalse,
+		Messages: []string{p.Message},
+	}
 }

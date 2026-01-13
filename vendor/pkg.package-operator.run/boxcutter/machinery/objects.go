@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -77,6 +78,10 @@ type comparator interface {
 	) (res CompareResult, err error)
 }
 
+const (
+	boxcutterManagedLabel string = "boxcutter-managed"
+)
+
 // Teardown ensures the given object is safely removed from the cluster.
 func (e *ObjectEngine) Teardown(
 	ctx context.Context,
@@ -104,7 +109,12 @@ func (e *ObjectEngine) Teardown(
 	// Shortcut when Owner is orphaning its dependents.
 	// If we don't check this, we might be too quick and start deleting
 	// dependents that should be kept on the cluster!
-	if controllerutil.ContainsFinalizer(owner, "orphan") {
+	if controllerutil.ContainsFinalizer(owner, "orphan") || options.Orphan {
+		err := removeBoxcutterManagedLabel(ctx, e.writer, desiredObject.(*unstructured.Unstructured))
+		if err != nil {
+			return false, err
+		}
+
 		return true, nil
 	}
 
@@ -173,6 +183,14 @@ func (e *ObjectEngine) Reconcile(
 		opt.ApplyToObjectReconcileOptions(&options)
 	}
 
+	labels := desiredObject.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	labels[boxcutterManagedLabel] = "True"
+	desiredObject.SetLabels(labels)
+
 	options.Default()
 
 	// Sanity checks.
@@ -219,7 +237,7 @@ func (e *ObjectEngine) Reconcile(
 		if errors.IsAlreadyExists(err) {
 			// Might be a slow cache or an object created by a different actor
 			// but excluded by the cache selector.
-			return nil, &CreateCollisionError{msg: err.Error()}
+			return nil, &CreateCollisionError{object: desiredObject, msg: err.Error()}
 		}
 
 		if err != nil {
@@ -231,7 +249,7 @@ func (e *ObjectEngine) Reconcile(
 		}
 
 		return newObjectResultCreated(
-			desiredObject, options.Probes), nil
+			desiredObject, options), nil
 
 	case err != nil:
 		return nil, fmt.Errorf("getting object: %w", err)
@@ -271,7 +289,7 @@ func (e *ObjectEngine) objectUpdateHandling(
 		// Leave object alone.
 		// It's already owned by a later revision.
 		return newObjectResultProgressed(
-			actualObject, compareRes, options.Probes,
+			actualObject, compareRes, options,
 		), nil
 	}
 
@@ -290,7 +308,7 @@ func (e *ObjectEngine) objectUpdateHandling(
 			// No conflict with another field manager
 			// and no modification needed.
 			return newObjectResultIdle(
-				actualObject, compareRes, options.Probes,
+				actualObject, compareRes, options,
 			), nil
 		}
 
@@ -306,7 +324,7 @@ func (e *ObjectEngine) objectUpdateHandling(
 			}
 
 			return newObjectResultUpdated(
-				desiredObject, compareRes, options.Probes,
+				desiredObject, compareRes, options,
 			), nil
 		}
 
@@ -340,12 +358,12 @@ func (e *ObjectEngine) objectUpdateHandling(
 
 		if options.Paused {
 			return newObjectResultRecovered(
-				actualObject, compareRes, options.Probes,
+				actualObject, compareRes, options,
 			), nil
 		}
 
 		return newObjectResultRecovered(
-			desiredObject, compareRes, options.Probes,
+			desiredObject, compareRes, options,
 		), nil
 
 		// Taking control checklist:
@@ -359,7 +377,7 @@ func (e *ObjectEngine) objectUpdateHandling(
 		if options.CollisionProtection != types.CollisionProtectionNone {
 			return newObjectResultConflict(
 				actualObject, compareRes,
-				actualOwner, options.Probes,
+				actualOwner, options,
 			), nil
 		}
 
@@ -368,10 +386,10 @@ func (e *ObjectEngine) objectUpdateHandling(
 		// the object might have been just orphaned, if we re-adopt it now, it would get deleted
 		// by the kubernetes garbage collector.
 		if options.CollisionProtection == types.CollisionProtectionPrevent ||
-			e.hasSystemAnnotationsOrLabels(actualObject) {
+			e.isBoxcutterManaged(actualObject) {
 			return newObjectResultConflict(
 				actualObject, compareRes,
-				actualOwner, options.Probes,
+				actualOwner, options,
 			), nil
 		}
 
@@ -411,24 +429,18 @@ func (e *ObjectEngine) objectUpdateHandling(
 
 	if options.Paused {
 		return newObjectResultUpdated(
-			actualObject, compareRes, options.Probes,
+			actualObject, compareRes, options,
 		), nil
 	}
 
 	return newObjectResultUpdated(
-		desiredObject, compareRes, options.Probes,
+		desiredObject, compareRes, options,
 	), nil
 }
 
-func (e *ObjectEngine) hasSystemAnnotationsOrLabels(obj client.Object) bool {
-	for k := range obj.GetAnnotations() {
-		if strings.HasPrefix(k, e.systemPrefix) {
-			return true
-		}
-	}
-
+func (e *ObjectEngine) isBoxcutterManaged(obj client.Object) bool {
 	for k := range obj.GetLabels() {
-		if strings.HasPrefix(k, e.systemPrefix) {
+		if strings.HasPrefix(k, boxcutterManagedLabel) {
 			return true
 		}
 	}
@@ -566,4 +578,21 @@ func (e *ObjectEngine) migrateFieldManagersToSSA(
 
 func (e *ObjectEngine) revisionAnnotation() string {
 	return e.systemPrefix + "/revision"
+}
+
+func removeBoxcutterManagedLabel(
+	ctx context.Context, w client.Writer, obj *unstructured.Unstructured,
+) error {
+	updated := obj.DeepCopy()
+
+	labels := updated.GetLabels()
+
+	delete(labels, boxcutterManagedLabel)
+	updated.SetLabels(labels)
+
+	if err := w.Patch(ctx, updated, client.MergeFrom(obj)); err != nil {
+		return fmt.Errorf("patching object labels: %w", err)
+	}
+
+	return nil
 }

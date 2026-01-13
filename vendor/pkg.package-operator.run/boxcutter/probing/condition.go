@@ -15,36 +15,37 @@ type ConditionProbe struct {
 var _ Prober = (*ConditionProbe)(nil)
 
 // Probe executes the probe.
-func (cp *ConditionProbe) Probe(obj client.Object) (success bool, messages []string) {
+func (cp *ConditionProbe) Probe(obj client.Object) Result {
 	return probeUnstructuredSingleMsg(obj, cp.probe)
 }
 
-func (cp *ConditionProbe) probe(obj *unstructured.Unstructured) (success bool, message string) {
-	defer func() {
-		if success {
-			return
-		}
-		// add probed condition type and status as context to error message.
-		message = fmt.Sprintf("condition %q == %q: %s", cp.Type, cp.Status, message)
-	}()
-
+func (cp *ConditionProbe) probe(obj *unstructured.Unstructured) Result {
 	rawConditions, exist, err := unstructured.NestedFieldNoCopy(
 		obj.Object, "status", "conditions")
 	conditions, ok := rawConditions.([]any)
 
 	if err != nil || !exist {
-		return false, "missing .status.conditions"
+		return Result{
+			Status:   StatusUnknown,
+			Messages: []string{"missing .status.conditions"},
+		}
 	}
 
 	if !ok {
-		return false, "malformed"
+		return Result{
+			Status:   StatusUnknown,
+			Messages: []string{"malformed .status.conditions"},
+		}
 	}
 
 	for _, condI := range conditions {
 		cond, ok := condI.(map[string]any)
 		if !ok {
 			// no idea what this is supposed to be
-			return false, "malformed"
+			return Result{
+				Status:   StatusUnknown,
+				Messages: []string{"malformed .status.conditions"},
+			}
 		}
 
 		if cond["type"] != cp.Type {
@@ -56,15 +57,27 @@ func (cp *ConditionProbe) probe(obj *unstructured.Unstructured) (success bool, m
 		if observedGeneration, ok, err := unstructured.NestedInt64(
 			cond, "observedGeneration",
 		); err == nil && ok && observedGeneration != obj.GetGeneration() {
-			return false, "outdated"
+			return Result{
+				Status:   StatusUnknown,
+				Messages: []string{fmt.Sprintf(`.status.condition["%s"] outdated`, cp.Type)},
+			}
 		}
 
 		if cond["status"] == cp.Status {
-			return true, ""
+			return Result{
+				Status:   StatusTrue,
+				Messages: []string{fmt.Sprintf(`.status.condition["%s"] is %s`, cp.Type, cp.Status)},
+			}
 		}
 
-		return false, "wrong status"
+		return Result{
+			Status:   StatusFalse,
+			Messages: []string{fmt.Sprintf(`.status.condition["%s"] is %s`, cp.Type, cond["status"])},
+		}
 	}
 
-	return false, "not reported"
+	return Result{
+		Status:   StatusUnknown,
+		Messages: []string{fmt.Sprintf(`missing .status.condition["%s"]`, cp.Type)},
+	}
 }

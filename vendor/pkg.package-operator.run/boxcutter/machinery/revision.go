@@ -64,7 +64,7 @@ type RevisionResult interface {
 	// InTransition returns true if the Phase has not yet fully rolled out,
 	// if the phase has objects progressed to a new revision or
 	// if objects have unresolved conflicts.
-	InTransistion() bool
+	InTransition() bool
 	// IsComplete returns true when all objects have
 	// successfully been reconciled and pass their probes.
 	IsComplete() bool
@@ -88,9 +88,9 @@ func (r *revisionResult) GetValidationError() *validation.RevisionValidationErro
 // InTransition returns true if the Phase has not yet fully rolled out,
 // if the phase has objects progressed to a new revision or
 // if objects have unresolved conflicts.
-func (r *revisionResult) InTransistion() bool {
+func (r *revisionResult) InTransition() bool {
 	for _, p := range r.phasesResults {
-		if p.InTransistion() {
+		if p.InTransition() {
 			return true
 		}
 	}
@@ -145,7 +145,7 @@ func (r *revisionResult) GetPhases() []PhaseResult {
 func (r *revisionResult) String() string {
 	out := fmt.Sprintf(
 		"Revision\nComplete: %t\nIn Transition: %t\n",
-		r.IsComplete(), r.InTransistion(),
+		r.IsComplete(), r.InTransition(),
 	)
 
 	if err := r.GetValidationError(); err != nil {

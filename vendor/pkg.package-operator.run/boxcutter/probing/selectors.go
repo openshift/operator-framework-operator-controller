@@ -17,7 +17,7 @@ type GroupKindSelector struct {
 var _ Prober = (*GroupKindSelector)(nil)
 
 // Probe executes the probe.
-func (kp *GroupKindSelector) Probe(obj client.Object) (success bool, messages []string) {
+func (kp *GroupKindSelector) Probe(obj client.Object) Result {
 	gk := obj.GetObjectKind().GroupVersionKind().GroupKind()
 	if kp.GroupKind == gk {
 		return kp.Prober.Probe(obj)
@@ -25,7 +25,9 @@ func (kp *GroupKindSelector) Probe(obj client.Object) (success bool, messages []
 
 	// We want to _skip_ objects, that don't match.
 	// So this probe succeeds by default.
-	return true, nil
+	return Result{
+		Status: StatusTrue,
+	}
 }
 
 // LabelSelector wraps a Probe object and only executes the probe
@@ -39,11 +41,13 @@ type LabelSelector struct {
 var _ Prober = (*LabelSelector)(nil)
 
 // Probe executes the probe.
-func (ss *LabelSelector) Probe(obj client.Object) (success bool, messages []string) {
+func (ss *LabelSelector) Probe(obj client.Object) Result {
 	if !ss.Matches(labels.Set(obj.GetLabels())) {
 		// We want to _skip_ objects, that don't match.
 		// So this probe succeeds by default.
-		return true, nil
+		return Result{
+			Status: StatusTrue,
+		}
 	}
 
 	return ss.Prober.Probe(obj)

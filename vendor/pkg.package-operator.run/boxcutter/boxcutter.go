@@ -107,14 +107,40 @@ type RevisionEngineOptions struct {
 	Scheme          *runtime.Scheme
 	FieldOwner      string
 	SystemPrefix    string
-	DiscoveryClient discovery.DiscoveryInterface
+	DiscoveryClient discovery.OpenAPIV3SchemaInterface
 	RestMapper      meta.RESTMapper
 	Writer          client.Writer
 	Reader          client.Reader
 
 	// Optional
 
-	OwnerStrategy OwnerStrategy
+	OwnerStrategy  OwnerStrategy
+	PhaseValidator *validation.PhaseValidator
+}
+
+// NewPhaseEngine  returns a new PhaseEngine instance.
+func NewPhaseEngine(opts RevisionEngineOptions) (*machinery.PhaseEngine, error) {
+	if err := validateRevisionEngineOpts(opts); err != nil {
+		return nil, err
+	}
+
+	if opts.OwnerStrategy == nil {
+		opts.OwnerStrategy = ownerhandling.NewNative(opts.Scheme)
+	}
+
+	if opts.PhaseValidator == nil {
+		opts.PhaseValidator = validation.NewNamespacedPhaseValidator(opts.RestMapper, opts.Writer)
+	}
+
+	comp := machinery.NewComparator(
+		opts.OwnerStrategy, opts.DiscoveryClient, opts.Scheme, opts.FieldOwner)
+
+	oe := machinery.NewObjectEngine(
+		opts.Scheme, opts.Reader, opts.Writer,
+		opts.OwnerStrategy, comp, opts.FieldOwner, opts.SystemPrefix,
+	)
+
+	return machinery.NewPhaseEngine(oe, opts.PhaseValidator), nil
 }
 
 // NewRevisionEngine returns a new RevisionEngine instance.
