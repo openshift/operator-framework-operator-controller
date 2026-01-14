@@ -46,7 +46,7 @@ test-e2e: ## Run the e2e tests.
 	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 	cd $(DIR)/../; \
 	LOCAL_REGISTRY_HOST=$$(oc get route $(E2E_REGISTRY_NAME) -n $(E2E_REGISTRY_NAMESPACE) -o jsonpath='{.spec.host}') \
-	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="~@mirrored-registry && ~@catalog-updates" --k8s.cli=oc
+	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="~@mirrored-registry" --k8s.cli=oc
 
 export DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS := -count=1 -v
 .PHONY: test-experimental-e2e
