@@ -6,7 +6,7 @@ WORKDIR /build
 COPY . .
 RUN make go-build-local
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 USER 1001
 COPY --from=builder /build/bin/catalogd /catalogd
 COPY openshift/catalogd/cp-manifests /cp-manifests
