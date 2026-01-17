@@ -14,7 +14,7 @@ RUN make -f openshift/Makefile go-build-local && \
        cp ./bin/olmv1-tests-ext /tmp/build/olmv1-tests-ext && \
        gzip -f /tmp/build/olmv1-tests-ext
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
 COPY --from=builder /tmp/build/olmv1-tests-ext.gz /usr/bin/olmv1-tests-ext.gz
