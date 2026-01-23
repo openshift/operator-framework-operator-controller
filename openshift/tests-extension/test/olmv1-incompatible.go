@@ -10,7 +10,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/origin/test/extended/util/image"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	catalogdata "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/catalog"
@@ -30,7 +29,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 
 			// Using the shell image provided by origin as the controller image.
 			// The image is mirrored into disconnected environments for testing.
-			"{{ TEST-CONTROLLER }}": image.ShellImage(),
+			"{{ TEST-CONTROLLER }}": "registry.k8s.io/e2e-test-images/busybox:1.36.1-1",
 		}
 		unique, nsName, ccName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
 			catalogdata.AssetNames, catalogdata.Asset,
