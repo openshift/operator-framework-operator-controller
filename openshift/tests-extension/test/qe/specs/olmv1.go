@@ -139,14 +139,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] cluster-olm-operator", g.Label("NonHyp
 
 		g.By("2) check metrics are collected")
 		queryUrl := "http://localhost:9090/api/v1/query"
-		query1 := `query=catalogd_http_request_duration_seconds_count{code="200"}`
+		query1 := `query=rest_client_requests_total{namespace="openshift-catalogd"}`
 		queryResult1, _ := oc.AsAdmin().WithoutNamespace().Run("exec").Args("-n", "openshift-monitoring", k8sPodname, "--", "curl", "-G", "--data-urlencode", query1, queryUrl).Output()
-		e2e.Logf("query result 1: %s", queryResult1)
+		e2e.Logf("catalogd rest_client_requests_total query result: %s", queryResult1)
 		o.Expect(queryResult1).To(o.ContainSubstring("value"))
 
-		query2 := `query=controller_runtime_reconcile_total{controller="controller-operator-cluster-extension-controller",result="success"}`
+		query2 := `query=rest_client_requests_total{namespace="openshift-operator-controller"}`
 		queryResult2, _ := oc.AsAdmin().WithoutNamespace().Run("exec").Args("-n", "openshift-monitoring", k8sPodname, "--", "curl", "-G", "--data-urlencode", query2, queryUrl).Output()
-		e2e.Logf("query result 2: %s", queryResult2)
+		e2e.Logf("operator-controller rest_client_requests_total query result: %s", queryResult2)
 		o.Expect(queryResult2).To(o.ContainSubstring("value"))
 
 		g.By("3) test SUCCESS")
