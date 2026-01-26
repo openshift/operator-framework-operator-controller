@@ -2316,8 +2316,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		clusterextension.Create(oc)
 		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v0.0.1"))
 		status, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "True") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be True, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("True"))
 		message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+		if !strings.Contains(message, "All is well") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected message to contain 'All is well', but got: %s. Full status: %s", message, fullStatus)
+		}
 		o.Expect(message).To(o.ContainSubstring("All is well"))
 
 		g.By("3) upgrade clusterextension to 1.1.0, olm.maxOpenShiftVersion is 4.19")
@@ -2331,9 +2339,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			return false, nil
 		})
 		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "False") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be False, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("False"))
 		if errWait != nil {
-			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Upgradeable message is not correct. Full status: %s", fullStatus)
 		}
 		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
 
@@ -2348,9 +2361,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			return false, nil
 		})
 		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "False") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be False, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("False"))
 		if errWait != nil {
-			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Upgradeable message is not correct. Full status: %s", fullStatus)
 		}
 		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
 	})
@@ -2408,8 +2426,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		clusterextension.Create(oc)
 		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v0.0.1"))
 		status, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "True") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be True, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("True"))
 		message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+		if !strings.Contains(message, "All is well") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected message to contain 'All is well', but got: %s. Full status: %s", message, fullStatus)
+		}
 		o.Expect(message).To(o.ContainSubstring("All is well"))
 
 		g.By("3) upgrade clusterextension to 1.2.0, olm.maxOpenShiftVersion is 4.20")
@@ -2423,9 +2449,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			return false, nil
 		})
 		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "False") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be False, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("False"))
 		if errWait != nil {
-			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Upgradeable message is not correct. Full status: %s", fullStatus)
 		}
 		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
 
@@ -2440,9 +2471,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			return false, nil
 		})
 		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		if !strings.Contains(status, "False") {
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Expected status to be False, but got: %s. Full status: %s", status, fullStatus)
+		}
 		o.Expect(status).To(o.ContainSubstring("False"))
 		if errWait != nil {
-			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+			fullStatus, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status}")
+			e2e.Logf("Upgradeable message is not correct. Full status: %s", fullStatus)
 		}
 		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not correct")
 
