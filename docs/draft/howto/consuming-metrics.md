@@ -252,6 +252,7 @@ spec:
   selector:
     matchLabels:
       apps.kubernetes.io/name: operator-controller
+  serviceDiscoveryRole: EndpointSlice
 EOF
 ```
 
@@ -294,6 +295,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: catalogd
+  serviceDiscoveryRole: EndpointSlice
 EOF
 ```
 
