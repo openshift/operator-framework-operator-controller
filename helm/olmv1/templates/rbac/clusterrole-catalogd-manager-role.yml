@@ -41,7 +41,7 @@ rules:
     resources:
       - securitycontextconstraints
     resourceNames:
-      - privileged
+      - hostmount-anyuid-v2
     verbs:
       - use
   {{- end }}
