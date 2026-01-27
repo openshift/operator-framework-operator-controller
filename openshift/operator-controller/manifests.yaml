@@ -61,6 +61,23 @@ spec:
     - Ingress
     - Egress
 ---
+# Source: olmv1/templates/poddisruptionbudget-olmv1-system-operator-controller.yml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: operator-controller-controller-manager
+  namespace: openshift-operator-controller
+  labels:
+    app.kubernetes.io/name: operator-controller
+    app.kubernetes.io/part-of: olm
+  annotations:
+    olm.operatorframework.io/feature-set: standard
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      control-plane: operator-controller-controller-manager
+---
 # Source: olmv1/templates/serviceaccount-olmv1-system-common-controller-manager.yml
 apiVersion: v1
 kind: ServiceAccount
@@ -1078,7 +1095,7 @@ metadata:
   name: operator-controller-controller-manager
   namespace: openshift-operator-controller
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
