@@ -506,6 +506,21 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:87224-[Skipped:Disconnected]Upgrade version support [Serial]",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[OTP]ClusterExtension supports simple registry vzero bundles only",
     "originalName": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only",
     "labels": {
