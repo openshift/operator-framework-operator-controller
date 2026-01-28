@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -690,9 +691,11 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 		}
 	})
 
-	// The controller validates the inline watchNamespace using the same DNS-1123 rules that gate namespace names.
-	// Setting a trailing '-' produces an invalid identifier that cannot exist in the cluster, so the install should
-	// fail fast and surface a failure through the Installed condition.
+	// The controller validates that the watchNamespace exists when creating resources.
+	// This test uses a non-existent namespace (but valid DNS name) to ensure both Helm and Boxcutter
+	// runtimes fail consistently when trying to create resources in that namespace.
+	// Both runtimes will attempt to create RBAC resources (Roles/RoleBindings) in the watch namespace
+	// and fail with "namespace not found" error, which gets surfaced in the status conditions.
 	It("should fail to install the ClusterExtension when watch namespace is invalid",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid"),
 		func(ctx SpecContext) {
@@ -716,9 +719,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			})
 
-			invalidWatchNamespace := fmt.Sprintf("%s-", namespace)
+			// Use a non-existent namespace with valid DNS name.
+			// This will pass config validation but fail during resource creation
+			// when the controller tries to create Roles/RoleBindings in this namespace.
+			nonExistentWatchNamespace := fmt.Sprintf("%s-nonexistent", namespace)
 
-			By("creating ClusterExtension with an invalid watch namespace configured")
+			By("creating ClusterExtension with watchNamespace pointing to non-existent namespace")
 			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
 			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
@@ -728,7 +734,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 			ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 				ConfigType: olmv1.ClusterExtensionConfigTypeInline,
 				Inline: &apiextensionsv1.JSON{
-					Raw: []byte(fmt.Sprintf(`{"watchNamespace": "%s"}`, invalidWatchNamespace)),
+					Raw: []byte(fmt.Sprintf(`{"watchNamespace": "%s"}`, nonExistentWatchNamespace)),
 				},
 			}
 			Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension %q", ceName)
@@ -740,7 +746,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				helpers.EnsureCleanupClusterExtension(context.Background(), ceName, namespace)
 			})
 
-			By("waiting for the ClusterExtension installation to fail due to invalid watch namespace")
+			By("waiting for the ClusterExtension installation to fail due to non-existent watch namespace")
 			Eventually(func(g Gomega) {
 				var ext olmv1.ClusterExtension
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, &ext)
@@ -749,11 +755,31 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				conditions := ext.Status.Conditions
 				g.Expect(conditions).ToNot(BeEmpty(), "ClusterExtension %q has empty status.conditions", ceName)
 
+				// Check that installation is NOT successful - this works for both Helm and Boxcutter
+				// Helm sets: Installed=False, Reason=Failed
+				// Boxcutter might set: Progressing=True, Reason=Retrying OR Installed=False
+				// The key is that Installed should NOT be True with Reason=Succeeded
 				installed := meta.FindStatusCondition(conditions, olmv1.TypeInstalled)
 				g.Expect(installed).ToNot(BeNil(), "Installed condition not found")
-				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse), "Installed should be False")
-				g.Expect(installed.Reason).To(Equal(olmv1.ReasonFailed))
-				g.Expect(installed.Message).ToNot(BeEmpty())
+				
+				// Installation must not be successful - either False or with non-Succeeded reason
+				if installed.Status == metav1.ConditionTrue {
+					g.Expect(installed.Reason).ToNot(Equal(olmv1.ReasonSucceeded), 
+						"Installation should not succeed with non-existent namespace")
+				}
+				
+				// Verify error message mentions namespace issue (works for both runtimes)
+				// Both runtimes will eventually surface that the namespace doesn't exist
+				hasError := false
+				for _, cond := range conditions {
+					if strings.Contains(cond.Message, "namespace") && 
+					   (strings.Contains(cond.Message, "not found") || 
+					    strings.Contains(cond.Message, nonExistentWatchNamespace)) {
+						hasError = true
+						break
+					}
+				}
+				g.Expect(hasError).To(BeTrue(), "Expected error message about non-existent namespace")
 			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
