@@ -886,6 +886,107 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		ce.Create(oc)
 	})
 
+	g.It("PolarionID:87224-[Skipped:Disconnected]Upgrade version support [Serial]", func() {
+		var (
+			caseID                       = "87224"
+			ns                           = "ns-" + caseID
+			sa                           = "sa" + caseID
+			ceName                       = "ce-" + caseID
+			labelValue                   = caseID
+			baseDir                      = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+				Name:      sa,
+				Namespace: ns,
+				Template:  saClusterRoleBindingTemplate,
+			}
+			clustercatalog = olmv1util.ClusterCatalogDescription{
+				Name:       "clustercatalog-87224",
+				LabelValue: labelValue,
+				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87224",
+				Template:   clustercatalogTemplate,
+			}
+
+			ce87224 = olmv1util.ClusterExtensionDescription{
+				Name:             ceName,
+				PackageName:      "nginx-ok-v87224",
+				Version:          "0.0.1",
+				InstallNamespace: ns,
+				SaName:           sa,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
+		)
+
+		g.By("check if upgradeable is good")
+		message, err := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+		if err != nil || !strings.Contains(message, "well") {
+			g.Skip("skip case because of the Upgradeable is not good or failed to be got")
+		}
+
+		g.By("get next minor")
+		nextVersion, err := exutil.GetNextMinorVersion(oc)
+		if err != nil {
+			g.Skip(fmt.Sprintf("skip case because of failing to get version with %s", err.Error()))
+		}
+		expectedPattern := fmt.Sprintf("Found ClusterExtensions that require upgrades prior to upgrading cluster to version %s", nextVersion)
+		e2e.Logf("expectedPattern:%s", expectedPattern)
+
+		g.By("Create namespace, sa, clustercatalog")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found").Execute()
+		}()
+		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("install clusterextension, version 0.0.1, olm.maxOpenShiftVersion is 4.22")
+		defer ce87224.Delete(oc)
+		ce87224.Create(oc)
+
+		g.By("check if Upgradeable status is false")
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, expectedPattern) && strings.Contains(message, "5") {
+				e2e.Logf("message:%s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not bad")
+		status, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("False"))
+
+		g.By("check if Upgradeable status is true")
+		ce87224.Delete(oc)
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
+			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
+			if strings.Contains(message, "well") {
+				e2e.Logf("message:%s", message)
+				return true, nil
+			}
+			return false, nil
+		})
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o=jsonpath-as-json={.status.conditions}")
+		}
+		exutil.AssertWaitPollNoErr(errWait, "Upgradeable message is not good")
+		status, _ = olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].status}`)
+		o.Expect(status).To(o.ContainSubstring("True"))
+
+	})
+
 	g.It("PolarionID:74618-[OTP]ClusterExtension supports simple registry vzero bundles only", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:74618-[Skipped:Disconnected]ClusterExtension supports simple registry vzero bundles only"), func() {
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
