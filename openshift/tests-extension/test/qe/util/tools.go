@@ -546,3 +546,50 @@ func PatchResource(oc *CLI, asAdmin bool, withoutNamespace bool, parameters ...s
 	_, err := OcAction(oc, "patch", asAdmin, withoutNamespace, parameters...)
 	o.Expect(err).NotTo(o.HaveOccurred())
 }
+
+// GetNextMinorVersion calculates the next minor version string from the current cluster version
+// Parameters:
+//   - oc: CLI client for interacting with the OpenShift cluster
+//
+// Returns:
+//   - string: next minor version in "MAJOR.MINOR" format (e.g., "4.23")
+//   - error: error if version retrieval or calculation fails, nil on success
+//
+// Example:
+//
+//	nextVersion, err := GetNextMinorVersion(oc)
+//	// For cluster version "4.22.0-xxx", returns: "4.23", nil
+func GetNextMinorVersion(oc *CLI) (string, error) {
+	if oc == nil {
+		return "", fmt.Errorf("CLI client cannot be nil")
+	}
+
+	// Get current cluster version (e.g., "4.22")
+	clusterVersion, _, err := GetClusterVersion(oc)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster version: %w", err)
+	}
+
+	// Split to get major and minor
+	parts := strings.Split(clusterVersion, ".")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid cluster version format: %s (expected MAJOR.MINOR)", clusterVersion)
+	}
+
+	// Parse major and minor versions
+	major := 0
+	if _, err := fmt.Sscanf(parts[0], "%d", &major); err != nil {
+		return "", fmt.Errorf("failed to parse major version from %s: %w", parts[0], err)
+	}
+
+	minor := 0
+	if _, err := fmt.Sscanf(parts[1], "%d", &minor); err != nil {
+		return "", fmt.Errorf("failed to parse minor version from %s: %w", parts[1], err)
+	}
+
+	// Calculate next minor version
+	nextMinor := minor + 1
+	nextVersion := fmt.Sprintf("%d.%d", major, nextMinor)
+
+	return nextVersion, nil
+}
