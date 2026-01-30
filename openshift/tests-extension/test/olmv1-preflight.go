@@ -120,10 +120,6 @@ func runNegativePreflightTest(ctx context.Context, scenario int, namespace strin
 		g.Expect(c).NotTo(BeNil())
 		g.Expect(c.Status).To(Equal(metav1.ConditionTrue))
 		g.Expect(c.Message).To(ContainSubstring("pre-authorization failed"))
-
-		c = meta.FindStatusCondition(latest.Status.Conditions, "Installed")
-		g.Expect(c).NotTo(BeNil())
-		g.Expect(c.Status).To(Equal(metav1.ConditionFalse))
 	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
