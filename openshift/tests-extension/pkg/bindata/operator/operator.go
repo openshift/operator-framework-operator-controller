@@ -97,7 +97,7 @@ func dockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1759972370, 0)}
+	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -117,7 +117,7 @@ func manifestsRegistryClusterserviceversionYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 4485, mode: os.FileMode(420), modTime: time.Unix(1764220580, 0)}
+	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 4485, mode: os.FileMode(420), modTime: time.Unix(1769784020, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -137,7 +137,7 @@ func manifestsScriptConfigmapYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/script.configmap.yaml", size: 253, mode: os.FileMode(420), modTime: time.Unix(1764220580, 0)}
+	info := bindataFileInfo{name: "manifests/script.configmap.yaml", size: 253, mode: os.FileMode(420), modTime: time.Unix(1769765371, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -157,7 +157,7 @@ func metadataAnnotationsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1759972370, 0)}
+	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -177,7 +177,7 @@ func metadataPropertiesYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1759972370, 0)}
+	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1759823502, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -197,7 +197,7 @@ func testsScorecardConfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1759972370, 0)}
+	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
