@@ -15,6 +15,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,7 @@ import (
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/authorization"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
 	"github.com/operator-framework/operator-controller/internal/shared/util/cache"
 )
 
@@ -105,6 +107,27 @@ func (r *SimpleRevisionGenerator) GenerateRevision(
 		return nil, err
 	}
 
+	if revisionAnnotations == nil {
+		revisionAnnotations = map[string]string{}
+	}
+
+	// add bundle properties of interest to revision annotations
+	bundleAnnotations, err := getBundleAnnotations(bundleFS)
+	if err != nil {
+		return nil, fmt.Errorf("error getting bundle annotations: %w", err)
+	}
+
+	// we don't care about all of the bundle and csv annotations as they can be quite confusing
+	// e.g. 'createdAt', 'capabilities', etc.
+	for _, key := range []string{
+		// used by other operators that care about the bundle properties (e.g. maxOpenShiftVersion)
+		source.PropertyOLMProperties,
+	} {
+		if value, ok := bundleAnnotations[key]; ok {
+			revisionAnnotations[key] = value
+		}
+	}
+
 	// objectLabels
 	objs := make([]ocv1.ClusterExtensionRevisionObject, 0, len(plain))
 	for _, obj := range plain {
@@ -136,11 +159,6 @@ func (r *SimpleRevisionGenerator) GenerateRevision(
 			Object: unstr,
 		})
 	}
-
-	if revisionAnnotations == nil {
-		revisionAnnotations = map[string]string{}
-	}
-
 	return r.buildClusterExtensionRevision(objs, ext, revisionAnnotations), nil
 }
 
@@ -244,8 +262,7 @@ func (m *BoxcutterStorageMigrator) Migrate(ctx context.Context, ext *ocv1.Cluste
 		return fmt.Errorf("listing ClusterExtensionRevisions before attempting migration: %w", err)
 	}
 	if len(existingRevisionList.Items) != 0 {
-		// No migration needed.
-		return nil
+		return m.ensureMigratedRevisionStatus(ctx, existingRevisionList.Items)
 	}
 
 	ac, err := m.ActionClientGetter.ActionClientFor(ctx, ext)
@@ -262,10 +279,35 @@ func (m *BoxcutterStorageMigrator) Migrate(ctx context.Context, ext *ocv1.Cluste
 		return err
 	}
 
+	// Only migrate from a Helm release that represents a deployed, working installation.
+	// If the latest revision is not deployed (e.g. FAILED), look through the history and
+	// select the most-recent deployed release instead.
+	if helmRelease == nil || helmRelease.Info == nil || helmRelease.Info.Status != release.StatusDeployed {
+		var err error
+		helmRelease, err = m.findLatestDeployedRelease(ac, ext.GetName())
+		if err != nil {
+			return err
+		}
+		if helmRelease == nil {
+			// No deployed release found in history - skip migration. The ClusterExtension
+			// controller will handle this via normal rollout.
+			return nil
+		}
+	}
+
 	rev, err := m.RevisionGenerator.GenerateRevisionFromHelmRelease(ctx, helmRelease, ext, objectLabels)
 	if err != nil {
 		return err
 	}
+
+	// Mark this revision as migrated from Helm so we can distinguish it from
+	// normal Boxcutter revisions. This label is critical for ensuring we only
+	// set Succeeded=True status on actually-migrated revisions, not on revision 1
+	// created during normal Boxcutter operation.
+	if rev.Labels == nil {
+		rev.Labels = make(map[string]string)
+	}
+	rev.Labels[labels.MigratedFromHelmKey] = "true"
 
 	// Set ownerReference for proper garbage collection when the ClusterExtension is deleted.
 	if err := controllerutil.SetControllerReference(ext, rev, m.Scheme); err != nil {
@@ -276,9 +318,105 @@ func (m *BoxcutterStorageMigrator) Migrate(ctx context.Context, ext *ocv1.Cluste
 		return err
 	}
 
-	// Re-fetch to get server-managed fields like Generation
+	// Set initial status on the migrated revision to mark it as succeeded.
+	//
+	// The revision must have a Succeeded=True status condition immediately after creation.
+	//
+	// A revision is only considered "Installed" (vs "RollingOut") when it has this condition.
+	// Without it, the system cannot determine what version is currently installed, which breaks:
+	//   - Version resolution (can't compute upgrade paths from unknown starting point)
+	//   - Status reporting (installed bundle appears as nil)
+	//   - Subsequent upgrades (resolution fails without knowing current version)
+	//
+	// While the ClusterExtensionRevision controller would eventually reconcile and set this status,
+	// that creates a timing gap where the ClusterExtension reconciliation happens before the status
+	// is set, causing failures during the OLM upgrade window.
+	//
+	// Since we're creating this revision from a successfully deployed Helm release, we know it
+	// represents a working installation and can safely mark it as succeeded immediately.
+	return m.ensureRevisionStatus(ctx, rev)
+}
+
+// ensureMigratedRevisionStatus checks if revision 1 exists and needs its status set.
+// This handles the case where revision creation succeeded but status update failed.
+// Returns nil if no action is needed.
+func (m *BoxcutterStorageMigrator) ensureMigratedRevisionStatus(ctx context.Context, revisions []ocv1.ClusterExtensionRevision) error {
+	for i := range revisions {
+		if revisions[i].Spec.Revision != 1 {
+			continue
+		}
+		// Skip if already succeeded - status is already set correctly.
+		if meta.IsStatusConditionTrue(revisions[i].Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded) {
+			return nil
+		}
+		// Ensure revision 1 status is set correctly, including for previously migrated
+		// revisions that may not carry the MigratedFromHelm label.
+		return m.ensureRevisionStatus(ctx, &revisions[i])
+	}
+	// No revision 1 found - migration not applicable (revisions created by normal operation).
+	return nil
+}
+
+// findLatestDeployedRelease searches the Helm release history for the most recent deployed release.
+// Returns nil if no deployed release is found.
+func (m *BoxcutterStorageMigrator) findLatestDeployedRelease(ac helmclient.ActionInterface, name string) (*release.Release, error) {
+	history, err := ac.History(name)
+	if errors.Is(err, driver.ErrReleaseNotFound) {
+		// no Helm Release history -> no prior installation.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var latestDeployed *release.Release
+	for _, rel := range history {
+		if rel == nil || rel.Info == nil {
+			continue
+		}
+		if rel.Info.Status != release.StatusDeployed {
+			continue
+		}
+		if latestDeployed == nil || rel.Version > latestDeployed.Version {
+			latestDeployed = rel
+		}
+	}
+
+	return latestDeployed, nil
+}
+
+// ensureRevisionStatus ensures the revision has the Succeeded status condition set.
+// Returns nil if the status is already set or after successfully setting it.
+// Only sets status on revisions that were actually migrated from Helm (marked with MigratedFromHelmKey label).
+func (m *BoxcutterStorageMigrator) ensureRevisionStatus(ctx context.Context, rev *ocv1.ClusterExtensionRevision) error {
+	// Re-fetch to get latest version before checking status
 	if err := m.Client.Get(ctx, client.ObjectKeyFromObject(rev), rev); err != nil {
-		return fmt.Errorf("getting created revision: %w", err)
+		return fmt.Errorf("getting existing revision for status check: %w", err)
+	}
+
+	// Only set status if this revision was actually migrated from Helm.
+	// This prevents us from incorrectly marking normal Boxcutter revision 1 as succeeded
+	// when it's still in progress.
+	if rev.Labels[labels.MigratedFromHelmKey] != "true" {
+		return nil
+	}
+
+	// Check if status is already set to Succeeded=True
+	if meta.IsStatusConditionTrue(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded) {
+		return nil
+	}
+
+	// Set the Succeeded status condition
+	meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+		Type:               ocv1.ClusterExtensionRevisionTypeSucceeded,
+		Status:             metav1.ConditionTrue,
+		Reason:             ocv1.ReasonSucceeded,
+		Message:            "Revision succeeded - migrated from Helm release",
+		ObservedGeneration: rev.GetGeneration(),
+	})
+
+	if err := m.Client.Status().Update(ctx, rev); err != nil {
+		return fmt.Errorf("updating migrated revision status: %w", err)
 	}
 
 	return nil

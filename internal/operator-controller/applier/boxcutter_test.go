@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +36,15 @@ import (
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/authorization"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/util/testing/bundlefs"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/util/testing/clusterserviceversion"
+)
+
+var (
+	dummyBundle = bundlefs.Builder().
+		WithPackageName("test-package").
+		WithCSV(clusterserviceversion.Builder().WithName("test-csv").Build()).
+		Build()
 )
 
 func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) {
@@ -194,7 +204,7 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 		},
 	}
 
-	rev, err := b.GenerateRevision(t.Context(), fstest.MapFS{}, ext, map[string]string{}, map[string]string{})
+	rev, err := b.GenerateRevision(t.Context(), dummyBundle, ext, map[string]string{}, map[string]string{})
 	require.NoError(t, err)
 
 	t.Log("by checking the olm.operatorframework.io/owner-name label is set to the name of the ClusterExtension")
@@ -253,8 +263,88 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 	}, rev.Spec.Phases)
 }
 
+func Test_SimpleRevisionGenerator_GenerateRevision_BundleAnnotations(t *testing.T) {
+	r := &FakeManifestProvider{
+		GetFn: func(_ fs.FS, _ *ocv1.ClusterExtension) ([]client.Object, error) {
+			return []client.Object{}, nil
+		},
+	}
+
+	b := applier.SimpleRevisionGenerator{
+		Scheme:           k8scheme.Scheme,
+		ManifestProvider: r,
+	}
+
+	ext := &ocv1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-extension",
+		},
+		Spec: ocv1.ClusterExtensionSpec{
+			Namespace: "test-namespace",
+			ServiceAccount: ocv1.ServiceAccountReference{
+				Name: "test-sa",
+			},
+		},
+	}
+
+	t.Run("bundle properties are copied to the olm.properties annotation", func(t *testing.T) {
+		bundleFS := bundlefs.Builder().
+			WithPackageName("test-package").
+			WithBundleProperty("olm.bundle.property", "some-value").
+			WithBundleProperty("olm.another.bundle.property", "some-other-value").
+			WithCSV(clusterserviceversion.Builder().WithName("test-csv").Build()).
+			Build()
+
+		rev, err := b.GenerateRevision(t.Context(), bundleFS, ext, map[string]string{}, map[string]string{})
+		require.NoError(t, err)
+
+		t.Log("by checking bundle properties are added to the revision annotations")
+		require.NotNil(t, rev.Annotations)
+		require.JSONEq(t, `[{"type":"olm.bundle.property","value":"some-value"},{"type":"olm.another.bundle.property","value":"some-other-value"}]`, rev.Annotations["olm.properties"])
+	})
+
+	t.Run("olm.properties should not be present if there are no bundle properties", func(t *testing.T) {
+		bundleFS := bundlefs.Builder().
+			WithPackageName("test-package").
+			WithCSV(clusterserviceversion.Builder().WithName("test-csv").Build()).
+			Build()
+
+		rev, err := b.GenerateRevision(t.Context(), bundleFS, ext, map[string]string{}, map[string]string{})
+		require.NoError(t, err)
+
+		t.Log("by checking olm.properties is not present in the revision annotations")
+		_, ok := rev.Annotations["olm.properties"]
+		require.False(t, ok, "olm.properties should not be present in the revision annotations")
+	})
+
+	t.Run("csv annotations are not added to the revision annotations", func(t *testing.T) {
+		bundleFS := bundlefs.Builder().
+			WithPackageName("test-package").
+			WithBundleProperty("olm.bundle.property", "some-value").
+			WithCSV(clusterserviceversion.Builder().
+				WithName("test-csv").
+				WithAnnotations(map[string]string{
+					"some.csv.annotation": "some-other-value",
+				}).
+				Build()).
+			Build()
+
+		rev, err := b.GenerateRevision(t.Context(), bundleFS, ext, map[string]string{}, map[string]string{})
+		require.NoError(t, err)
+
+		t.Log("by checking csv annotations are not added to the revision annotations")
+		_, ok := rev.Annotations["olm.csv.annotation"]
+		require.False(t, ok, "csv annotation should not be present in the revision annotations")
+	})
+
+	t.Run("errors getting bundle properties are surfaced", func(t *testing.T) {
+		_, err := b.GenerateRevision(t.Context(), fstest.MapFS{}, ext, map[string]string{}, map[string]string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "metadata/annotations.yaml: file does not exist")
+	})
+}
+
 func Test_SimpleRevisionGenerator_Renderer_Integration(t *testing.T) {
-	bundleFS := fstest.MapFS{}
 	ext := &ocv1.ClusterExtension{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-extension",
@@ -263,7 +353,7 @@ func Test_SimpleRevisionGenerator_Renderer_Integration(t *testing.T) {
 	r := &FakeManifestProvider{
 		GetFn: func(b fs.FS, e *ocv1.ClusterExtension) ([]client.Object, error) {
 			t.Log("by checking renderer was called with the correct parameters")
-			require.Equal(t, bundleFS, b)
+			require.Equal(t, dummyBundle, b)
 			require.Equal(t, ext, e)
 			return nil, nil
 		},
@@ -273,7 +363,7 @@ func Test_SimpleRevisionGenerator_Renderer_Integration(t *testing.T) {
 		ManifestProvider: r,
 	}
 
-	_, err := b.GenerateRevision(t.Context(), bundleFS, ext, map[string]string{}, map[string]string{})
+	_, err := b.GenerateRevision(t.Context(), dummyBundle, ext, map[string]string{}, map[string]string{})
 	require.NoError(t, err)
 }
 
@@ -311,7 +401,7 @@ func Test_SimpleRevisionGenerator_AppliesObjectLabelsAndRevisionAnnotations(t *t
 		"other": "value",
 	}
 
-	rev, err := b.GenerateRevision(t.Context(), fstest.MapFS{}, &ocv1.ClusterExtension{
+	rev, err := b.GenerateRevision(t.Context(), dummyBundle, &ocv1.ClusterExtension{
 		Spec: ocv1.ClusterExtensionSpec{
 			Namespace:      "test-namespace",
 			ServiceAccount: ocv1.ServiceAccountReference{Name: "test-sa"},
@@ -385,7 +475,7 @@ func Test_SimpleRevisionGenerator_PropagatesProgressDeadlineMinutes(t *testing.T
 				ext.Spec.ProgressDeadlineMinutes = *pd
 			}
 
-			rev, err := b.GenerateRevision(t.Context(), fstest.MapFS{}, ext, empty, empty)
+			rev, err := b.GenerateRevision(t.Context(), dummyBundle, ext, empty, empty)
 			require.NoError(t, err)
 			require.Equal(t, tc.want.progressDeadlineMinutes, rev.Spec.ProgressDeadlineMinutes)
 		})
@@ -1210,7 +1300,12 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		brb := &mockBundleRevisionBuilder{}
-		mag := &mockActionGetter{}
+		mag := &mockActionGetter{
+			currentRel: &release.Release{
+				Name: "test123",
+				Info: &release.Info{Status: release.StatusDeployed},
+			},
+		}
 		client := &clientMock{}
 		sm := &applier.BoxcutterStorageMigrator{
 			RevisionGenerator:  brb,
@@ -1230,8 +1325,11 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			On("Create", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
 			Once().
 			Run(func(args mock.Arguments) {
-				// Simulate real Kubernetes behavior: Create() populates server-managed fields
+				// Verify the migration marker label is set before creation
 				rev := args.Get(1).(*ocv1.ClusterExtensionRevision)
+				require.Equal(t, "true", rev.Labels[labels.MigratedFromHelmKey], "Migration marker label should be set")
+
+				// Simulate real Kubernetes behavior: Create() populates server-managed fields
 				rev.Generation = 1
 				rev.ResourceVersion = "1"
 			}).
@@ -1251,6 +1349,21 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, err)
 
 		client.AssertExpectations(t)
+
+		// Verify the migrated revision has Succeeded=True status with Succeeded reason and a migration message
+		statusWriter := client.Status().(*statusWriterMock)
+		require.True(t, statusWriter.updateCalled, "Status().Update() should be called during migration")
+		require.NotNil(t, statusWriter.updatedObj, "Updated object should not be nil")
+
+		rev, ok := statusWriter.updatedObj.(*ocv1.ClusterExtensionRevision)
+		require.True(t, ok, "Updated object should be a ClusterExtensionRevision")
+
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
+		assert.Equal(t, "Revision succeeded - migrated from Helm release", succeededCond.Message, "Message should indicate Helm migration")
+		assert.Equal(t, int64(1), succeededCond.ObservedGeneration, "ObservedGeneration should match revision generation")
 	})
 
 	t.Run("does not create revision when revisions exist", func(t *testing.T) {
@@ -1271,12 +1384,313 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
 		}
 
+		existingRev := ocv1.ClusterExtensionRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-revision",
+				Generation: 2,
+				Labels: map[string]string{
+					labels.MigratedFromHelmKey: "true",
+				},
+			},
+			Spec: ocv1.ClusterExtensionRevisionSpec{
+				Revision: 1, // Migration creates revision 1
+			},
+			Status: ocv1.ClusterExtensionRevisionStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   ocv1.ClusterExtensionRevisionTypeSucceeded,
+						Status: metav1.ConditionTrue,
+						Reason: ocv1.ReasonSucceeded,
+					},
+				},
+			},
+		}
+
 		client.
 			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
 			Run(func(args mock.Arguments) {
 				list := args.Get(1).(*ocv1.ClusterExtensionRevisionList)
-				list.Items = []ocv1.ClusterExtensionRevision{
-					{}, {}, // Existing revisions.
+				list.Items = []ocv1.ClusterExtensionRevision{existingRev}
+			}).
+			Return(nil)
+
+		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
+		require.NoError(t, err)
+
+		client.AssertExpectations(t)
+	})
+
+	t.Run("sets status when revision exists but status is missing", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
+		brb := &mockBundleRevisionBuilder{}
+		mag := &mockActionGetter{}
+		client := &clientMock{}
+		sm := &applier.BoxcutterStorageMigrator{
+			RevisionGenerator:  brb,
+			ActionClientGetter: mag,
+			Client:             client,
+			Scheme:             testScheme,
+		}
+
+		ext := &ocv1.ClusterExtension{
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+		}
+
+		existingRev := ocv1.ClusterExtensionRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-revision",
+				Generation: 2,
+				Labels: map[string]string{
+					labels.MigratedFromHelmKey: "true",
+				},
+			},
+			Spec: ocv1.ClusterExtensionRevisionSpec{
+				Revision: 1, // Migration creates revision 1
+			},
+			// Status is empty - simulating the case where creation succeeded but status update failed
+		}
+
+		client.
+			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				list := args.Get(1).(*ocv1.ClusterExtensionRevisionList)
+				list.Items = []ocv1.ClusterExtensionRevision{existingRev}
+			}).
+			Return(nil)
+
+		client.
+			On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				rev := args.Get(2).(*ocv1.ClusterExtensionRevision)
+				*rev = existingRev
+			}).
+			Return(nil)
+
+		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
+		require.NoError(t, err)
+
+		client.AssertExpectations(t)
+
+		// Verify the status was set
+		statusWriter := client.Status().(*statusWriterMock)
+		require.True(t, statusWriter.updateCalled, "Status().Update() should be called to set missing status")
+		require.NotNil(t, statusWriter.updatedObj, "Updated object should not be nil")
+
+		rev, ok := statusWriter.updatedObj.(*ocv1.ClusterExtensionRevision)
+		require.True(t, ok, "Updated object should be a ClusterExtensionRevision")
+
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
+	})
+
+	t.Run("updates status from False to True for migrated revision", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
+		brb := &mockBundleRevisionBuilder{}
+		mag := &mockActionGetter{}
+		client := &clientMock{}
+		sm := &applier.BoxcutterStorageMigrator{
+			RevisionGenerator:  brb,
+			ActionClientGetter: mag,
+			Client:             client,
+			Scheme:             testScheme,
+		}
+
+		ext := &ocv1.ClusterExtension{
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+		}
+
+		// Migrated revision with Succeeded=False (e.g., from a previous failed status update attempt)
+		// This simulates a revision whose Succeeded condition should be corrected from False to True during migration.
+		existingRev := ocv1.ClusterExtensionRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-revision",
+				Generation: 2,
+				Labels: map[string]string{
+					labels.MigratedFromHelmKey: "true",
+				},
+			},
+			Spec: ocv1.ClusterExtensionRevisionSpec{
+				Revision: 1,
+			},
+			Status: ocv1.ClusterExtensionRevisionStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   ocv1.ClusterExtensionRevisionTypeSucceeded,
+						Status: metav1.ConditionFalse, // Important: False, not missing
+						Reason: "InProgress",
+					},
+				},
+			},
+		}
+
+		client.
+			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				list := args.Get(1).(*ocv1.ClusterExtensionRevisionList)
+				list.Items = []ocv1.ClusterExtensionRevision{existingRev}
+			}).
+			Return(nil)
+
+		client.
+			On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				rev := args.Get(2).(*ocv1.ClusterExtensionRevision)
+				*rev = existingRev
+			}).
+			Return(nil)
+
+		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
+		require.NoError(t, err)
+
+		client.AssertExpectations(t)
+
+		// Verify the status was updated from False to True
+		statusWriter := client.Status().(*statusWriterMock)
+		require.True(t, statusWriter.updateCalled, "Status().Update() should be called to update False to True")
+		require.NotNil(t, statusWriter.updatedObj, "Updated object should not be nil")
+
+		rev, ok := statusWriter.updatedObj.(*ocv1.ClusterExtensionRevision)
+		require.True(t, ok, "Updated object should be a ClusterExtensionRevision")
+
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be updated to True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
+	})
+
+	t.Run("does not set status on non-migrated revision 1", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
+		brb := &mockBundleRevisionBuilder{}
+		mag := &mockActionGetter{}
+		client := &clientMock{}
+		sm := &applier.BoxcutterStorageMigrator{
+			RevisionGenerator:  brb,
+			ActionClientGetter: mag,
+			Client:             client,
+			Scheme:             testScheme,
+		}
+
+		ext := &ocv1.ClusterExtension{
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+		}
+
+		// Revision 1 created by normal Boxcutter operation (no migration label)
+		// This simulates the first rollout - status should NOT be set as it may still be in progress
+		existingRev := ocv1.ClusterExtensionRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-revision",
+				Generation: 2,
+				// No migration label - this is a normal Boxcutter revision
+			},
+			Spec: ocv1.ClusterExtensionRevisionSpec{
+				Revision: 1,
+			},
+		}
+
+		client.
+			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				list := args.Get(1).(*ocv1.ClusterExtensionRevisionList)
+				list.Items = []ocv1.ClusterExtensionRevision{existingRev}
+			}).
+			Return(nil)
+
+		// The migration flow calls Get() to re-fetch the revision before checking its status.
+		// Even for non-migrated revisions, Get() is called to determine if status needs to be set.
+		client.
+			On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				rev := args.Get(2).(*ocv1.ClusterExtensionRevision)
+				*rev = existingRev
+			}).
+			Return(nil)
+
+		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
+		require.NoError(t, err)
+
+		client.AssertExpectations(t)
+
+		// Verify the status was NOT set for non-migrated revision
+		statusWriter := client.Status().(*statusWriterMock)
+		require.False(t, statusWriter.updateCalled, "Status().Update() should NOT be called for non-migrated revisions")
+	})
+
+	t.Run("migrates from most recent deployed release when latest is failed", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
+		brb := &mockBundleRevisionBuilder{}
+		mag := &mockActionGetter{
+			currentRel: &release.Release{
+				Name:    "test123",
+				Version: 3,
+				Info:    &release.Info{Status: release.StatusFailed},
+			},
+			history: []*release.Release{
+				{
+					Name:    "test123",
+					Version: 3,
+					Info:    &release.Info{Status: release.StatusFailed},
+				},
+				{
+					Name:    "test123",
+					Version: 2,
+					Info:    &release.Info{Status: release.StatusDeployed},
+				},
+				{
+					Name:    "test123",
+					Version: 1,
+					Info:    &release.Info{Status: release.StatusSuperseded},
+				},
+			},
+		}
+		client := &clientMock{}
+		sm := &applier.BoxcutterStorageMigrator{
+			RevisionGenerator:  brb,
+			ActionClientGetter: mag,
+			Client:             client,
+			Scheme:             testScheme,
+		}
+
+		ext := &ocv1.ClusterExtension{
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+		}
+
+		client.
+			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
+			Return(nil)
+
+		client.
+			On("Create", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Once().
+			Run(func(args mock.Arguments) {
+				// Verify the migration marker label is set before creation
+				rev := args.Get(1).(*ocv1.ClusterExtensionRevision)
+				require.Equal(t, "true", rev.Labels[labels.MigratedFromHelmKey], "Migration marker label should be set")
+
+				// Simulate real Kubernetes behavior: Create() populates server-managed fields
+				rev.Generation = 1
+				rev.ResourceVersion = "1"
+			}).
+			Return(nil)
+
+		client.
+			On("Get", mock.Anything, mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevision"), mock.Anything).
+			Run(func(args mock.Arguments) {
+				rev := args.Get(2).(*ocv1.ClusterExtensionRevision)
+				rev.ObjectMeta.Name = "test-revision"
+				rev.ObjectMeta.Generation = 1
+				rev.ObjectMeta.ResourceVersion = "1"
+				rev.Labels = map[string]string{
+					labels.MigratedFromHelmKey: "true",
 				}
 			}).
 			Return(nil)
@@ -1285,6 +1699,70 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, err)
 
 		client.AssertExpectations(t)
+
+		// Verify the correct release (version 2, deployed) was used instead of version 3 (failed)
+		require.NotNil(t, brb.helmReleaseUsed, "GenerateRevisionFromHelmRelease should have been called")
+		assert.Equal(t, 2, brb.helmReleaseUsed.Version, "Should use version 2 (deployed), not version 3 (failed)")
+		assert.Equal(t, release.StatusDeployed, brb.helmReleaseUsed.Info.Status, "Should use deployed release")
+
+		// Verify the migrated revision has Succeeded=True status
+		statusWriter := client.Status().(*statusWriterMock)
+		require.True(t, statusWriter.updateCalled, "Status().Update() should be called during migration")
+		require.NotNil(t, statusWriter.updatedObj, "Updated object should not be nil")
+
+		rev, ok := statusWriter.updatedObj.(*ocv1.ClusterExtensionRevision)
+		require.True(t, ok, "Updated object should be a ClusterExtensionRevision")
+
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
+	})
+
+	t.Run("does not create revision when helm release is not deployed and no deployed history", func(t *testing.T) {
+		testScheme := runtime.NewScheme()
+		require.NoError(t, ocv1.AddToScheme(testScheme))
+
+		brb := &mockBundleRevisionBuilder{}
+		mag := &mockActionGetter{
+			currentRel: &release.Release{
+				Name: "test123",
+				Info: &release.Info{Status: release.StatusFailed},
+			},
+			history: []*release.Release{
+				{
+					Name:    "test123",
+					Version: 2,
+					Info:    &release.Info{Status: release.StatusFailed},
+				},
+				{
+					Name:    "test123",
+					Version: 1,
+					Info:    &release.Info{Status: release.StatusFailed},
+				},
+			},
+		}
+		client := &clientMock{}
+		sm := &applier.BoxcutterStorageMigrator{
+			RevisionGenerator:  brb,
+			ActionClientGetter: mag,
+			Client:             client,
+			Scheme:             testScheme,
+		}
+
+		ext := &ocv1.ClusterExtension{
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
+		}
+
+		client.
+			On("List", mock.Anything, mock.AnythingOfType("*v1.ClusterExtensionRevisionList"), mock.Anything).
+			Return(nil)
+
+		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
+		require.NoError(t, err)
+
+		client.AssertExpectations(t)
+		// brb.GenerateRevisionFromHelmRelease should NOT have been called
+		require.False(t, brb.generateRevisionFromHelmReleaseCalled, "GenerateRevisionFromHelmRelease should NOT be called when no deployed release exists")
 	})
 
 	t.Run("does not create revision when no helm release", func(t *testing.T) {
@@ -1320,7 +1798,9 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 
 // mockBundleRevisionBuilder is a mock implementation of the ClusterExtensionRevisionGenerator for testing.
 type mockBundleRevisionBuilder struct {
-	makeRevisionFunc func(ctx context.Context, bundleFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotation map[string]string) (*ocv1.ClusterExtensionRevision, error)
+	makeRevisionFunc                      func(ctx context.Context, bundleFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotation map[string]string) (*ocv1.ClusterExtensionRevision, error)
+	generateRevisionFromHelmReleaseCalled bool
+	helmReleaseUsed                       *release.Release
 }
 
 func (m *mockBundleRevisionBuilder) GenerateRevision(ctx context.Context, bundleFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (*ocv1.ClusterExtensionRevision, error) {
@@ -1332,6 +1812,8 @@ func (m *mockBundleRevisionBuilder) GenerateRevisionFromHelmRelease(
 	helmRelease *release.Release, ext *ocv1.ClusterExtension,
 	objectLabels map[string]string,
 ) (*ocv1.ClusterExtensionRevision, error) {
+	m.generateRevisionFromHelmReleaseCalled = true
+	m.helmReleaseUsed = helmRelease
 	return &ocv1.ClusterExtensionRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-revision",
@@ -1345,6 +1827,7 @@ func (m *mockBundleRevisionBuilder) GenerateRevisionFromHelmRelease(
 
 type clientMock struct {
 	mock.Mock
+	statusWriter *statusWriterMock
 }
 
 func (m *clientMock) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
@@ -1363,15 +1846,22 @@ func (m *clientMock) Create(ctx context.Context, obj client.Object, opts ...clie
 }
 
 func (m *clientMock) Status() client.StatusWriter {
-	return &statusWriterMock{mock: &m.Mock}
+	if m.statusWriter == nil {
+		m.statusWriter = &statusWriterMock{mock: &m.Mock}
+	}
+	return m.statusWriter
 }
 
 type statusWriterMock struct {
-	mock *mock.Mock
+	mock         *mock.Mock
+	updatedObj   client.Object
+	updateCalled bool
 }
 
 func (s *statusWriterMock) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
-	// Status updates are expected during migration - return success by default
+	// Capture the status update for test verification
+	s.updatedObj = obj
+	s.updateCalled = true
 	return nil
 }
 

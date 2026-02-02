@@ -117,7 +117,7 @@ Feature: Install ClusterExtension
               matchLabels:
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
-    And ClusterExtension reports Progressing as True with Reason Retrying and Message:
+    And ClusterExtension reports Progressing as False with Reason InvalidConfiguration and Message:
       """
       error for resolved bundle "single-namespace-operator.1.0.0" with version "1.0.0":
       invalid ClusterExtension configuration: invalid configuration: required field "watchNamespace" is missing
@@ -169,7 +169,7 @@ Feature: Install ClusterExtension
               matchLabels:
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
-    And ClusterExtension reports Progressing as True with Reason Retrying and Message:
+    And ClusterExtension reports Progressing as False with Reason InvalidConfiguration and Message:
       """
       error for resolved bundle "own-namespace-operator.1.0.0" with version
       "1.0.0": invalid ClusterExtension configuration: invalid configuration: required
@@ -197,13 +197,13 @@ Feature: Install ClusterExtension
               matchLabels:
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
-    And ClusterExtension reports Progressing as True with Reason Retrying and Message:
+    And ClusterExtension reports Progressing as False with Reason InvalidConfiguration and Message:
       """
       error for resolved bundle "own-namespace-operator.1.0.0" with version
-      "1.0.0": invalid ClusterExtension configuration: invalid configuration: 'some-ns'
-      is not valid ownNamespaceInstallMode: invalid value "some-ns": watchNamespace
-      must be "${TEST_NAMESPACE}" (the namespace where the operator is installed) because this
-      operator only supports OwnNamespace install mode
+      "1.0.0": invalid ClusterExtension configuration: invalid configuration: invalid
+      format for field "watchNamespace": 'some-ns' is not valid ownNamespaceInstallMode:
+      invalid value "some-ns": must be "${TEST_NAMESPACE}" (the namespace where the
+      operator is installed) because this operator only supports OwnNamespace install mode
       """
     When ClusterExtension is updated to set watchNamespace to own namespace value
       """
@@ -298,6 +298,67 @@ Feature: Install ClusterExtension
         mutate: true
       """
 
+  @SingleOwnNamespaceInstallSupport
+  Scenario: Report failure when watchNamespace has invalid DNS-1123 name
+    Given ServiceAccount "olm-admin" in test namespace is cluster admin
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-admin
+        config:
+          configType: Inline
+          inline:
+            watchNamespace: invalid-namespace-
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: single-namespace-operator
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    Then ClusterExtension reports Progressing as False with Reason InvalidConfiguration and Message includes:
+      """
+      invalid ClusterExtension configuration: invalid configuration: field "watchNamespace" must match pattern
+      """
+
+  @SingleOwnNamespaceInstallSupport
+  @WebhookProviderCertManager
+  Scenario: Reject watchNamespace for operator that does not support Single/OwnNamespace install modes
+    Given ServiceAccount "olm-admin" in test namespace is cluster admin
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-admin
+        config:
+          configType: Inline
+          inline:
+            watchNamespace: ${TEST_NAMESPACE}
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: webhook-operator
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    Then ClusterExtension reports Progressing as False with Reason InvalidConfiguration and Message includes:
+      """
+      invalid ClusterExtension configuration: invalid configuration: unknown field "watchNamespace"
+      """
+
   @BoxcutterRuntime
   @ProgressDeadline
   Scenario: Report ClusterExtension as not progressing if the rollout does not complete within given timeout
@@ -329,3 +390,30 @@ Feature: Install ClusterExtension
       Revision has not rolled out for 1 minutes.
       """
     And ClusterExtension reports Progressing transition between 1 and 2 minutes since its creation
+
+  @BoxcutterRuntime
+  Scenario:  ClusterExtensionRevision is annotated with bundle properties
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: test
+            version: 1.2.0
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    # The annotation key and value come from the bundle's metadata/properties.yaml file
+    Then ClusterExtensionRevision "${NAME}-1" contains annotation "olm.properties" with value
+      """
+      [{"type":"olm.test-property","value":"some-value"}]
+      """
