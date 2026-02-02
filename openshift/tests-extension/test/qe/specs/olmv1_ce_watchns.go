@@ -249,9 +249,9 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		ceNoConfig.Delete(oc)
 		e2e.Logf("Scenario 2-1 cleanup: ClusterExtension deleted")
 
-		g.By("Scenario 2-2: Empty string watchNamespace - expect AllNamespaces mode success")
+		g.By("Scenario 2-2: Empty string watchNamespace - expect minLength validation error")
 		e2e.Logf("Testing ClusterExtension with {All,Own,Single} InstallModes and empty watchNamespace")
-		e2e.Logf("Expected behavior: Empty watchNamespace defaults to AllNamespaces mode")
+		e2e.Logf("Expected behavior: Empty watchNamespace violates minLength constraint and fails validation")
 		ceEmptyString := olmv1util.ClusterExtensionDescription{
 			Name:             "ce-" + caseID + "-empty",
 			PackageName:      "nginx-ok-v85543",
@@ -264,12 +264,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Template:         clusterextensionConfigTemplate,
 		}
 		defer ceEmptyString.Delete(oc)
-		// For {All,Own,Single} InstallModes, empty string defaults to AllNamespaces mode
-		ceEmptyString.Create(oc)
+		_ = ceEmptyString.CreateWithoutCheck(oc)
+		// Empty string violates minLength: 1 validation
+		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "minimum length of 1", 3, 60, 0)
 		// Print full ClusterExtension resource for manual test documentation
 		e2e.Logf("=== ClusterExtension EmptyString resource ===")
 		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("clusterextension", ceEmptyString.Name, "-o", "yaml").Execute()
-		e2e.Logf("PASS: Scenario 2-2 passed: ClusterExtension with empty watchNamespace installed successfully in AllNamespaces mode")
+		e2e.Logf("PASS: Scenario 2-2 passed: ClusterExtension with empty watchNamespace correctly rejected with minLength validation error")
 		ceEmptyString.Delete(oc)
 		e2e.Logf("Scenario 2-2 cleanup: ClusterExtension deleted")
 
@@ -407,7 +408,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		ceNoConfig.Delete(oc)
 		e2e.Logf("Scenario 3-1 cleanup: ClusterExtension deleted")
 
-		g.By("Scenario 3-2: Empty string watchNamespace - expect validation error")
+		g.By("Scenario 3-2: Empty string watchNamespace - expect minLength validation error")
 		e2e.Logf("Testing ClusterExtension with {Own,Single} InstallModes and empty watchNamespace")
 		ceEmptyString := olmv1util.ClusterExtensionDescription{
 			Name:             "ce-" + caseID + "-empty",
@@ -422,12 +423,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		}
 		defer ceEmptyString.Delete(oc)
 		_ = ceEmptyString.CreateWithoutCheck(oc)
-		// Empty string is a supported field but invalid value (DNS format validation)
-		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "invalid", 3, 60, 0)
+		// Empty string violates minLength: 1 validation
+		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "minimum length of 1", 3, 60, 0)
 		// Print full ClusterExtension resource for manual test documentation
 		e2e.Logf("=== ClusterExtension EmptyString resource ===")
 		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("clusterextension", ceEmptyString.Name, "-o", "yaml").Execute()
-		e2e.Logf("PASS: Scenario 3-2 passed: ClusterExtension with empty watchNamespace correctly rejected with validation error")
+		e2e.Logf("PASS: Scenario 3-2 passed: ClusterExtension with empty watchNamespace correctly rejected with minLength validation error")
 		ceEmptyString.Delete(oc)
 		e2e.Logf("Scenario 3-2 cleanup: ClusterExtension deleted")
 
@@ -568,7 +569,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		ceNoConfig.Delete(oc)
 		e2e.Logf("Scenario 5-1 cleanup: ClusterExtension deleted")
 
-		g.By("Scenario 5-2: watchNamespace is empty string - expect DNS validation error")
+		g.By("Scenario 5-2: watchNamespace is empty string - expect minLength validation error")
 		e2e.Logf("Testing ClusterExtension with {Single} InstallMode and watchNamespace=''")
 		ceEmptyString := olmv1util.ClusterExtensionDescription{
 			Name:             "ce-" + caseID + "-empty",
@@ -583,11 +584,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		}
 		defer ceEmptyString.Delete(oc)
 		_ = ceEmptyString.CreateWithoutCheck(oc)
-		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "invalid", 3, 60, 0)
+		// Empty string violates minLength: 1 validation
+		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "minimum length of 1", 3, 60, 0)
 		// Print full ClusterExtension resource for manual test documentation
 		e2e.Logf("=== ClusterExtension EmptyString resource ===")
 		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("clusterextension", ceEmptyString.Name, "-o", "yaml").Execute()
-		e2e.Logf("PASS: Scenario 5-2 passed: Got expected DNS validation error for empty string")
+		e2e.Logf("PASS: Scenario 5-2 passed: Got expected minLength validation error for empty string")
 		ceEmptyString.Delete(oc)
 		e2e.Logf("Scenario 5-2 cleanup: ClusterExtension deleted")
 
@@ -733,9 +735,9 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		ceNoConfig.Delete(oc)
 		e2e.Logf("Scenario 4-1 cleanup: ClusterExtension deleted")
 
-		g.By("Scenario 4-2: watchNamespace is empty string - expect DNS validation error")
+		g.By("Scenario 4-2: watchNamespace is empty string - expect OwnNamespace mode validation error")
 		e2e.Logf("Testing ClusterExtension with {Own} InstallMode and watchNamespace=''")
-		e2e.Logf("Expected behavior: watchNamespace field should be supported with DNS validation")
+		e2e.Logf("Expected behavior: Empty watchNamespace violates OwnNamespace mode requirement (must equal install namespace)")
 		ceEmptyString := olmv1util.ClusterExtensionDescription{
 			Name:             "ce-" + caseID + "-empty",
 			PackageName:      "nginx-ok-v85549",
@@ -749,12 +751,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		}
 		defer ceEmptyString.Delete(oc)
 		_ = ceEmptyString.CreateWithoutCheck(oc)
-		// Empty string should fail with DNS validation error
-		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "invalid", 3, 60, 0)
+		// For OwnNamespace-only bundles, empty string violates the business logic that watchNamespace must equal install namespace
+		ceEmptyString.CheckClusterExtensionCondition(oc, "Progressing", "message", "is not valid ownNamespaceInstallMode", 3, 60, 0)
 		// Print full ClusterExtension resource for manual test documentation
 		e2e.Logf("=== ClusterExtension EmptyString resource ===")
 		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("clusterextension", ceEmptyString.Name, "-o", "yaml").Execute()
-		e2e.Logf("PASS: Scenario 4-2 passed: ClusterExtension with empty watchNamespace correctly rejected with validation error")
+		e2e.Logf("PASS: Scenario 4-2 passed: ClusterExtension with empty watchNamespace correctly rejected with OwnNamespace mode validation error")
 		ceEmptyString.Delete(oc)
 		e2e.Logf("Scenario 4-2 cleanup: ClusterExtension deleted")
 
