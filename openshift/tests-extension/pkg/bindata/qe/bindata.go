@@ -29,9 +29,13 @@
 // test/qe/testdata/olm/itdms-full-mirror.yaml
 // test/qe/testdata/olm/prefligth-clusterrole.yaml
 // test/qe/testdata/olm/sa-admin.yaml
+// test/qe/testdata/olm/sa-nginx-insufficient-bundle-boxcutter.yaml
 // test/qe/testdata/olm/sa-nginx-insufficient-bundle.yaml
+// test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml
 // test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole.yaml
+// test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac-boxcutter.yaml
 // test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac.yaml
+// test/qe/testdata/olm/sa-nginx-limited-boxcutter.yaml
 // test/qe/testdata/olm/sa-nginx-limited.yaml
 // test/qe/testdata/olm/sa.yaml
 package testdata
@@ -1519,6 +1523,221 @@ func testQeTestdataOlmSaAdminYaml() (*asset, error) {
 	return a, nil
 }
 
+var _testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: olmv1-sa-nginx-insufficient-bundle-boxcutter-template
+objects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-clusterrole"
+    rules:
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [get, list, watch, update, patch, delete]
+      # resourceNames:
+      # - nginx-ok-v3283-754-15pkpuong3owt1jn01uoyj8lm6p8jlxh03kuouq67dmv
+      # - nginx-ok-v3283-754-2r5zqsa9t9nk0tln1f8x36ws3ks9r8cgwi70s2dgnl82
+      # - nginx-ok-v3283-75493-metrics-reader
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [get, list, watch, update, patch, delete]
+      # resourceNames:
+      # - nginx-ok-v3283-754-15pkpuong3owt1jn01uoyj8lm6p8jlxh03kuouq67dmv
+      # - nginx-ok-v3283-754-2r5zqsa9t9nk0tln1f8x36ws3ks9r8cgwi70s2dgnl82
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: "${NAME}-installer-role"
+      namespace: "${NAMESPACE}"
+    rules:
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, create, update, patch, delete]
+    #   resourceNames: [nginx-ok-v3283-75493-controller-manager]
+    # - apiGroups: [""]
+    #   resources: [serviceaccounts]
+    #   verbs: [create]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, create, update, patch, delete]
+      # resourceNames: [nginx-ok-v3283-75493-controller-manager-metrics-service]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [create]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [get, list, watch, create, update, patch, delete]
+      # resourceNames: [nginx-ok-v3283-75493-controller-manager]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [create]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: "${NAME}-installer-role-binding"
+      namespace: "${NAMESPACE}"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: "${NAME}-installer-role"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole"
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      verbs:
+      - create
+      - patch
+    - apiGroups:
+      - ""
+      resources:
+      - secrets
+      - pods
+      - pods/exec
+      - pods/log
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - apps
+      resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - cache.example.com
+      resources:
+      - "${KINDS}"
+      - "${KINDS}/status"
+      - "${KINDS}/finalizers"
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - authentication.k8s.io
+      resources:
+      - tokenreviews
+      verbs:
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
+      - create
+    - nonResourceURLs:
+      - /metrics
+      verbs:
+      - get
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-rbac-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+parameters:
+  - name: NAME
+  - name: NAMESPACE
+  - name: KINDS
+`)
+
+func testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYaml, nil
+}
+
+func testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-insufficient-bundle-boxcutter.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _testQeTestdataOlmSaNginxInsufficientBundleYaml = []byte(`apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -1734,6 +1953,208 @@ func testQeTestdataOlmSaNginxInsufficientBundleYaml() (*asset, error) {
 	return a, nil
 }
 
+var _testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: olmv1-sa-nginx-insufficient-operand-clusterrole-boxcutter-template
+objects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-clusterrole"
+    rules:
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [create, list, watch]
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [get, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, create, update, patch, delete]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: "${NAME}-installer-role"
+      namespace: "${NAMESPACE}"
+    rules:
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [create]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [create]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [create]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: "${NAME}-installer-role-binding"
+      namespace: "${NAMESPACE}"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: "${NAME}-installer-role"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole"
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      verbs:
+      - create
+      - patch
+    - apiGroups:
+      - apps
+      resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - cache.example.com
+      resources:
+      - "${KINDS}"
+      - "${KINDS}/status"
+      - "${KINDS}/finalizers"
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - authentication.k8s.io
+      resources:
+      - tokenreviews
+      verbs:
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
+      - create
+    - nonResourceURLs:
+      - /metrics
+      verbs:
+      - get
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-rbac-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+parameters:
+  - name: NAME
+  - name: NAMESPACE
+  - name: KINDS
+`)
+
+func testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYaml, nil
+}
+
+func testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _testQeTestdataOlmSaNginxInsufficientOperandClusterroleYaml = []byte(`apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -1932,6 +2353,211 @@ func testQeTestdataOlmSaNginxInsufficientOperandClusterroleYaml() (*asset, error
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: olmv1-sa-nginx-insufficient-operand-rbac-boxcutter-template
+objects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-clusterrole"
+    rules:
+    - apiGroups: [olm.operatorframework.io]
+      resources: [clusterextensionrevisions/finalizers]
+      verbs: [update]
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [create, list, watch]
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [get, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, create, update, patch, delete]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: "${NAME}-installer-role"
+      namespace: "${NAMESPACE}"
+    rules:
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [create]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [create]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [create]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: "${NAME}-installer-role-binding"
+      namespace: "${NAMESPACE}"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: "${NAME}-installer-role"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole"
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      verbs:
+      - create
+      - patch
+    - apiGroups:
+      - apps
+      resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - cache.example.com
+      resources:
+      - "${KINDS}"
+      - "${KINDS}/status"
+      - "${KINDS}/finalizers"
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - authentication.k8s.io
+      resources:
+      - tokenreviews
+      verbs:
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
+      - create
+    - nonResourceURLs:
+      - /metrics
+      verbs:
+      - get
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-rbac-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+parameters:
+  - name: NAME
+  - name: NAMESPACE
+  - name: KINDS
+`)
+
+func testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYaml, nil
+}
+
+func testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac-boxcutter.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2137,6 +2763,234 @@ func testQeTestdataOlmSaNginxInsufficientOperandRbacYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testQeTestdataOlmSaNginxLimitedBoxcutterYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: olmv1-sa-nginx-limited-template
+objects:
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-clusterrole"
+    rules:
+    - apiGroups: [olm.operatorframework.io]
+      resources: [clusterextensionrevisions/finalizers]
+      verbs: [update]
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [create, list, watch]
+    - apiGroups: [apiextensions.k8s.io]
+      resources: [customresourcedefinitions]
+      verbs: [get, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterroles]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [create]
+    - apiGroups: [rbac.authorization.k8s.io]
+      resources: [clusterrolebindings]
+      verbs: [get, list, watch, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts/finalizers]
+      verbs: [update]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, create, update, patch, delete]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: "${NAME}-installer-role"
+      namespace: "${NAMESPACE}"
+    rules:
+    - apiGroups: [""]
+      resources: [serviceaccounts]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [""]
+      resources: [serviceaccounts/finalizers]
+      verbs: [update]
+    - apiGroups: [""]
+      resources: [services]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [get, list, watch, create, update, patch, delete]
+    - apiGroups: [apps]
+      resources: [deployments]
+      verbs: [create]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: "${NAME}-installer-role-binding"
+      namespace: "${NAMESPACE}"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: Role
+      name: "${NAME}-installer-role"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole"
+    rules:
+    - apiGroups:
+      - ""
+      resources:
+      - namespaces
+      verbs:
+      - get
+      - list
+      - watch
+    - apiGroups:
+      - ""
+      resources:
+      - configmaps
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+    - apiGroups:
+      - ""
+      resources:
+      - events
+      verbs:
+      - create
+      - patch
+    - apiGroups:
+      - ""
+      resources:
+      - secrets
+      - pods
+      - pods/exec
+      - pods/log
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - apps
+      resources:
+      - deployments
+      - daemonsets
+      - replicasets
+      - statefulsets
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - cache.example.com
+      resources:
+      - "${KINDS}"
+      - "${KINDS}/status"
+      - "${KINDS}/finalizers"
+      verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+    - apiGroups:
+      - authentication.k8s.io
+      resources:
+      - tokenreviews
+      verbs:
+      - create
+    - apiGroups:
+      - authorization.k8s.io
+      resources:
+      - subjectaccessreviews
+      verbs:
+      - create
+    - nonResourceURLs:
+      - /metrics
+      verbs:
+      - get
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: "${NAME}-installer-rbac-clusterrole-binding"
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: "${NAME}-installer-rbac-clusterrole"
+    subjects:
+    - kind: ServiceAccount
+      name: "${NAME}"
+      namespace: "${NAMESPACE}"
+parameters:
+  - name: NAME
+  - name: NAMESPACE
+  - name: KINDS
+`)
+
+func testQeTestdataOlmSaNginxLimitedBoxcutterYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmSaNginxLimitedBoxcutterYaml, nil
+}
+
+func testQeTestdataOlmSaNginxLimitedBoxcutterYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmSaNginxLimitedBoxcutterYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/sa-nginx-limited-boxcutter.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2474,9 +3328,13 @@ var _bindata = map[string]func() (*asset, error){
 	"test/qe/testdata/olm/itdms-full-mirror.yaml":                                                   testQeTestdataOlmItdmsFullMirrorYaml,
 	"test/qe/testdata/olm/prefligth-clusterrole.yaml":                                               testQeTestdataOlmPrefligthClusterroleYaml,
 	"test/qe/testdata/olm/sa-admin.yaml":                                                            testQeTestdataOlmSaAdminYaml,
+	"test/qe/testdata/olm/sa-nginx-insufficient-bundle-boxcutter.yaml":                              testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYaml,
 	"test/qe/testdata/olm/sa-nginx-insufficient-bundle.yaml":                                        testQeTestdataOlmSaNginxInsufficientBundleYaml,
+	"test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml":                 testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYaml,
 	"test/qe/testdata/olm/sa-nginx-insufficient-operand-clusterrole.yaml":                           testQeTestdataOlmSaNginxInsufficientOperandClusterroleYaml,
+	"test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac-boxcutter.yaml":                        testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYaml,
 	"test/qe/testdata/olm/sa-nginx-insufficient-operand-rbac.yaml":                                  testQeTestdataOlmSaNginxInsufficientOperandRbacYaml,
+	"test/qe/testdata/olm/sa-nginx-limited-boxcutter.yaml":                                          testQeTestdataOlmSaNginxLimitedBoxcutterYaml,
 	"test/qe/testdata/olm/sa-nginx-limited.yaml":                                                    testQeTestdataOlmSaNginxLimitedYaml,
 	"test/qe/testdata/olm/sa.yaml":                                                                  testQeTestdataOlmSaYaml,
 }
@@ -2547,21 +3405,25 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterextension-withselectorlabel-WithoutVersion.yaml":                   {testQeTestdataOlmClusterextensionWithselectorlabelWithoutversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml":         {testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel.yaml":                                  {testQeTestdataOlmClusterextensionWithselectorlabelYaml, map[string]*bintree{}},
-					"clusterextension.yaml":                          {testQeTestdataOlmClusterextensionYaml, map[string]*bintree{}},
-					"clusterextensionWithoutChannel.yaml":            {testQeTestdataOlmClusterextensionwithoutchannelYaml, map[string]*bintree{}},
-					"clusterextensionWithoutChannelVersion.yaml":     {testQeTestdataOlmClusterextensionwithoutchannelversionYaml, map[string]*bintree{}},
-					"clusterextensionWithoutVersion.yaml":            {testQeTestdataOlmClusterextensionwithoutversionYaml, map[string]*bintree{}},
-					"cr-webhookTest.yaml":                            {testQeTestdataOlmCrWebhooktestYaml, map[string]*bintree{}},
-					"crd-nginxolm74923.yaml":                         {testQeTestdataOlmCrdNginxolm74923Yaml, map[string]*bintree{}},
-					"icsp-single-mirror.yaml":                        {testQeTestdataOlmIcspSingleMirrorYaml, map[string]*bintree{}},
-					"itdms-full-mirror.yaml":                         {testQeTestdataOlmItdmsFullMirrorYaml, map[string]*bintree{}},
-					"prefligth-clusterrole.yaml":                     {testQeTestdataOlmPrefligthClusterroleYaml, map[string]*bintree{}},
-					"sa-admin.yaml":                                  {testQeTestdataOlmSaAdminYaml, map[string]*bintree{}},
-					"sa-nginx-insufficient-bundle.yaml":              {testQeTestdataOlmSaNginxInsufficientBundleYaml, map[string]*bintree{}},
-					"sa-nginx-insufficient-operand-clusterrole.yaml": {testQeTestdataOlmSaNginxInsufficientOperandClusterroleYaml, map[string]*bintree{}},
-					"sa-nginx-insufficient-operand-rbac.yaml":        {testQeTestdataOlmSaNginxInsufficientOperandRbacYaml, map[string]*bintree{}},
-					"sa-nginx-limited.yaml":                          {testQeTestdataOlmSaNginxLimitedYaml, map[string]*bintree{}},
-					"sa.yaml":                                        {testQeTestdataOlmSaYaml, map[string]*bintree{}},
+					"clusterextension.yaml":                                    {testQeTestdataOlmClusterextensionYaml, map[string]*bintree{}},
+					"clusterextensionWithoutChannel.yaml":                      {testQeTestdataOlmClusterextensionwithoutchannelYaml, map[string]*bintree{}},
+					"clusterextensionWithoutChannelVersion.yaml":               {testQeTestdataOlmClusterextensionwithoutchannelversionYaml, map[string]*bintree{}},
+					"clusterextensionWithoutVersion.yaml":                      {testQeTestdataOlmClusterextensionwithoutversionYaml, map[string]*bintree{}},
+					"cr-webhookTest.yaml":                                      {testQeTestdataOlmCrWebhooktestYaml, map[string]*bintree{}},
+					"crd-nginxolm74923.yaml":                                   {testQeTestdataOlmCrdNginxolm74923Yaml, map[string]*bintree{}},
+					"icsp-single-mirror.yaml":                                  {testQeTestdataOlmIcspSingleMirrorYaml, map[string]*bintree{}},
+					"itdms-full-mirror.yaml":                                   {testQeTestdataOlmItdmsFullMirrorYaml, map[string]*bintree{}},
+					"prefligth-clusterrole.yaml":                               {testQeTestdataOlmPrefligthClusterroleYaml, map[string]*bintree{}},
+					"sa-admin.yaml":                                            {testQeTestdataOlmSaAdminYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-bundle-boxcutter.yaml":              {testQeTestdataOlmSaNginxInsufficientBundleBoxcutterYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-bundle.yaml":                        {testQeTestdataOlmSaNginxInsufficientBundleYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml": {testQeTestdataOlmSaNginxInsufficientOperandClusterroleBoxcutterYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-operand-clusterrole.yaml":           {testQeTestdataOlmSaNginxInsufficientOperandClusterroleYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-operand-rbac-boxcutter.yaml":        {testQeTestdataOlmSaNginxInsufficientOperandRbacBoxcutterYaml, map[string]*bintree{}},
+					"sa-nginx-insufficient-operand-rbac.yaml":                  {testQeTestdataOlmSaNginxInsufficientOperandRbacYaml, map[string]*bintree{}},
+					"sa-nginx-limited-boxcutter.yaml":                          {testQeTestdataOlmSaNginxLimitedBoxcutterYaml, map[string]*bintree{}},
+					"sa-nginx-limited.yaml":                                    {testQeTestdataOlmSaNginxLimitedYaml, map[string]*bintree{}},
+					"sa.yaml":                                                  {testQeTestdataOlmSaYaml, map[string]*bintree{}},
 				}},
 			}},
 		}},
