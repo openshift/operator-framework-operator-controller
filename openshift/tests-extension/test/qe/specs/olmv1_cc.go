@@ -2,10 +2,16 @@ package specs
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -320,6 +326,249 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 			return false, nil
 		})
 		exutil.AssertWaitPollNoErr(errWait, "Cannot get the result")
+	})
+
+	g.It("PolarionID:85889-[OTP][Skipped:Disconnected]Validate catalogd content via port-forward [Serial]", func() {
+		caseID := "85889"
+		catalogName := "catalog-" + caseID
+		catalogImage := "quay.io/openshifttest/nginxolm-operator-index:nginxolm74924"
+		baseDir := exutil.FixturePath("testdata", "olm")
+		catalogTemplate := filepath.Join(baseDir, "clustercatalog-with-pollinterval.yaml")
+		outputDir := "/tmp/" + caseID + "-" + exutil.GetRandomString()
+		err := os.MkdirAll(outputDir, 0755)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		defer os.RemoveAll(outputDir)
+
+		redhatOperatorsFile := filepath.Join(outputDir, "redhat-operators-all.json")
+		customCatalogFile := filepath.Join(outputDir, "all.json")
+
+		type catalogEntry struct {
+			Schema  string `json:"schema"`
+			Name    string `json:"name,omitempty"`
+			Package string `json:"package,omitempty"`
+		}
+
+		parseCatalogEntries := func(data []byte) ([]catalogEntry, error) {
+			var entries []catalogEntry
+			for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || !strings.HasPrefix(line, "{") {
+					continue
+				}
+				var entry catalogEntry
+				if err := json.Unmarshal([]byte(line), &entry); err != nil {
+					return nil, err
+				}
+				if entry.Schema != "" {
+					entries = append(entries, entry)
+				}
+			}
+			if len(entries) == 0 {
+				return nil, fmt.Errorf("no catalog entries parsed")
+			}
+			return entries, nil
+		}
+
+		fetchToFile := func(url, path string) ([]byte, error) {
+			client := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // uses catalogd route with test TLS
+				},
+				Timeout: 2 * time.Minute,
+			}
+			req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("unexpected status %s for %s", resp.Status, url)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			if err = os.WriteFile(path, body, 0600); err != nil {
+				return nil, err
+			}
+			return body, nil
+		}
+
+		getCatalogdLogs := func() (string, error) {
+			return oc.AsAdmin().WithoutNamespace().Run("logs").Args("-n", "openshift-catalogd", "deploy/catalogd-controller-manager", "--since=10m").Output()
+		}
+
+		getReconcileTotal := func() (float64, error) {
+			metrics, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("--raw", "/api/v1/namespaces/openshift-catalogd/services/catalogd-service:metrics/proxy/metrics").Output()
+			if err != nil {
+				return 0, err
+			}
+			re := regexp.MustCompile(`(?im)^.*reconcile_total.*clustercatalog.*\\s+([0-9]+(?:\\.[0-9]+)?)$`)
+			matches := re.FindAllStringSubmatch(metrics, -1)
+			if len(matches) == 0 {
+				return 0, fmt.Errorf("clustercatalog reconcile_total not found in metrics output")
+			}
+			var max float64
+			for _, match := range matches {
+				value, err := strconv.ParseFloat(match[1], 64)
+				if err != nil {
+					continue
+				}
+				if value > max {
+					max = value
+				}
+			}
+			return max, nil
+		}
+
+		clustercatalog := olmv1util.ClusterCatalogDescription{Name: catalogName}
+		deleted := false
+		defer func() {
+			if !deleted {
+				clustercatalog.Delete(oc)
+			}
+		}()
+
+		g.By("Check OLM namespaces in ClusterOperator")
+		nsOutput, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", "olm", `-o=jsonpath={.status.relatedObjects[?(@.resource=="namespaces")].name}`).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(nsOutput).To(o.ContainSubstring("openshift-catalogd"))
+		o.Expect(nsOutput).To(o.ContainSubstring("openshift-operator-controller"))
+
+		g.By("Verify OLM CRDs referenced")
+		crdOutput, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", "olm", `-o=jsonpath={.status.relatedObjects[?(@.resource=="customresourcedefinitions")].name}`).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		catalogCRDOK := strings.Contains(crdOutput, "clustercatalogs.catalogd.operatorframework.io") ||
+			strings.Contains(crdOutput, "clustercatalogs.olm.operatorframework.io")
+		o.Expect(catalogCRDOK).To(o.BeTrue())
+		o.Expect(crdOutput).To(o.ContainSubstring("clusterextensions.olm.operatorframework.io"))
+
+		g.By("Create test ClusterCatalog")
+		clustercatalog.Template = catalogTemplate
+		clustercatalog.Imageref = catalogImage
+		clustercatalog.PollIntervalMinutes = "300s"
+		clustercatalog.Create(oc)
+
+		g.By("Verify ClusterCatalog list and phases")
+		listOutput, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("clustercatalog", `-o=jsonpath={range .items[*]}{.metadata.name}{"="}{.status.phase}{"\n"}{end}`).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(listOutput).To(o.ContainSubstring("openshift-certified-operators="))
+		o.Expect(listOutput).To(o.ContainSubstring("openshift-community-operators="))
+		o.Expect(listOutput).To(o.ContainSubstring("openshift-redhat-operators="))
+		o.Expect(listOutput).To(o.ContainSubstring(catalogName + "="))
+
+		g.By("Get catalog content URLs")
+		redhatCatalog := olmv1util.ClusterCatalogDescription{Name: "openshift-redhat-operators"}
+		redhatCatalog.GetContentURL(oc)
+
+		g.By("Create redhat-operators-all.json")
+		redhatData, err := fetchToFile(redhatCatalog.ContentURL, redhatOperatorsFile)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		_, err = os.Stat(redhatOperatorsFile)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("Create all.json for catalog-85889")
+		customData, err := fetchToFile(clustercatalog.ContentURL, customCatalogFile)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		_, err = os.Stat(customCatalogFile)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("List OLM packages from redhat-operators")
+		redhatEntries, err := parseCatalogEntries(redhatData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		var packageNames []string
+		for _, entry := range redhatEntries {
+			if entry.Schema == "olm.package" && entry.Name != "" {
+				packageNames = append(packageNames, entry.Name)
+			}
+		}
+		o.Expect(packageNames).NotTo(o.BeEmpty())
+
+		g.By("Get channel info for custom catalog")
+		customEntries, err := parseCatalogEntries(customData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		customPackages := map[string]struct{}{}
+		for _, entry := range customEntries {
+			if entry.Schema == "olm.package" && entry.Name != "" {
+				customPackages[entry.Name] = struct{}{}
+			}
+		}
+		o.Expect(customPackages).NotTo(o.BeEmpty())
+
+		channelFound := false
+		for _, entry := range customEntries {
+			if entry.Schema == "olm.channel" && entry.Package != "" {
+				if _, ok := customPackages[entry.Package]; ok {
+					channelFound = true
+					break
+				}
+			}
+		}
+		o.Expect(channelFound).To(o.BeTrue())
+
+		g.By("Get bundle info for custom catalog")
+		bundleFound := false
+		for _, entry := range customEntries {
+			if entry.Schema == "olm.bundle" && entry.Package != "" && entry.Name != "" {
+				if _, ok := customPackages[entry.Package]; ok {
+					bundleFound = true
+					break
+				}
+			}
+		}
+		o.Expect(bundleFound).To(o.BeTrue())
+
+		g.By("Check ClusterCatalog reconciliation logs")
+		consoleLogs, err := getCatalogdLogs()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		consoleLogsLower := strings.ToLower(consoleLogs)
+		o.Expect(strings.TrimSpace(consoleLogs)).NotTo(o.BeEmpty())
+		o.Expect(strings.Contains(consoleLogsLower, "panic")).To(o.BeFalse())
+		o.Expect(strings.Contains(consoleLogsLower, "stack trace")).To(o.BeFalse())
+
+		var errWait error
+
+		g.By("Check reconcile_total metrics before patch")
+		reconcileBefore, err := getReconcileTotal()
+		metricsAvailable := true
+		if err != nil {
+			metricsAvailable = false
+			e2e.Logf("Skipping reconcile_total checks: %v", err)
+		}
+
+		if metricsAvailable {
+			g.By("Patch catalog-85889 image")
+			patch := `{"spec":{"source":{"type":"Image","image":{"ref":"quay.io/operatorhubio/catalog:latest"}}}}`
+			clustercatalog.Patch(oc, patch)
+
+			g.By("Confirm reconcile_total increases after patch")
+			errWait := wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+				reconcileAfter, err := getReconcileTotal()
+				if err != nil {
+					return false, nil
+				}
+				return reconcileAfter > reconcileBefore, nil
+			})
+			exutil.AssertWaitPollNoErr(errWait, "reconcile_total did not increase after patch")
+		}
+
+		g.By("Delete test ClusterCatalog")
+		clustercatalog.Delete(oc)
+		deleted = true
+
+		g.By("Verify ClusterCatalog deletion")
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			output, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("clustercatalog", catalogName, "--ignore-not-found").Output()
+			if err != nil {
+				return false, nil
+			}
+			return strings.TrimSpace(output) == "", nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "catalog-85889 was not deleted")
 	})
 
 	g.It("PolarionID:73219-[OTP][Skipped:Disconnected]Fetch deprecation data from the catalogd http server", func() {
