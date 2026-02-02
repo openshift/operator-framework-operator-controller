@@ -178,6 +178,22 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:85889-[OTP][Skipped:Disconnected]Validate catalogd content via port-forward [Serial]",
+    "labels": {
+      "ClusterCatalog": {},
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clustercatalog PolarionID:73219-[OTP][Skipped:Disconnected]Fetch deprecation data from the catalogd http server",
     "labels": {
       "ClusterCatalog": {},
