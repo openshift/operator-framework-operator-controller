@@ -42,7 +42,48 @@ TOOLS_BIN_DIR := $(CURDIR)/bin
 
 #SECTION Development
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet lint
+verify:
+	@errors=0; \
+	warnings=0; \
+	failed_steps=""; \
+	if ! $(MAKE) tidy; then \
+		echo "ERROR: 'make tidy' failed"; \
+		errors=$$((errors+1)); \
+		failed_steps="$$failed_steps tidy"; \
+	fi; \
+	if [ -n "$$PROW_JOB_ID" ]; then \
+		if ! $(MAKE) fmt-without-fix; then \
+			echo "ERROR: 'make fmt-without-fix' failed"; \
+			errors=$$((errors+1)); \
+			failed_steps="$$failed_steps fmt"; \
+		fi; \
+	else \
+		files_before=$$(find . -name '*.go' -not -path './vendor/*' -not -path './pkg/bindata/*' -exec gofmt -l {} \;); \
+		if ! $(MAKE) fmt; then \
+			echo "ERROR: 'make fmt' failed"; \
+			errors=$$((errors+1)); \
+			failed_steps="$$failed_steps fmt"; \
+		elif [ -n "$$files_before" ]; then \
+			echo "WARNING: 'make fmt' auto-fixed files. Don't forget to commit these changes!"; \
+			warnings=1; \
+		fi; \
+	fi; \
+	if ! $(MAKE) vet; then \
+		echo "ERROR: 'make vet' failed"; \
+		errors=$$((errors+1)); \
+		failed_steps="$$failed_steps vet"; \
+	fi; \
+	if ! $(MAKE) lint; then \
+		echo "ERROR: 'make lint' failed"; \
+		errors=$$((errors+1)); \
+		failed_steps="$$failed_steps lint"; \
+	fi; \
+	if [ $$errors -gt 0 ]; then \
+		echo "FAILED: The following verification check(s) failed:$$failed_steps"; \
+		exit 1; \
+	elif [ $$warnings -gt 0 ]; then \
+		echo "WARNING: All verification checks passed, but some files were auto-fixed. Don't forget to commit!"; \
+	fi
 
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
@@ -50,7 +91,26 @@ tidy:
 
 .PHONY: fmt
 fmt: #HELP Run go fmt against code.
-	go fmt ./...
+	@files=$$(find . -name '*.go' -not -path './vendor/*' -not -path './pkg/bindata/*' -exec gofmt -l {} \;); \
+	echo "go fmt ./..."; \
+	go fmt ./...; \
+	if [ -n "$$files" ]; then \
+		echo ""; \
+		echo "Files have been formatted. Don't forget to commit these changes!"; \
+	fi
+
+.PHONY: fmt-without-fix
+fmt-without-fix: #HELP Run go fmt against code.
+	@files=$$(find . -name '*.go' -not -path './vendor/*' -not -path './pkg/bindata/*' -exec gofmt -l {} \;); \
+	echo "Checking code formatting..."; \
+	if [ -n "$$files" ]; then \
+		echo "Files that need formatting:"; \
+		echo "$$files"; \
+		echo ""; \
+		echo "To fix formatting, run:"; \
+		echo "  make fmt"; \
+		exit 1; \
+	fi
 
 .PHONY: vet
 vet: #HELP Run go vet against code.
