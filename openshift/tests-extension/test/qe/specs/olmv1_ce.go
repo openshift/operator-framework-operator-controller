@@ -3045,4 +3045,178 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		g.By("7) Test SUCCESS")
 	})
 
+	g.It("PolarionID:83979-[OTP][Skipped:Disconnected]ClusterExtension installs webhook-operator and webhooks work", func() {
+		olmv1util.ValidateAccessEnvironment(oc)
+		var (
+			caseID                   = "83979"
+			ns                       = "ns-" + caseID
+			saName                   = "sa-" + caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceName                   = "ce-" + caseID
+			validatingName           = "validating-webhook-test-" + caseID
+			mutatingName             = "mutating-webhook-test-" + caseID
+			conversionName           = "conversion-webhook-test-" + caseID
+			secretName               = "webhook-operator-webhook-service-cert"
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension.yaml")
+			saTemplate               = filepath.Join(baseDir, "sa-admin.yaml")
+			webhookTemplate          = filepath.Join(baseDir, "cr-webhookTest.yaml")
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
+				Name:     catalogName,
+				Imageref: "quay.io/olmqe/webhook-operator-index:0.0.3-v1-cache",
+				Template: clustercatalogTemplate,
+			}
+			clusterextension = olmv1util.ClusterExtensionDescription{
+				Name:             ceName,
+				PackageName:      "webhook-operator",
+				Channel:          "alpha",
+				Version:          "0.0.1",
+				InstallNamespace: ns,
+				SaName:           saName,
+				Template:         clusterextensionTemplate,
+			}
+			saCrb = olmv1util.SaCLusterRolebindingDescription{
+				Name:      saName,
+				Namespace: ns,
+				Template:  saTemplate,
+			}
+		)
+
+		g.By("Create namespace")
+		defer func() {
+			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
+		}()
+		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
+
+		g.By("Create service account with admin permissions")
+		defer saCrb.Delete(oc)
+		saCrb.Create(oc)
+
+		g.By("Create clustercatalog")
+		defer clustercatalog.Delete(oc)
+		clustercatalog.Create(oc)
+
+		g.By("Create clusterextension for webhook-operator")
+		defer clusterextension.Delete(oc)
+		clusterextension.Create(oc)
+
+		g.By("Wait for the webhooktest API to be available")
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 6*time.Minute, false, func(ctx context.Context) (bool, error) {
+			output, err := oc.AsAdmin().WithoutNamespace().Run("api-resources").Args("-o", "name").Output()
+			if err != nil {
+				e2e.Logf("failed to list api-resources: %v", err)
+				return false, nil
+			}
+			return strings.Contains(output, "webhooktests.webhook.operators.coreos.io"), nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "webhooktests.webhook.operators.coreos.io does not exist")
+
+		processWebhook := func(name string, valid bool) (string, error) {
+			validValue := "false"
+			if valid {
+				validValue = "true"
+			}
+			return oc.AsAdmin().Run("process").Args("-n", "default", "--ignore-unknown-parameters=true", "-f", webhookTemplate,
+				"-p", "NAME="+name, "NAMESPACE="+ns, "VALID="+validValue).OutputToFile("webhooktest-" + name + ".json")
+		}
+
+		g.By("Verify the validating webhook rejects invalid resources")
+		invalidConfig, err := processWebhook(validatingName, false)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			output, err := oc.AsAdmin().WithoutNamespace().Run("apply").Args("--dry-run=server", "-f", invalidConfig).Output()
+			if err == nil {
+				e2e.Logf("expected validating webhook to deny invalid resource")
+				return false, nil
+			}
+			if strings.Contains(output, "Spec.Valid must be true") && strings.Contains(output, "denied the request") {
+				return true, nil
+			}
+			e2e.Logf("unexpected validation error output: %s", output)
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "validating webhook did not reject invalid webhooktest")
+
+		verifyWebhookV2 := func(name string) {
+			waitErr := wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+				apiVersion, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("webhooktest", name, "-n", ns, "-o=jsonpath={.apiVersion}").Output()
+				if err != nil {
+					return false, nil
+				}
+				if strings.TrimSpace(apiVersion) != "webhook.operators.coreos.io/v2" {
+					return false, nil
+				}
+				mutate, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("webhooktest", name, "-n", ns, "-o=jsonpath={.spec.conversion.mutate}").Output()
+				if err != nil {
+					return false, nil
+				}
+				valid, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("webhooktest", name, "-n", ns, "-o=jsonpath={.spec.conversion.valid}").Output()
+				if err != nil {
+					return false, nil
+				}
+				return strings.TrimSpace(mutate) == "true" && strings.TrimSpace(valid) == "true", nil
+			})
+			exutil.AssertWaitPollNoErr(waitErr, fmt.Sprintf("webhooktest %s was not converted to v2 with expected fields", name))
+		}
+
+		g.By("Verify the mutating webhook updates valid resources")
+		defer func() {
+			_ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("webhooktest", mutatingName, "-n", ns, "--ignore-not-found").Execute()
+		}()
+		mutatingConfig, err := processWebhook(mutatingName, true)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			_, err := oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", mutatingConfig).Output()
+			if err != nil {
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "failed to apply mutating webhooktest")
+		verifyWebhookV2(mutatingName)
+
+		g.By("Verify the conversion webhook serves v2 resources")
+		defer func() {
+			_ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("webhooktest", conversionName, "-n", ns, "--ignore-not-found").Execute()
+		}()
+		conversionConfig, err := processWebhook(conversionName, true)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 10*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			_, err := oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", conversionConfig).Output()
+			if err != nil {
+				return false, nil
+			}
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "failed to apply conversion webhooktest")
+		verifyWebhookV2(conversionName)
+
+		g.By("Verify webhook service cert secret is recreated after deletion")
+		var originalUID string
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			uid, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("secret", secretName, "-n", ns, "-o=jsonpath={.metadata.uid}").Output()
+			if err != nil || strings.TrimSpace(uid) == "" {
+				return false, nil
+			}
+			originalUID = strings.TrimSpace(uid)
+			return true, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, fmt.Sprintf("secret %s not found before deletion", secretName))
+
+		err = oc.AsAdmin().WithoutNamespace().Run("delete").Args("secret", secretName, "-n", ns).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		errWait = wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 2*time.Minute, false, func(ctx context.Context) (bool, error) {
+			uid, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("secret", secretName, "-n", ns, "-o=jsonpath={.metadata.uid}").Output()
+			if err != nil || strings.TrimSpace(uid) == "" {
+				return false, nil
+			}
+			return strings.TrimSpace(uid) != originalUID, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, fmt.Sprintf("secret %s was not recreated", secretName))
+	})
+
 })
