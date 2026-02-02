@@ -22,6 +22,7 @@
 // test/qe/testdata/olm/clusterextensionWithoutChannel.yaml
 // test/qe/testdata/olm/clusterextensionWithoutChannelVersion.yaml
 // test/qe/testdata/olm/clusterextensionWithoutVersion.yaml
+// test/qe/testdata/olm/cr-webhookTest.yaml
 // test/qe/testdata/olm/crd-nginxolm74923.yaml
 // test/qe/testdata/olm/icsp-single-mirror.yaml
 // test/qe/testdata/olm/itdms-full-mirror.yaml
@@ -1202,6 +1203,39 @@ func testQeTestdataOlmClusterextensionwithoutversionYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextensionWithoutVersion.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testQeTestdataOlmCrWebhooktestYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: webhooktest-template
+objects:
+  - apiVersion: webhook.operators.coreos.io/v1
+    kind: WebhookTest
+    metadata:
+      name: ${NAME}
+      namespace: ${NAMESPACE}
+    spec:
+      valid: ${{VALID}}
+parameters:
+  - name: NAME
+  - name: NAMESPACE
+  - name: VALID
+`)
+
+func testQeTestdataOlmCrWebhooktestYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmCrWebhooktestYaml, nil
+}
+
+func testQeTestdataOlmCrWebhooktestYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmCrWebhooktestYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/cr-webhookTest.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2393,6 +2427,7 @@ var _bindata = map[string]func() (*asset, error){
 	"test/qe/testdata/olm/clusterextensionWithoutChannel.yaml":                                      testQeTestdataOlmClusterextensionwithoutchannelYaml,
 	"test/qe/testdata/olm/clusterextensionWithoutChannelVersion.yaml":                               testQeTestdataOlmClusterextensionwithoutchannelversionYaml,
 	"test/qe/testdata/olm/clusterextensionWithoutVersion.yaml":                                      testQeTestdataOlmClusterextensionwithoutversionYaml,
+	"test/qe/testdata/olm/cr-webhookTest.yaml":                                                      testQeTestdataOlmCrWebhooktestYaml,
 	"test/qe/testdata/olm/crd-nginxolm74923.yaml":                                                   testQeTestdataOlmCrdNginxolm74923Yaml,
 	"test/qe/testdata/olm/icsp-single-mirror.yaml":                                                  testQeTestdataOlmIcspSingleMirrorYaml,
 	"test/qe/testdata/olm/itdms-full-mirror.yaml":                                                   testQeTestdataOlmItdmsFullMirrorYaml,
@@ -2474,6 +2509,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clusterextensionWithoutChannel.yaml":            {testQeTestdataOlmClusterextensionwithoutchannelYaml, map[string]*bintree{}},
 					"clusterextensionWithoutChannelVersion.yaml":     {testQeTestdataOlmClusterextensionwithoutchannelversionYaml, map[string]*bintree{}},
 					"clusterextensionWithoutVersion.yaml":            {testQeTestdataOlmClusterextensionwithoutversionYaml, map[string]*bintree{}},
+					"cr-webhookTest.yaml":                            {testQeTestdataOlmCrWebhooktestYaml, map[string]*bintree{}},
 					"crd-nginxolm74923.yaml":                         {testQeTestdataOlmCrdNginxolm74923Yaml, map[string]*bintree{}},
 					"icsp-single-mirror.yaml":                        {testQeTestdataOlmIcspSingleMirrorYaml, map[string]*bintree{}},
 					"itdms-full-mirror.yaml":                         {testQeTestdataOlmItdmsFullMirrorYaml, map[string]*bintree{}},
