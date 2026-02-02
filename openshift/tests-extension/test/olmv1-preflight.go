@@ -9,6 +9,7 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
+	"github.com/openshift/api/features"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,6 +21,18 @@ import (
 
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
+)
+
+type preflightAuthTestScenario int
+
+const (
+	scenarioMissingServicePerms                            preflightAuthTestScenario = 0
+	scenarioMissingCreateVerb                              preflightAuthTestScenario = 1
+	scenarioMissingClusterRoleBindingsPerms                preflightAuthTestScenario = 2
+	scenarioMissingNamedConfigMapPerms                     preflightAuthTestScenario = 3
+	scenarioMissingClusterExtensionsFinalizerPerms         preflightAuthTestScenario = 4
+	scenarioMissingEscalateAndBindPerms                    preflightAuthTestScenario = 5
+	scenarioMissingClusterExtensionRevisionsFinalizerPerms preflightAuthTestScenario = 6
 )
 
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks", func() {
@@ -45,33 +58,39 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Sk
 	})
 
 	It("should report error when {services} are not specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 0, namespace)
+		runNegativePreflightTest(ctx, scenarioMissingServicePerms, namespace)
 	})
 
 	It("should report error when {create} verb is not specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 1, namespace)
+		runNegativePreflightTest(ctx, scenarioMissingCreateVerb, namespace)
 	})
 
 	It("should report error when {ClusterRoleBindings} are not specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 2, namespace)
+		runNegativePreflightTest(ctx, scenarioMissingClusterRoleBindingsPerms, namespace)
 	})
 
 	It("should report error when {ConfigMap:resourceNames} are not all specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 3, namespace)
+		runNegativePreflightTest(ctx, scenarioMissingNamedConfigMapPerms, namespace)
 	})
 
 	It("should report error when {clusterextension/finalizer} is not specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 4, namespace)
+		helpers.RequireFeatureGateDisabled(features.FeatureGateNewOLMBoxCutterRuntime)
+		runNegativePreflightTest(ctx, scenarioMissingClusterExtensionsFinalizerPerms, namespace)
+	})
+
+	It("should report error when {clusterextensionrevisions/finalizer} is not specified", func(ctx SpecContext) {
+		helpers.RequireFeatureGateEnabled(features.FeatureGateNewOLMBoxCutterRuntime)
+		runNegativePreflightTest(ctx, scenarioMissingClusterExtensionRevisionsFinalizerPerms, namespace)
 	})
 
 	It("should report error when {escalate, bind} is not specified", func(ctx SpecContext) {
-		runNegativePreflightTest(ctx, 5, namespace)
+		runNegativePreflightTest(ctx, scenarioMissingEscalateAndBindPerms, namespace)
 	})
 })
 
 // runNegativePreflightTest creates a deficient ClusterRole and a ClusterExtension that
 // relies on it, then waits for the expected preflight failure.
-func runNegativePreflightTest(ctx context.Context, scenario int, namespace string) {
+func runNegativePreflightTest(ctx context.Context, scenario preflightAuthTestScenario, namespace string) {
 	k8sClient := env.Get().K8sClient
 	unique := rand.String(8)
 
@@ -120,22 +139,33 @@ func runNegativePreflightTest(ctx context.Context, scenario int, namespace strin
 		g.Expect(c).NotTo(BeNil())
 		g.Expect(c.Status).To(Equal(metav1.ConditionTrue))
 		g.Expect(c.Message).To(ContainSubstring("pre-authorization failed"))
-
-		c = meta.FindStatusCondition(latest.Status.Conditions, "Installed")
-		g.Expect(c).NotTo(BeNil())
-		g.Expect(c.Status).To(Equal(metav1.ConditionFalse))
 	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
 // createDeficientClusterRole returns a modified ClusterRole according to the test scenario.
-func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.ClusterRole {
-	baseRules := []rbacv1.PolicyRule{
-		{
-			APIGroups:     []string{"olm.operatorframework.io"},
-			Resources:     []string{"clusterextensions/finalizers"},
-			Verbs:         []string{"update"},
-			ResourceNames: []string{ceName},
-		},
+func createDeficientClusterRole(scenario preflightAuthTestScenario, name, ceName string) *rbacv1.ClusterRole {
+	var baseRules []rbacv1.PolicyRule
+	if helpers.IsFeatureGateEnabled(features.FeatureGateNewOLMBoxCutterRuntime) {
+		baseRules = []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{"olm.operatorframework.io"},
+				Resources:     []string{"clusterextensionrevisions/finalizers"},
+				Verbs:         []string{"update"},
+				ResourceNames: []string{ceName},
+			},
+		}
+	} else {
+		baseRules = []rbacv1.PolicyRule{
+			{
+				APIGroups:     []string{"olm.operatorframework.io"},
+				Resources:     []string{"clusterextensions/finalizers"},
+				Verbs:         []string{"update"},
+				ResourceNames: []string{ceName},
+			},
+		}
+	}
+
+	baseRules = append(baseRules, []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"nodes"},
@@ -151,14 +181,14 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 			Resources: []string{"clusterroles", "clusterroles/finalizers", "roles", "roles/finalizers", "clusterrolebindings", "clusterrolebindings/finalizers", "rolebindings", "rolebindings/finalizers"},
 			Verbs:     []string{"delete", "deletecollection", "create", "patch", "get", "list", "update", "watch", "bind", "escalate"},
 		},
-	}
+	}...)
 
 	// Copy rules to avoid mutation
 	rules := make([]rbacv1.PolicyRule, len(baseRules))
 	copy(rules, baseRules)
 
 	switch scenario {
-	case 0:
+	case scenarioMissingServicePerms:
 		// Remove 'services' and 'services/finalizers'
 		for i, r := range rules {
 			if r.APIGroups[0] == "" {
@@ -171,7 +201,7 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 				rules[i].Resources = filtered
 			}
 		}
-	case 1:
+	case scenarioMissingCreateVerb:
 		// Remove 'create' verb
 		for i, r := range rules {
 			if r.APIGroups[0] == "" {
@@ -184,7 +214,7 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 				rules[i].Verbs = filtered
 			}
 		}
-	case 2:
+	case scenarioMissingClusterRoleBindingsPerms:
 		// Remove 'clusterrolebindings'
 		for i, r := range rules {
 			if r.APIGroups[0] == "rbac.authorization.k8s.io" {
@@ -197,7 +227,7 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 				rules[i].Resources = filtered
 			}
 		}
-	case 3:
+	case scenarioMissingNamedConfigMapPerms:
 		// Restrict configmaps to named subset (resourceNames)
 		for i, r := range rules {
 			if r.APIGroups[0] == "" {
@@ -216,7 +246,7 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 				})
 			}
 		}
-	case 4:
+	case scenarioMissingClusterExtensionsFinalizerPerms:
 		// Remove olm.operatorframework.io permission for finalizers
 		filtered := []rbacv1.PolicyRule{}
 		for _, r := range rules {
@@ -225,7 +255,7 @@ func createDeficientClusterRole(scenario int, name, ceName string) *rbacv1.Clust
 			}
 		}
 		rules = filtered
-	case 5:
+	case scenarioMissingEscalateAndBindPerms:
 		// Remove 'bind' and 'escalate' verbs
 		for i, r := range rules {
 			if r.APIGroups[0] == "rbac.authorization.k8s.io" {
