@@ -166,46 +166,56 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                              = "68936"
-			ns                                  = "ns-" + caseID
-			sa                                  = caseID
-			labelValue                          = caseID
-			baseDir                             = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate              = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate            = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-clusterrole.yaml")
-			saCrb                               = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				RBACObjects: []olmv1util.ChildResource{
-					{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-					{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-					{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-						fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-					{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-						fmt.Sprintf("%s-installer-clusterrole", sa)}},
-					{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-				},
-				Kinds:    "okv68936s",
-				Template: saClusterRoleBindingOperandTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:       "clustercatalog-68936",
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68936",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ceInsufficient = olmv1util.ClusterExtensionDescription{
-				Name:             "insufficient-68936",
-				PackageName:      "nginx-ok-v68936",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
+			caseID                   = "68936"
+			ns                       = "ns-" + caseID
+			sa                       = caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			// Select template based on Boxcutter runtime feature gate
+			saClusterRoleBindingOperandTemplate string
 		)
+
+		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
+		// Note: Both templates have the same content for this test (both lack finalizers permissions)
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml")
+		} else {
+			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-clusterrole.yaml")
+		}
+
+		saCrb := olmv1util.SaCLusterRolebindingDescription{
+			Name:      sa,
+			Namespace: ns,
+			RBACObjects: []olmv1util.ChildResource{
+				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
+				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
+				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
+					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
+				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
+					fmt.Sprintf("%s-installer-clusterrole", sa)}},
+				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
+			},
+			Kinds:    "okv68936s",
+			Template: saClusterRoleBindingOperandTemplate,
+		}
+		clustercatalog := olmv1util.ClusterCatalogDescription{
+			Name:       "clustercatalog-68936",
+			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68936",
+			LabelValue: labelValue,
+			Template:   clustercatalogTemplate,
+		}
+		ceInsufficient := olmv1util.ClusterExtensionDescription{
+			Name:             "insufficient-68936",
+			PackageName:      "nginx-ok-v68936",
+			Channel:          "alpha",
+			Version:          ">=0.0.1",
+			InstallNamespace: ns,
+			SaName:           sa,
+			LabelValue:       labelValue,
+			Template:         clusterextensionTemplate,
+		}
 
 		g.By("Create namespace")
 		defer func() {
@@ -227,9 +237,20 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		defer ceInsufficient.Delete(oc)
 		_ = ceInsufficient.CreateWithoutCheck(oc)
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
+			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
 			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
 		} else {
-			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "cannot set blockOwnerDeletion", 10, 60, 0)
+			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight)
+			// Error checking order differs between runtimes:
+			// - Helm (Env1): checks blockOwnerDeletion first, then privilege escalation
+			// - Boxcutter (Env4): checks privilege escalation first, then blockOwnerDeletion
+			if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+				// Env4: Boxcutter encounters privilege escalation error before blockOwnerDeletion check
+				ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "is attempting to grant RBAC permissions not currently held", 10, 60, 0)
+			} else {
+				// Env1: Helm encounters blockOwnerDeletion error
+				ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "cannot set blockOwnerDeletion", 10, 60, 0)
+			}
 		}
 
 	})
@@ -239,46 +260,55 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                              = "68937"
-			ns                                  = "ns-" + caseID
-			sa                                  = caseID
-			labelValue                          = caseID
-			baseDir                             = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate              = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate            = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-rbac.yaml")
-			saCrb                               = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				RBACObjects: []olmv1util.ChildResource{
-					{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-					{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-					{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-						fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-					{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-						fmt.Sprintf("%s-installer-clusterrole", sa)}},
-					{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-				},
-				Kinds:    "okv68937s",
-				Template: saClusterRoleBindingOperandTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:       "clustercatalog-68937",
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68937",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ceInsufficient = olmv1util.ClusterExtensionDescription{
-				Name:             "insufficient-68937",
-				PackageName:      "nginx-ok-v68937",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
+			caseID                   = "68937"
+			ns                       = "ns-" + caseID
+			sa                       = caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			// Select template based on Boxcutter runtime feature gate
+			saClusterRoleBindingOperandTemplate string
 		)
+
+		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-rbac-boxcutter.yaml")
+		} else {
+			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-rbac.yaml")
+		}
+
+		saCrb := olmv1util.SaCLusterRolebindingDescription{
+			Name:      sa,
+			Namespace: ns,
+			RBACObjects: []olmv1util.ChildResource{
+				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
+				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
+				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
+					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
+				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
+					fmt.Sprintf("%s-installer-clusterrole", sa)}},
+				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
+			},
+			Kinds:    "okv68937s",
+			Template: saClusterRoleBindingOperandTemplate,
+		}
+		clustercatalog := olmv1util.ClusterCatalogDescription{
+			Name:       "clustercatalog-68937",
+			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68937",
+			LabelValue: labelValue,
+			Template:   clustercatalogTemplate,
+		}
+		ceInsufficient := olmv1util.ClusterExtensionDescription{
+			Name:             "insufficient-68937",
+			PackageName:      "nginx-ok-v68937",
+			Channel:          "alpha",
+			Version:          ">=0.0.1",
+			InstallNamespace: ns,
+			SaName:           sa,
+			LabelValue:       labelValue,
+			Template:         clusterextensionTemplate,
+		}
 
 		g.By("Create namespace")
 		defer func() {
@@ -300,8 +330,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		defer ceInsufficient.Delete(oc)
 		_ = ceInsufficient.CreateWithoutCheck(oc)
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
+			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
 			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
 		} else {
+			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight): Both return K8s API RBAC error
+			// The specific error message is the same for both runtimes when encountering the same permission issue
 			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "permissions not currently held", 10, 60, 0)
 		}
 
@@ -371,59 +404,69 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "75492"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceInsufficientName           = "ce-insufficient-" + caseID
-			ceWrongSaName                = "ce-wrongsa-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-bundle.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				RBACObjects: []olmv1util.ChildResource{
-					{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-					{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-					{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-						fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-					{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-						fmt.Sprintf("%s-installer-clusterrole", sa)}},
-					{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-				},
-				Kinds:    "okv3277775492s",
-				Template: saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:       catalogName,
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv3283",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ce75492Insufficient = olmv1util.ClusterExtensionDescription{
-				Name:             ceInsufficientName,
-				PackageName:      "nginx-ok-v3277775492",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
-			ce75492WrongSa = olmv1util.ClusterExtensionDescription{
-				Name:             ceWrongSaName,
-				PackageName:      "nginx-ok-v3277775492",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa + "1",
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
+			caseID                   = "75492"
+			ns                       = "ns-" + caseID
+			sa                       = "sa" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceInsufficientName       = "ce-insufficient-" + caseID
+			ceWrongSaName            = "ce-wrongsa-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			// Select template based on Boxcutter runtime feature gate
+			saClusterRoleBindingTemplate string
 		)
+
+		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
+		// Note: Both templates have the same content for this test (both lack finalizers permissions)
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-bundle-boxcutter.yaml")
+		} else {
+			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-bundle.yaml")
+		}
+
+		saCrb := olmv1util.SaCLusterRolebindingDescription{
+			Name:      sa,
+			Namespace: ns,
+			RBACObjects: []olmv1util.ChildResource{
+				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
+				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
+				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
+					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
+				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
+					fmt.Sprintf("%s-installer-clusterrole", sa)}},
+				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
+			},
+			Kinds:    "okv3277775492s",
+			Template: saClusterRoleBindingTemplate,
+		}
+		clustercatalog := olmv1util.ClusterCatalogDescription{
+			Name:       catalogName,
+			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv3283",
+			LabelValue: labelValue,
+			Template:   clustercatalogTemplate,
+		}
+		ce75492Insufficient := olmv1util.ClusterExtensionDescription{
+			Name:             ceInsufficientName,
+			PackageName:      "nginx-ok-v3277775492",
+			Channel:          "alpha",
+			Version:          ">=0.0.1",
+			InstallNamespace: ns,
+			SaName:           sa,
+			LabelValue:       labelValue,
+			Template:         clusterextensionTemplate,
+		}
+		ce75492WrongSa := olmv1util.ClusterExtensionDescription{
+			Name:             ceWrongSaName,
+			PackageName:      "nginx-ok-v3277775492",
+			Channel:          "alpha",
+			Version:          ">=0.0.1",
+			InstallNamespace: ns,
+			SaName:           sa + "1",
+			LabelValue:       labelValue,
+			Template:         clusterextensionTemplate,
+		}
 
 		g.By("Create namespace")
 		defer func() {
@@ -445,31 +488,83 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		defer ce75492Insufficient.Delete(oc)
 		_ = ce75492Insufficient.CreateWithoutCheck(oc)
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
+			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
 			ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
 		} else {
-			ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "could not get information about the resource CustomResourceDefinition", 10, 60, 0)
+			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight)
+			// Error checking order differs between runtimes:
+			// - Helm (Env1): may encounter CRD creation errors first
+			// - Boxcutter (Env4): encounters privilege escalation errors first
+			if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+				// Env4: Boxcutter encounters privilege escalation error (missing namespace permissions)
+				ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "is attempting to grant RBAC permissions not currently held", 10, 60, 0)
+			} else {
+				// Env1: Helm may encounter CRD-related errors
+				ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "could not get information about the resource CustomResourceDefinition", 10, 60, 0)
+			}
 		}
 		g.By("check wrong sa")
 		defer ce75492WrongSa.Delete(oc)
 		_ = ce75492WrongSa.CreateWithoutCheck(oc)
-		ce75492WrongSa.CheckClusterExtensionCondition(oc, "Installed", "message", "not found", 10, 60, 0)
+		// IMPORTANT: Non-existent SA error behavior difference between Helm and Boxcutter runtimes.
+		// This is a KNOWN ISSUE documented in https://github.com/openshift/cluster-olm-operator/pull/163#issuecomment-3842361284
+		//
+		// Current behavior:
+		// - Boxcutter + Preflight (Env3): Returns "pre-authorization failed" (SA validated during token creation)
+		// - Boxcutter + No Preflight (Env4): Returns "not found" (SA validation happens at runtime)
+		// - Helm runtime (Env1/Env2): Returns "not found" regardless of preflight setting
+		//
+		// Root cause: Boxcutter applier does not use scoped client to create revisions.
+		// The "service account not found" error comes from token getter, which doesn't get called
+		// for the revision creation operation in Boxcutter without preflight.
+		//
+		// Potential future fixes (under discussion):
+		// 1. Use scoped client - breaking change, requires adding clusterextensionrevision permissions to SA
+		// 2. Have boxcutter applier check SA existence explicitly
+		// 3. Move SA check to clusterextension reconciliation pipeline (affects all appliers)
+		//
+		// TODO: Update these error expectations when the upstream fix is implemented.
+		// The expected behavior should be consistent across all runtimes.
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
+				// Env3 (Boxcutter + Preflight):
+				// Preflight validates SA during token creation, returns pre-authorization error
+				ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
+			} else {
+				// Env4 (Boxcutter + No Preflight):
+				// No preflight, SA validation happens at runtime, returns "not found" error
+				ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "not found", 10, 60, 0)
+			}
+		} else {
+			// Env1 or Env2 (Helm runtime):
+			// Helm runtime discovers SA not found at runtime, regardless of preflight setting
+			ce75492WrongSa.CheckClusterExtensionCondition(oc, "Installed", "message", "not found", 10, 60, 0)
+		}
 	})
 
 	g.It("PolarionID:75493-[OTP][Level0]cluster extension can be installed with enough permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa"), func() {
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "75493"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceSufficientName             = "ce-sufficient" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-limited.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
+			caseID                   = "75493"
+			ns                       = "ns-" + caseID
+			sa                       = "sa" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceSufficientName         = "ce-sufficient" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			// Select template based on runtime: Boxcutter needs clusterextensionrevisions/finalizers, Helm needs clusterextensions/finalizers
+			saTemplate string
+		)
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			saTemplate = filepath.Join(baseDir, "sa-nginx-limited-boxcutter.yaml")
+		} else {
+			saTemplate = filepath.Join(baseDir, "sa-nginx-limited.yaml")
+		}
+		var (
+			saCrb = olmv1util.SaCLusterRolebindingDescription{
 				Name:      sa,
 				Namespace: ns,
 				RBACObjects: []olmv1util.ChildResource{
@@ -482,7 +577,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 					{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
 				},
 				Kinds:    "okv3277775493s",
-				Template: saClusterRoleBindingTemplate,
+				Template: saTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
@@ -607,8 +702,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
 		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
 			`Namespace:"ns-81538" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81538-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81538] Verbs:[update]`, 3, 150, 0)
+		// Check finalizers permission based on Boxcutter runtime feature gate
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81538-1 for first revision)
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81538-1] Verbs:[update]`, 3, 150, 0)
+		} else {
+			// Env2: Helm with preflight - expects clusterextensions/finalizers
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81538] Verbs:[update]`, 3, 150, 0)
+		}
 
 		g.By("generate rbac per missing rule and delete ce")
 		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
@@ -708,8 +812,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
 		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
 			`Namespace:"ns-81664" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81664-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81664] Verbs:[update]`, 3, 150, 0)
+		// Check finalizers permission based on Boxcutter runtime feature gate
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81664-1 for first revision)
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81664-1] Verbs:[update]`, 3, 150, 0)
+		} else {
+			// Env2: Helm with preflight - expects clusterextensions/finalizers
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81664] Verbs:[update]`, 3, 150, 0)
+		}
 
 		g.By("generate rbac per missing rule and delete ce")
 		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
@@ -828,8 +941,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
 		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
 			`Namespace:"ns-81696" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81696-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81696] Verbs:[update]`, 3, 150, 0)
+		// Check finalizers permission based on Boxcutter runtime feature gate
+		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
+			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81696-1 for first revision)
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81696-1] Verbs:[update]`, 3, 150, 0)
+		} else {
+			// Env2: Helm with preflight - expects clusterextensions/finalizers
+			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81696] Verbs:[update]`, 3, 150, 0)
+		}
 
 		g.By("generate rbac per missing rule and delete ce")
 		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
