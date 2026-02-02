@@ -7,6 +7,7 @@
 // test/qe/testdata/olm/cip.yaml
 // test/qe/testdata/olm/clustercatalog-secret-withlabel.yaml
 // test/qe/testdata/olm/clustercatalog-secret.yaml
+// test/qe/testdata/olm/clustercatalog-with-pollinterval.yaml
 // test/qe/testdata/olm/clustercatalog-withlabel.yaml
 // test/qe/testdata/olm/clustercatalog.yaml
 // test/qe/testdata/olm/clusterextension-watchns-config.yaml
@@ -413,6 +414,45 @@ func testQeTestdataOlmClustercatalogSecretYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/clustercatalog-secret.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _testQeTestdataOlmClustercatalogWithPollintervalYaml = []byte(`apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: catalog-template
+objects:
+- apiVersion: olm.operatorframework.io/v1
+  kind: ClusterCatalog
+  metadata:
+    name: "${NAME}"
+  spec:
+    source:
+      type: "${TYPE}"
+      image:
+        ref: "${IMAGE}"
+        pollInterval: "${POLLINTERVALMINUTES}"
+parameters:
+- name: NAME
+- name: TYPE
+  value: "Image"
+- name: IMAGE
+- name: POLLINTERVALMINUTES
+  value: "300s"
+`)
+
+func testQeTestdataOlmClustercatalogWithPollintervalYamlBytes() ([]byte, error) {
+	return _testQeTestdataOlmClustercatalogWithPollintervalYaml, nil
+}
+
+func testQeTestdataOlmClustercatalogWithPollintervalYaml() (*asset, error) {
+	bytes, err := testQeTestdataOlmClustercatalogWithPollintervalYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "test/qe/testdata/olm/clustercatalog-with-pollinterval.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2412,6 +2452,7 @@ var _bindata = map[string]func() (*asset, error){
 	"test/qe/testdata/olm/cip.yaml":                                                                 testQeTestdataOlmCipYaml,
 	"test/qe/testdata/olm/clustercatalog-secret-withlabel.yaml":                                     testQeTestdataOlmClustercatalogSecretWithlabelYaml,
 	"test/qe/testdata/olm/clustercatalog-secret.yaml":                                               testQeTestdataOlmClustercatalogSecretYaml,
+	"test/qe/testdata/olm/clustercatalog-with-pollinterval.yaml":                                    testQeTestdataOlmClustercatalogWithPollintervalYaml,
 	"test/qe/testdata/olm/clustercatalog-withlabel.yaml":                                            testQeTestdataOlmClustercatalogWithlabelYaml,
 	"test/qe/testdata/olm/clustercatalog.yaml":                                                      testQeTestdataOlmClustercatalogYaml,
 	"test/qe/testdata/olm/clusterextension-watchns-config.yaml":                                     testQeTestdataOlmClusterextensionWatchnsConfigYaml,
@@ -2487,16 +2528,17 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"qe": {nil, map[string]*bintree{
 			"testdata": {nil, map[string]*bintree{
 				"olm": {nil, map[string]*bintree{
-					"basic-bd-plain-image.yaml":            {testQeTestdataOlmBasicBdPlainImageYaml, map[string]*bintree{}},
-					"basic-bd-registry-image.yaml":         {testQeTestdataOlmBasicBdRegistryImageYaml, map[string]*bintree{}},
-					"binding-prefligth.yaml":               {testQeTestdataOlmBindingPrefligthYaml, map[string]*bintree{}},
-					"binding-prefligth_multirole.yaml":     {testQeTestdataOlmBindingPrefligth_multiroleYaml, map[string]*bintree{}},
-					"cip.yaml":                             {testQeTestdataOlmCipYaml, map[string]*bintree{}},
-					"clustercatalog-secret-withlabel.yaml": {testQeTestdataOlmClustercatalogSecretWithlabelYaml, map[string]*bintree{}},
-					"clustercatalog-secret.yaml":           {testQeTestdataOlmClustercatalogSecretYaml, map[string]*bintree{}},
-					"clustercatalog-withlabel.yaml":        {testQeTestdataOlmClustercatalogWithlabelYaml, map[string]*bintree{}},
-					"clustercatalog.yaml":                  {testQeTestdataOlmClustercatalogYaml, map[string]*bintree{}},
-					"clusterextension-watchns-config.yaml": {testQeTestdataOlmClusterextensionWatchnsConfigYaml, map[string]*bintree{}},
+					"basic-bd-plain-image.yaml":             {testQeTestdataOlmBasicBdPlainImageYaml, map[string]*bintree{}},
+					"basic-bd-registry-image.yaml":          {testQeTestdataOlmBasicBdRegistryImageYaml, map[string]*bintree{}},
+					"binding-prefligth.yaml":                {testQeTestdataOlmBindingPrefligthYaml, map[string]*bintree{}},
+					"binding-prefligth_multirole.yaml":      {testQeTestdataOlmBindingPrefligth_multiroleYaml, map[string]*bintree{}},
+					"cip.yaml":                              {testQeTestdataOlmCipYaml, map[string]*bintree{}},
+					"clustercatalog-secret-withlabel.yaml":  {testQeTestdataOlmClustercatalogSecretWithlabelYaml, map[string]*bintree{}},
+					"clustercatalog-secret.yaml":            {testQeTestdataOlmClustercatalogSecretYaml, map[string]*bintree{}},
+					"clustercatalog-with-pollinterval.yaml": {testQeTestdataOlmClustercatalogWithPollintervalYaml, map[string]*bintree{}},
+					"clustercatalog-withlabel.yaml":         {testQeTestdataOlmClustercatalogWithlabelYaml, map[string]*bintree{}},
+					"clustercatalog.yaml":                   {testQeTestdataOlmClustercatalogYaml, map[string]*bintree{}},
+					"clusterextension-watchns-config.yaml":  {testQeTestdataOlmClusterextensionWatchnsConfigYaml, map[string]*bintree{}},
 					"clusterextension-withselectorExpressions-WithoutChannelVersion.yaml":      {testQeTestdataOlmClusterextensionWithselectorexpressionsWithoutchannelversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml": {testQeTestdataOlmClusterextensionWithselectorlableexpressionsWithoutchannelversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-OwnSingle.yaml":                        {testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml, map[string]*bintree{}},
