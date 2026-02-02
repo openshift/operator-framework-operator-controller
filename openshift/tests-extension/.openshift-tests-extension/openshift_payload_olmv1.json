@@ -822,6 +822,21 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] clusterextension PolarionID:83979-[OTP][Skipped:Disconnected]ClusterExtension installs webhook-operator and webhooks work",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85510-watchNamespace configuration with AllNamespaces InstallMode",
     "labels": {
       "Extended": {},
