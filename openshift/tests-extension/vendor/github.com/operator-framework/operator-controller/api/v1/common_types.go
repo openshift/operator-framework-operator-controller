@@ -20,12 +20,22 @@ const (
 	TypeInstalled   = "Installed"
 	TypeProgressing = "Progressing"
 
-	// Progressing reasons
-	ReasonSucceeded = "Succeeded"
-	ReasonRetrying  = "Retrying"
-	ReasonBlocked   = "Blocked"
+	// Installed reasons
+	ReasonAbsent = "Absent"
 
-	// Terminal reasons
-	ReasonDeprecated = "Deprecated"
-	ReasonFailed     = "Failed"
+	// Progressing reasons
+	ReasonRollingOut           = "RollingOut"
+	ReasonRetrying             = "Retrying"
+	ReasonBlocked              = "Blocked"
+	ReasonInvalidConfiguration = "InvalidConfiguration"
+
+	// Deprecation reasons
+	ReasonDeprecated               = "Deprecated"
+	ReasonNotDeprecated            = "NotDeprecated"
+	ReasonDeprecationStatusUnknown = "DeprecationStatusUnknown"
+
+	// Common reasons
+	ReasonSucceeded                = "Succeeded"
+	ReasonFailed                   = "Failed"
+	ReasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 )
