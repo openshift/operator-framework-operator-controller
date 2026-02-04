@@ -6,7 +6,8 @@ data:
   httpd.sh: |
     #!/bin/sh
     echo "Version 1.2.0"
-    echo true > /var/www/started
-    echo true > /var/www/ready
-    echo true > /var/www/live
-    exec httpd -f -h /var/www -p 8081
+    mkdir -p /tmp/www
+    echo true > /tmp/www/started
+    echo true > /tmp/www/ready
+    echo true > /tmp/www/live
+    python3 -m http.server 8081 --directory /tmp/www
