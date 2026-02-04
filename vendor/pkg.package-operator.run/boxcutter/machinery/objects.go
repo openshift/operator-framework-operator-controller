@@ -237,7 +237,7 @@ func (e *ObjectEngine) Reconcile(
 		if errors.IsAlreadyExists(err) {
 			// Might be a slow cache or an object created by a different actor
 			// but excluded by the cache selector.
-			return nil, &CreateCollisionError{object: desiredObject, msg: err.Error()}
+			return nil, NewCreateCollisionError(desiredObject, err.Error())
 		}
 
 		if err != nil {

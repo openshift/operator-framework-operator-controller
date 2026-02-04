@@ -15,6 +15,19 @@ type CreateCollisionError struct {
 	msg    string
 }
 
+// NewCreateCollisionError creates a new CreateCollisionError.
+func NewCreateCollisionError(obj client.Object, msg string) *CreateCollisionError {
+	return &CreateCollisionError{
+		object: obj,
+		msg:    msg,
+	}
+}
+
+// Object is the object reference that caused the error.
+func (e CreateCollisionError) Object() client.Object {
+	return e.object
+}
+
 // Error implements golangs error interface.
 func (e CreateCollisionError) Error() string {
 	return fmt.Sprintf("%s: %s", e.object, e.msg)

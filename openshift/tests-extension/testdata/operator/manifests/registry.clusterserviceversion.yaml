@@ -69,14 +69,14 @@ spec:
                     readOnly: true
                 livenessProbe:
                   httpGet:
-                    path: /live
+                    path: /healthz
                     port: 8081
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
                 readinessProbe:
                   httpGet:
-                    path: /ready
+                    path: /readyz
                     port: 8081
                   initialDelaySeconds: 5
                   periodSeconds: 10
