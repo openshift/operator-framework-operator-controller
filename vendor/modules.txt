@@ -660,8 +660,8 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runtime-spec v1.2.1
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/operator-framework/api v0.37.0
-## explicit; go 1.24.6
+# github.com/operator-framework/api v0.38.0
+## explicit; go 1.25.3
 github.com/operator-framework/api/pkg/constraints
 github.com/operator-framework/api/pkg/encoding
 github.com/operator-framework/api/pkg/lib/release
@@ -775,8 +775,8 @@ github.com/sigstore/sigstore/pkg/cryptoutils
 github.com/sigstore/sigstore/pkg/signature
 github.com/sigstore/sigstore/pkg/signature/options
 github.com/sigstore/sigstore/pkg/signature/payload
-# github.com/sirupsen/logrus v1.9.3
-## explicit; go 1.13
+# github.com/sirupsen/logrus v1.9.4
+## explicit; go 1.17
 github.com/sirupsen/logrus
 # github.com/smallstep/pkcs7 v0.2.1
 ## explicit; go 1.14
@@ -1986,7 +1986,7 @@ oras.land/oras-go/v2/registry/remote/credentials/trace
 oras.land/oras-go/v2/registry/remote/errcode
 oras.land/oras-go/v2/registry/remote/internal/errutil
 oras.land/oras-go/v2/registry/remote/retry
-# pkg.package-operator.run/boxcutter v0.8.1
+# pkg.package-operator.run/boxcutter v0.9.0
 ## explicit; go 1.24.6
 pkg.package-operator.run/boxcutter
 pkg.package-operator.run/boxcutter/machinery

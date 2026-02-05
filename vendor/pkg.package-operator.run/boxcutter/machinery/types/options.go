@@ -124,11 +124,13 @@ var (
 	_ ObjectReconcileOption = (WithPaused{})
 	_ ObjectReconcileOption = (WithPreviousOwners{})
 	_ ObjectReconcileOption = (WithProbe("", nil))
+	_ ObjectTeardownOption  = (WithTeardownWriter(nil))
 )
 
 // ObjectTeardownOptions holds configuration options changing object teardown.
 type ObjectTeardownOptions struct {
-	Orphan bool
+	Orphan         bool
+	TeardownWriter client.Writer
 }
 
 // Default sets empty Option fields to their default value.
@@ -235,6 +237,15 @@ func WithOrphan() ObjectTeardownOption {
 	return &teardownOptionFn{
 		fn: func(opts *ObjectTeardownOptions) {
 			opts.Orphan = true
+		},
+	}
+}
+
+// WithTeardownWriter tears down the revision with the given writer.
+func WithTeardownWriter(writer client.Writer) ObjectTeardownOption {
+	return &teardownOptionFn{
+		fn: func(opts *ObjectTeardownOptions) {
+			opts.TeardownWriter = writer
 		},
 	}
 }

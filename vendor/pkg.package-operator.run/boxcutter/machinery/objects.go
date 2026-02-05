@@ -155,7 +155,12 @@ func (e *ObjectEngine) Teardown(
 	}
 
 	// Actually delete the object.
-	err = e.writer.Delete(ctx, desiredObject, client.Preconditions{
+	writer := e.writer
+	if options.TeardownWriter != nil {
+		writer = options.TeardownWriter
+	}
+
+	err = writer.Delete(ctx, desiredObject, client.Preconditions{
 		UID:             ptr.To(actualObject.GetUID()),
 		ResourceVersion: ptr.To(actualObject.GetResourceVersion()),
 	})
