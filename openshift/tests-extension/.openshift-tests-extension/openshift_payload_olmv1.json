@@ -853,6 +853,291 @@
     }
   },
   {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87536-deploymentConfig env vars are applied to operator deployment and available in pod",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87537-deploymentConfig env vars override existing bundle env vars with same name",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87539-[Skipped:Disconnected]deploymentConfig envFrom sources are appended to operator deployment without duplicates",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87541-[Skipped:Disconnected]deploymentConfig volumes are appended to operator deployment",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87542-[Skipped:Disconnected]deploymentConfig volumeMounts are appended to all operator containers",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87543-[Skipped:Disconnected]deploymentConfig tolerations are appended to operator deployment without duplicates",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87544-[Skipped:Disconnected]deploymentConfig resources completely replace existing resource requirements",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87545-[Skipped:Disconnected]deploymentConfig nodeSelector completely replaces existing node selector",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87546-[Skipped:Disconnected]deploymentConfig nodeAffinity overrides existing nodeAffinity",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87547-[Skipped:Disconnected]deploymentConfig podAffinity overrides existing podAffinity",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87548-[Skipped:Disconnected]deploymentConfig podAntiAffinity overrides existing podAntiAffinity",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87549-[Skipped:Disconnected]deploymentConfig annotations are merged with existing taking precedence",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87550-[Skipped:Disconnected]deploymentConfig with resources and nodeSelector both work correctly",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87551-[Skipped:Disconnected]deploymentConfig with env tolerations and resources all work correctly",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87552-[Skipped:Disconnected]deploymentConfig works correctly when combined with watchNamespace configuration",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87553-[Skipped:Disconnected]adding deploymentConfig multiple fields to existing ClusterExtension works correctly",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87554-[Skipped:Disconnected]modifying deploymentConfig multiple fields in existing ClusterExtension works correctly",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87555-[Skipped:Disconnected]removing entire deploymentConfig from ClusterExtension reverts all settings to bundle defaults",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
+    "name": "[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87556-[Skipped:Disconnected]removing partial fields from deploymentConfig reverts those fields to bundle defaults while keeping others",
+    "labels": {
+      "Extended": {},
+      "NonHyperShiftHOST": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {
+      "exclude": "topology==\"External\""
+    }
+  },
+  {
     "name": "[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85510-watchNamespace configuration with AllNamespaces InstallMode",
     "labels": {
       "Extended": {},
