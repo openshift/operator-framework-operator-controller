@@ -32,6 +32,7 @@ type ClusterExtensionDescription struct {
 	SourceType              string
 	Template                string
 	InstalledBundle         string
+	InlineConfig            string // JSON string for inline config
 }
 
 // Create creates a ClusterExtension and waits for successful installation and bundle resource retrieval
@@ -110,6 +111,9 @@ func (clusterextension *ClusterExtensionDescription) CreateWithoutCheck(oc *exut
 	}
 	if len(clusterextension.SourceType) > 0 {
 		parameters = append(parameters, "SOURCETYPE="+clusterextension.SourceType)
+	}
+	if len(clusterextension.InlineConfig) > 0 {
+		parameters = append(parameters, "INLINECONFIG="+clusterextension.InlineConfig)
 	}
 	err := exutil.ApplyClusterResourceFromTemplateWithError(oc, parameters...)
 	return err
