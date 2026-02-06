@@ -413,6 +413,8 @@ func SkipIfPlatformType(oc *CLI, platforms string) {
 //
 // Returns:
 //   - bool: true if the CRD field exists, false otherwise
+//
+//nolint:unused
 func isCRDSpecificFieldExist(oc *CLI, crdFieldPath string) bool {
 	var (
 		crdFieldInfo string
@@ -445,7 +447,25 @@ func isCRDSpecificFieldExist(oc *CLI, crdFieldPath string) bool {
 // Returns:
 //   - bool: true if cluster is MicroShift, false otherwise
 func IsMicroshiftCluster(oc *CLI) bool {
-	return !isCRDSpecificFieldExist(oc, "template.apiVersion")
+	// Use api-resources instead of explain to avoid SchemaError issues
+	// Microshift doesn't include Template API
+	e2e.Logf("Checking if cluster is Microshift by verifying template.openshift.io API existence")
+
+	output, err := oc.AsAdmin().WithoutNamespace().Run("api-resources").Args(
+		"--api-group=template.openshift.io",
+	).Output()
+
+	if err != nil {
+		e2e.Logf("Failed to get api-resources for template.openshift.io: %v, assuming not Microshift", err)
+		return false // Default to not Microshift if check fails
+	}
+
+	// Check if templates resource exists in the output
+	hasTemplateAPI := strings.Contains(output, "templates")
+	isMicroshift := !hasTemplateAPI
+
+	e2e.Logf("DEBUG: IsMicroshiftCluster - template API exists=%v, isMicroshift=%v", hasTemplateAPI, isMicroshift)
+	return isMicroshift
 }
 
 // IsHypershiftHostedCluster determines whether the cluster is a HyperShift hosted cluster
