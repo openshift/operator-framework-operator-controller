@@ -241,3 +241,7 @@ verify-metadata: update-metadata
 		echo "ERROR: Metadata is out of date. Please run 'make build-update' and commit the result."; \
 		exit 1; \
 	fi
+
+.PHONY: verify-images-json #HELP Verify that 'images' command outputs valid JSON
+verify-images-json:
+	@./hack/verify-images-json.sh $(TOOLS_BIN_DIR)/olmv1-tests-ext
