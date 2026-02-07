@@ -610,10 +610,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 				conditions := ext.Status.Conditions
 				g.Expect(conditions).ToNot(BeEmpty(), "ClusterExtension %q has empty status.conditions", ceName)
 
-				installed := meta.FindStatusCondition(conditions, olmv1.TypeInstalled)
-				g.Expect(installed).ToNot(BeNil(), "Installed condition not found")
-				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse), "Installed should be False")
-				g.Expect(installed.Reason).To(Equal("Failed"))
+				progressing := meta.FindStatusCondition(conditions, olmv1.TypeProgressing)
+				g.Expect(progressing).ToNot(BeNil(), "Progressing condition not found")
+				g.Expect(progressing.Status).To(Equal(metav1.ConditionFalse), "Progressing should be False")
+				g.Expect(progressing.Reason).To(Equal(olmv1.ReasonInvalidConfiguration))
 			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
@@ -740,19 +740,19 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				helpers.EnsureCleanupClusterExtension(context.Background(), ceName, namespace)
 			})
 
-		By("waiting for the ClusterExtension to report invalid configuration")
-		Eventually(func(g Gomega) {
-			var ext olmv1.ClusterExtension
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, &ext)
-			g.Expect(err).ToNot(HaveOccurred(), "failed to get ClusterExtension %q", ceName)
+			By("waiting for the ClusterExtension to report invalid configuration")
+			Eventually(func(g Gomega) {
+				var ext olmv1.ClusterExtension
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, &ext)
+				g.Expect(err).ToNot(HaveOccurred(), "failed to get ClusterExtension %q", ceName)
 
-			conditions := ext.Status.Conditions
-			g.Expect(conditions).ToNot(BeEmpty(), "ClusterExtension %q has empty status.conditions", ceName)
+				conditions := ext.Status.Conditions
+				g.Expect(conditions).ToNot(BeEmpty(), "ClusterExtension %q has empty status.conditions", ceName)
 
-			progressing := meta.FindStatusCondition(conditions, olmv1.TypeProgressing)
-			g.Expect(progressing).ToNot(BeNil(), "Progressing condition not found")
-			g.Expect(progressing.Status).To(Equal(metav1.ConditionFalse), "Progressing should be False")
-			g.Expect(progressing.Reason).To(Equal(olmv1.ReasonInvalidConfiguration))
-		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+				progressing := meta.FindStatusCondition(conditions, olmv1.TypeProgressing)
+				g.Expect(progressing).ToNot(BeNil(), "Progressing condition not found")
+				g.Expect(progressing.Status).To(Equal(metav1.ConditionFalse), "Progressing should be False")
+				g.Expect(progressing.Reason).To(Equal(olmv1.ReasonInvalidConfiguration))
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 		})
 })
