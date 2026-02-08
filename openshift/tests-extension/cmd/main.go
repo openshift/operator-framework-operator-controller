@@ -279,6 +279,7 @@ func main() {
 		// Removed marketplace catalog tests (marketplace catalog removed from default catalogs)
 		"[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/all endpoint",
 		"[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/metas endpoint",
+		"[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Serial] OLMv1 ClusterExtension behavior after selected catalog removal should keep Installed=True and report Progressing=True/Retrying when the selected catalog is removed",
 	)
 
 	// Initialize the environment before running any tests.
