@@ -9,8 +9,10 @@ import (
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
+	"github.com/openshift/origin/test/extended/util/image"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +21,8 @@ import (
 
 	olmv1 "github.com/operator-framework/operator-controller/api/v1"
 
+	catalogdata "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/catalog"
+	operatordata "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/bindata/operator"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/helpers"
 )
@@ -199,6 +203,133 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			g.Expect(c.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True")
 			g.Expect(c.Reason).To(Equal("Retrying"), "expected reason to be 'Retrying'")
 			g.Expect(c.Message).To(ContainSubstring("error creating image source"), "expected image source error")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+	})
+})
+
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Serial] OLMv1 ClusterExtension behavior after selected catalog removal", func() {
+	var (
+		k8sClient  client.Client
+		namespace  string
+		catalog    string
+		ceName     string
+		packageRef string
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+		helpers.RequireImageRegistry(ctx)
+		k8sClient = env.Get().K8sClient
+
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}":     "", // auto-filled
+			"{{ NAMESPACE }}":       "", // auto-filled
+			"{{ TEST-CONTROLLER }}": image.ShellImage(),
+		}
+		unique, nsName, ccName, opName := helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			catalogdata.AssetNames, catalogdata.Asset,
+			operatordata.AssetNames, operatordata.Asset,
+		)
+		_ = unique
+		namespace = nsName
+		catalog = ccName
+		packageRef = opName
+
+		By("waiting for the catalog to be serving")
+		Eventually(func(g Gomega) {
+			cc := &olmv1.ClusterCatalog{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: catalog}, cc)
+			g.Expect(err).NotTo(HaveOccurred(), "failed to get ClusterCatalog")
+
+			serving := meta.FindStatusCondition(cc.Status.Conditions, "Serving")
+			g.Expect(serving).NotTo(BeNil(), "expected Serving condition")
+			g.Expect(serving.Status).To(Equal(metav1.ConditionTrue), "expected Serving=True")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		By(fmt.Sprintf("creating ClusterExtension for package %q from catalog %q", packageRef, catalog))
+		var cleanupCE func()
+		ceName, cleanupCE = helpers.CreateClusterExtension(packageRef, "", namespace, "", helpers.WithCatalogNameSelector(catalog))
+		DeferCleanup(cleanupCE)
+	})
+
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping for debugging")
+			helpers.DescribeAllClusterCatalogs(ctx)
+			helpers.DescribeAllClusterExtensions(ctx, namespace)
+		}
+	})
+
+	It("should keep Installed=True and report Progressing=True/Retrying when the selected catalog is removed", func(ctx SpecContext) {
+		By("waiting for the ClusterExtension to install")
+		helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
+
+		By("verifying Installed=True before deleting the catalog")
+		Eventually(func(g Gomega) {
+			ce := &olmv1.ClusterExtension{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
+			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True before catalog deletion")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		By(fmt.Sprintf("deleting ClusterCatalog %q", catalog))
+		cc := &olmv1.ClusterCatalog{ObjectMeta: metav1.ObjectMeta{Name: catalog}}
+		Expect(k8sClient.Delete(ctx, cc)).To(Succeed(), "failed to delete ClusterCatalog")
+
+		By("waiting for the ClusterCatalog to be deleted")
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: catalog}, &olmv1.ClusterCatalog{})
+			return apierrors.IsNotFound(err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue())
+
+		By("waiting for ClusterExtension conditions to reflect catalog resolution failure")
+		Eventually(func(g Gomega) {
+			ce := &olmv1.ClusterExtension{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
+			g.Expect(progressing).NotTo(BeNil(), "Progressing condition not found")
+			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True after catalog deletion")
+			g.Expect(progressing.Reason).To(Equal("Retrying"), "expected Progressing reason=Retrying")
+
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
+			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True after catalog deletion")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+	})
+
+	It("should keep Installed=True when package source is removed by deleting the selected catalog", func(ctx SpecContext) {
+		By("waiting for the ClusterExtension to install")
+		helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
+
+		By("simulating package removal by deleting the selected catalog")
+		cc := &olmv1.ClusterCatalog{ObjectMeta: metav1.ObjectMeta{Name: catalog}}
+		Expect(k8sClient.Delete(ctx, cc)).To(Succeed(), "failed to delete ClusterCatalog")
+
+		By("waiting for the ClusterCatalog to be deleted")
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: catalog}, &olmv1.ClusterCatalog{})
+			return apierrors.IsNotFound(err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue())
+
+		By("verifying ClusterExtension conditions after package source removal")
+		Eventually(func(g Gomega) {
+			ce := &olmv1.ClusterExtension{}
+			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
+			g.Expect(progressing).NotTo(BeNil(), "Progressing condition not found")
+			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True after source removal")
+			g.Expect(progressing.Reason).To(Equal("Retrying"), "expected Progressing reason=Retrying")
+
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
+			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True after source removal")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 })
