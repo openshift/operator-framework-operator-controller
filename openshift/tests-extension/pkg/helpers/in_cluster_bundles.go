@@ -19,6 +19,7 @@ import (
 	imagev1 "github.com/openshift/api/image/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -170,7 +171,10 @@ func createClusterCatalog(name, namespace string) {
 	Expect(k8sClient.Create(ctx, cc)).To(Succeed(), "failed to create ClusterCatalog")
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting ClusterCatalog %q", name))
-		Expect(k8sClient.Delete(context.Background(), cc)).To(Succeed())
+		err := k8sClient.Delete(context.Background(), cc)
+		if err != nil && !apierrors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
 	})
 	waitForClusterCatalogServing(ctx, cc.Name)
 }
