@@ -1039,6 +1039,26 @@
     "environmentSelector": {}
   },
   {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Serial] OLMv1 ClusterExtension behavior after selected catalog removal should keep Installed=True and report Progressing=True/Retrying when the selected catalog is removed",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Serial] OLMv1 ClusterExtension behavior after selected catalog removal should keep Installed=True when package source is removed by deleting the selected catalog",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
     "labels": {
