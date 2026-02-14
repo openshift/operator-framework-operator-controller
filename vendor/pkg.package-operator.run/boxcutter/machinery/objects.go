@@ -319,8 +319,8 @@ func (e *ObjectEngine) objectUpdateHandling(
 
 		if !compareRes.IsConflict() && modified {
 			// No conflict with another controller, but modifications needed.
-			err := e.patch(
-				ctx, desiredObject, client.Apply,
+			err := e.apply(
+				ctx, desiredObject,
 				options,
 			)
 			if err != nil {
@@ -352,8 +352,8 @@ func (e *ObjectEngine) objectUpdateHandling(
 		// adding this revision as controller and another controller existing.
 		// Having two ownerRefs set to controller is rejected by the kube-apiserver.
 		// Even though we force FIELD-level ownership in the call below.
-		err := e.patch(
-			ctx, desiredObject, client.Apply,
+		err := e.apply(
+			ctx, desiredObject,
 			options,
 			client.ForceOwnership,
 		)
@@ -422,8 +422,8 @@ func (e *ObjectEngine) objectUpdateHandling(
 	}
 
 	// Write changes.
-	err = e.patch(
-		ctx, desiredObject, client.Apply,
+	err = e.apply(
+		ctx, desiredObject,
 		options,
 		client.ForceOwnership,
 	)
@@ -464,12 +464,11 @@ func (e *ObjectEngine) create(
 	return e.writer.Create(ctx, obj, opts...)
 }
 
-func (e *ObjectEngine) patch(
+func (e *ObjectEngine) apply(
 	ctx context.Context,
 	obj Object,
-	patch client.Patch,
 	options types.ObjectReconcileOptions,
-	opts ...client.PatchOption,
+	opts ...client.ApplyOption,
 ) error {
 	if options.Paused {
 		return nil
@@ -479,12 +478,24 @@ func (e *ObjectEngine) patch(
 		return err
 	}
 
-	o := []client.PatchOption{
+	o := []client.ApplyOption{
 		client.FieldOwner(e.fieldOwner),
 	}
 	o = append(o, opts...)
 
-	return e.writer.Patch(ctx, obj, patch, o...)
+	var ac runtime.ApplyConfiguration
+	switch v := obj.(type) {
+	case runtime.ApplyConfiguration:
+		ac = v
+
+	case *unstructured.Unstructured:
+		ac = client.ApplyConfigurationFromUnstructured(v)
+
+	default:
+		return NewUnsupportedApplyConfigurationError(obj)
+	}
+
+	return e.writer.Apply(ctx, ac, o...)
 }
 
 type ctrlSituation string

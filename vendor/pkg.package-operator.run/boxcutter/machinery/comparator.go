@@ -411,7 +411,7 @@ func openAPICanonicalName(obj client.Object) (string, error) {
 	case err != nil:
 		return "", err
 	default:
-		schemaTypeName = util.GetCanonicalTypeName(o)
+		return util.GetCanonicalTypeName(o), nil
 	}
 
 	return util.ToRESTFriendlyName(schemaTypeName), nil
