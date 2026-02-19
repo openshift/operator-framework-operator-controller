@@ -91,14 +91,14 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", jobNamePrefix, err))
 	}
 
+	DeferCleanup(func(ctx SpecContext) {
+		_ = k8sClient.Delete(ctx, serviceAccount)
+	})
+
 	job := buildCurlJob(jobNamePrefix, "default", serviceURL, serviceAccount)
 
 	err = k8sClient.Create(ctx, job)
 	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
-
-	DeferCleanup(func(ctx SpecContext) {
-		_ = k8sClient.Delete(ctx, serviceAccount)
-	})
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, job)
