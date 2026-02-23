@@ -87,9 +87,8 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 
 	err = k8sClient.Create(ctx, serviceAccount)
 
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		Fail(fmt.Sprintf("Failed to ensure ServiceAccount %s: %v", jobNamePrefix, err))
-	}
+	Expect(err).To(Or(BeNil(), Satisfy(apierrors.IsAlreadyExists)),
+		"Failed to ensure ServiceAccount %s", jobNamePrefix)
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, serviceAccount)
