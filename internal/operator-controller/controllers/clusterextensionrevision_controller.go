@@ -131,40 +131,40 @@ func checkForUnexpectedClusterExtensionRevisionFieldChange(a, b ocv1.ClusterExte
 	return !equality.Semantic.DeepEqual(a.Spec, b.Spec)
 }
 
-func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev *ocv1.ClusterExtensionRevision) (ctrl.Result, error) {
+func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, cer *ocv1.ClusterExtensionRevision) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	if !rev.DeletionTimestamp.IsZero() {
-		return c.delete(ctx, rev)
+	if !cer.DeletionTimestamp.IsZero() {
+		return c.delete(ctx, cer)
 	}
 
-	revision, opts, err := c.toBoxcutterRevision(ctx, rev)
+	revision, opts, err := c.toBoxcutterRevision(ctx, cer)
 	if err != nil {
-		setRetryingConditions(rev, err.Error())
+		setRetryingConditions(cer, err.Error())
 		return ctrl.Result{}, fmt.Errorf("converting to boxcutter revision: %v", err)
 	}
 
-	revisionEngine, err := c.RevisionEngineFactory.CreateRevisionEngine(ctx, rev)
+	revisionEngine, err := c.RevisionEngineFactory.CreateRevisionEngine(ctx, cer)
 	if err != nil {
-		setRetryingConditions(rev, err.Error())
+		setRetryingConditions(cer, err.Error())
 		return ctrl.Result{}, fmt.Errorf("failed to create revision engine: %v", err)
 	}
 
-	if rev.Spec.LifecycleState == ocv1.ClusterExtensionRevisionLifecycleStateArchived {
-		if err := c.TrackingCache.Free(ctx, rev); err != nil {
-			markAsAvailableUnknown(rev, ocv1.ClusterExtensionRevisionReasonReconciling, err.Error())
+	if cer.Spec.LifecycleState == ocv1.ClusterExtensionRevisionLifecycleStateArchived {
+		if err := c.TrackingCache.Free(ctx, cer); err != nil {
+			markAsAvailableUnknown(cer, ocv1.ClusterExtensionRevisionReasonReconciling, err.Error())
 			return ctrl.Result{}, fmt.Errorf("error stopping informers: %v", err)
 		}
-		return c.archive(ctx, revisionEngine, rev, revision)
+		return c.archive(ctx, revisionEngine, cer, revision)
 	}
 
-	if err := c.ensureFinalizer(ctx, rev, clusterExtensionRevisionTeardownFinalizer); err != nil {
+	if err := c.ensureFinalizer(ctx, cer, clusterExtensionRevisionTeardownFinalizer); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error ensuring teardown finalizer: %v", err)
 	}
 
-	if err := c.establishWatch(ctx, rev, revision); err != nil {
+	if err := c.establishWatch(ctx, cer, revision); err != nil {
 		werr := fmt.Errorf("establish watch: %v", err)
-		setRetryingConditions(rev, werr.Error())
+		setRetryingConditions(cer, werr.Error())
 		return ctrl.Result{}, werr
 	}
 
@@ -174,7 +174,7 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 			// Log detailed reconcile reports only in debug mode (V(1)) to reduce verbosity.
 			l.V(1).Info("reconcile report", "report", rres.String())
 		}
-		setRetryingConditions(rev, err.Error())
+		setRetryingConditions(cer, err.Error())
 		return ctrl.Result{}, fmt.Errorf("revision reconcile: %v", err)
 	}
 
@@ -182,14 +182,14 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 	// TODO: report status, backoff?
 	if verr := rres.GetValidationError(); verr != nil {
 		l.Error(fmt.Errorf("%w", verr), "preflight validation failed, retrying after 10s")
-		setRetryingConditions(rev, fmt.Sprintf("revision validation error: %s", verr))
+		setRetryingConditions(cer, fmt.Sprintf("revision validation error: %s", verr))
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	for i, pres := range rres.GetPhases() {
 		if verr := pres.GetValidationError(); verr != nil {
 			l.Error(fmt.Errorf("%w", verr), "phase preflight validation failed, retrying after 10s", "phase", i)
-			setRetryingConditions(rev, fmt.Sprintf("phase %d validation error: %s", i, verr))
+			setRetryingConditions(cer, fmt.Sprintf("phase %d validation error: %s", i, verr))
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
@@ -202,22 +202,22 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 
 		if len(collidingObjs) > 0 {
 			l.Error(fmt.Errorf("object collision detected"), "object collision, retrying after 10s", "phase", i, "collisions", collidingObjs)
-			setRetryingConditions(rev, fmt.Sprintf("revision object collisions in phase %d\n%s", i, strings.Join(collidingObjs, "\n\n")))
+			setRetryingConditions(cer, fmt.Sprintf("revision object collisions in phase %d\n%s", i, strings.Join(collidingObjs, "\n\n")))
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
 
-	revVersion := rev.GetAnnotations()[labels.BundleVersionKey]
+	revVersion := cer.GetAnnotations()[labels.BundleVersionKey]
 	if !rres.InTransition() {
-		markAsProgressing(rev, ocv1.ReasonSucceeded, fmt.Sprintf("Revision %s has rolled out.", revVersion))
+		markAsProgressing(cer, ocv1.ReasonSucceeded, fmt.Sprintf("Revision %s has rolled out.", revVersion))
 	} else {
-		markAsProgressing(rev, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion))
+		markAsProgressing(cer, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion))
 	}
 
 	//nolint:nestif
 	if rres.IsComplete() {
 		// Archive previous revisions
-		previous, err := c.listPreviousRevisions(ctx, rev)
+		previous, err := c.listPreviousRevisions(ctx, cer)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("listing previous revisions: %v", err)
 		}
@@ -231,17 +231,17 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 			}
 		}
 
-		markAsAvailable(rev, ocv1.ClusterExtensionRevisionReasonProbesSucceeded, "Objects are available and pass all probes.")
+		markAsAvailable(cer, ocv1.ClusterExtensionRevisionReasonProbesSucceeded, "Objects are available and pass all probes.")
 
 		// We'll probably only want to remove this once we are done updating the ClusterExtension conditions
 		// as its one of the interfaces between the revision and the extension. If we still have the Succeeded for now
 		// that's fine.
-		meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+		meta.SetStatusCondition(&cer.Status.Conditions, metav1.Condition{
 			Type:               ocv1.ClusterExtensionRevisionTypeSucceeded,
 			Status:             metav1.ConditionTrue,
 			Reason:             ocv1.ReasonSucceeded,
 			Message:            "Revision succeeded rolling out.",
-			ObservedGeneration: rev.Generation,
+			ObservedGeneration: cer.Generation,
 		})
 	} else {
 		var probeFailureMsgs []string
@@ -271,9 +271,9 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 		}
 
 		if len(probeFailureMsgs) > 0 {
-			markAsUnavailable(rev, ocv1.ClusterExtensionRevisionReasonProbeFailure, strings.Join(probeFailureMsgs, "\n"))
+			markAsUnavailable(cer, ocv1.ClusterExtensionRevisionReasonProbeFailure, strings.Join(probeFailureMsgs, "\n"))
 		} else {
-			markAsUnavailable(rev, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion))
+			markAsUnavailable(cer, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion))
 		}
 	}
 
@@ -350,18 +350,15 @@ func (c *ClusterExtensionRevisionReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Complete(c)
 }
 
-func (c *ClusterExtensionRevisionReconciler) establishWatch(
-	ctx context.Context, rev *ocv1.ClusterExtensionRevision,
-	boxcutterRev *boxcutter.Revision,
-) error {
+func (c *ClusterExtensionRevisionReconciler) establishWatch(ctx context.Context, cer *ocv1.ClusterExtensionRevision, revision *boxcutter.Revision) error {
 	gvks := sets.New[schema.GroupVersionKind]()
-	for _, phase := range boxcutterRev.Phases {
+	for _, phase := range revision.Phases {
 		for _, obj := range phase.Objects {
 			gvks.Insert(obj.GroupVersionKind())
 		}
 	}
 
-	return c.TrackingCache.Watch(ctx, rev, gvks)
+	return c.TrackingCache.Watch(ctx, cer, gvks)
 }
 
 func (c *ClusterExtensionRevisionReconciler) ensureFinalizer(
@@ -413,8 +410,8 @@ func (c *ClusterExtensionRevisionReconciler) removeFinalizer(ctx context.Context
 
 // listPreviousRevisions returns active revisions belonging to the same ClusterExtension with lower revision numbers.
 // Filters out the current revision, archived revisions, deleting revisions, and revisions with equal or higher numbers.
-func (c *ClusterExtensionRevisionReconciler) listPreviousRevisions(ctx context.Context, rev *ocv1.ClusterExtensionRevision) ([]*ocv1.ClusterExtensionRevision, error) {
-	ownerLabel, ok := rev.Labels[labels.OwnerNameKey]
+func (c *ClusterExtensionRevisionReconciler) listPreviousRevisions(ctx context.Context, cer *ocv1.ClusterExtensionRevision) ([]*ocv1.ClusterExtensionRevision, error) {
+	ownerLabel, ok := cer.Labels[labels.OwnerNameKey]
 	if !ok {
 		// No owner label means this revision isn't properly labeled - return empty list
 		return nil, nil
@@ -430,7 +427,7 @@ func (c *ClusterExtensionRevisionReconciler) listPreviousRevisions(ctx context.C
 	previous := make([]*ocv1.ClusterExtensionRevision, 0, len(revList.Items))
 	for i := range revList.Items {
 		r := &revList.Items[i]
-		if r.Name == rev.Name {
+		if r.Name == cer.Name {
 			continue
 		}
 		// Skip archived or deleting revisions
@@ -439,7 +436,7 @@ func (c *ClusterExtensionRevisionReconciler) listPreviousRevisions(ctx context.C
 			continue
 		}
 		// Only include revisions with lower revision numbers (actual previous revisions)
-		if r.Spec.Revision >= rev.Spec.Revision {
+		if r.Spec.Revision >= cer.Spec.Revision {
 			continue
 		}
 		previous = append(previous, r)
@@ -448,8 +445,8 @@ func (c *ClusterExtensionRevisionReconciler) listPreviousRevisions(ctx context.C
 	return previous, nil
 }
 
-func (c *ClusterExtensionRevisionReconciler) toBoxcutterRevision(ctx context.Context, rev *ocv1.ClusterExtensionRevision) (*boxcutter.Revision, []boxcutter.RevisionReconcileOption, error) {
-	previous, err := c.listPreviousRevisions(ctx, rev)
+func (c *ClusterExtensionRevisionReconciler) toBoxcutterRevision(ctx context.Context, cer *ocv1.ClusterExtensionRevision) (*boxcutter.Revision, []boxcutter.RevisionReconcileOption, error) {
+	previous, err := c.listPreviousRevisions(ctx, cer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("listing previous revisions: %w", err)
 	}
@@ -468,11 +465,11 @@ func (c *ClusterExtensionRevisionReconciler) toBoxcutterRevision(ctx context.Con
 	}
 
 	r := &boxcutter.Revision{
-		Name:     rev.Name,
-		Owner:    rev,
-		Revision: rev.Spec.Revision,
+		Name:     cer.Name,
+		Owner:    cer,
+		Revision: cer.Spec.Revision,
 	}
-	for _, specPhase := range rev.Spec.Phases {
+	for _, specPhase := range cer.Spec.Phases {
 		phase := boxcutter.Phase{Name: specPhase.Name}
 		for _, specObj := range specPhase.Objects {
 			obj := specObj.Object.DeepCopy()
@@ -481,10 +478,10 @@ func (c *ClusterExtensionRevisionReconciler) toBoxcutterRevision(ctx context.Con
 			if objLabels == nil {
 				objLabels = map[string]string{}
 			}
-			objLabels[labels.OwnerNameKey] = rev.Labels[labels.OwnerNameKey]
+			objLabels[labels.OwnerNameKey] = cer.Labels[labels.OwnerNameKey]
 			obj.SetLabels(objLabels)
 
-			switch cp := EffectiveCollisionProtection(rev.Spec.CollisionProtection, specPhase.CollisionProtection, specObj.CollisionProtection); cp {
+			switch cp := EffectiveCollisionProtection(cer.Spec.CollisionProtection, specPhase.CollisionProtection, specObj.CollisionProtection); cp {
 			case ocv1.CollisionProtectionIfNoController, ocv1.CollisionProtectionNone:
 				opts = append(opts, boxcutter.WithObjectReconcileOptions(
 					obj, boxcutter.WithCollisionProtection(cp)))

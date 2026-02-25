@@ -28,28 +28,44 @@ func determinePhase(gk schema.GroupKind) Phase {
 type Phase string
 
 const (
-	PhaseNamespaces   Phase = "namespaces"
-	PhasePolicies     Phase = "policies"
-	PhaseRBAC         Phase = "rbac"
-	PhaseRBACBindings Phase = "rbac-bindings"
-	PhaseCRDs         Phase = "crds"
-	PhaseStorage      Phase = "storage"
-	PhaseDeploy       Phase = "deploy"
-	PhasePublish      Phase = "publish"
+	PhaseNamespaces     Phase = "namespaces"
+	PhasePolicies       Phase = "policies"
+	PhaseIdentity       Phase = "identity"
+	PhaseConfiguration  Phase = "configuration"
+	PhaseStorage        Phase = "storage"
+	PhaseCRDs           Phase = "crds"
+	PhaseRoles          Phase = "roles"
+	PhaseBindings       Phase = "bindings"
+	PhaseInfrastructure Phase = "infrastructure"
+	PhaseDeploy         Phase = "deploy"
+	PhaseScaling        Phase = "scaling"
+	PhasePublish        Phase = "publish"
+	PhaseAdmission      Phase = "admission"
 )
 
 // Well known phases ordered.
 var defaultPhaseOrder = []Phase{
 	PhaseNamespaces,
 	PhasePolicies,
-	PhaseRBAC,
-	PhaseRBACBindings,
-	PhaseCRDs,
+	PhaseIdentity,
+	PhaseConfiguration,
 	PhaseStorage,
+	PhaseCRDs,
+	PhaseRoles,
+	PhaseBindings,
+	PhaseInfrastructure,
 	PhaseDeploy,
+	PhaseScaling,
 	PhasePublish,
+	PhaseAdmission,
 }
 
+// Note: OLMv1 currently only supports registry+v1 content. The registry+v1 format only supports a limited
+// set of object kinds defined in:
+// https://github.com/operator-framework/operator-registry/blob/f410a396abe01dbe6a46b6d90d34bdd844306388/pkg/lib/bundle/supported_resources.go
+// The phase mapping considers all allowable registry+v1 bundle format resource with the following changes:
+// - ClusterServiceVersion is replaced by the resources it describes: Deployment, Cluster/Role/Binding, ServiceAccount, ValidatingWebhookConfiguration, etc.
+// - Certificate and Issuer from cert-manager are added since OLMv1 uses cert-manager for webhook service certificate by default
 var (
 	// This will be populated from `phaseGKMap` in an init func!
 	gkPhaseMap = map[schema.GroupKind]Phase{}
@@ -59,27 +75,18 @@ var (
 		},
 
 		PhasePolicies: {
-			{Kind: "ResourceQuota"},
-			{Kind: "LimitRange"},
-			{Kind: "PriorityClass", Group: "scheduling.k8s.io"},
 			{Kind: "NetworkPolicy", Group: "networking.k8s.io"},
-			{Kind: "HorizontalPodAutoscaler", Group: "autoscaling"},
 			{Kind: "PodDisruptionBudget", Group: "policy"},
+			{Kind: "PriorityClass", Group: "scheduling.k8s.io"},
 		},
 
-		PhaseRBAC: {
+		PhaseIdentity: {
 			{Kind: "ServiceAccount"},
-			{Kind: "Role", Group: "rbac.authorization.k8s.io"},
-			{Kind: "ClusterRole", Group: "rbac.authorization.k8s.io"},
 		},
 
-		PhaseRBACBindings: {
-			{Kind: "RoleBinding", Group: "rbac.authorization.k8s.io"},
-			{Kind: "ClusterRoleBinding", Group: "rbac.authorization.k8s.io"},
-		},
-
-		PhaseCRDs: {
-			{Kind: "CustomResourceDefinition", Group: "apiextensions.k8s.io"},
+		PhaseConfiguration: {
+			{Kind: "Secret"},
+			{Kind: "ConfigMap"},
 		},
 
 		PhaseStorage: {
@@ -88,25 +95,50 @@ var (
 			{Kind: "StorageClass", Group: "storage.k8s.io"},
 		},
 
-		PhaseDeploy: {
-			{Kind: "Deployment", Group: "apps"},
-			{Kind: "DaemonSet", Group: "apps"},
-			{Kind: "StatefulSet", Group: "apps"},
-			{Kind: "ReplicaSet"},
-			{Kind: "Pod"}, // probing complicated, may be either Completed or Available.
-			{Kind: "Job", Group: "batch"},
-			{Kind: "CronJob", Group: "batch"},
+		PhaseCRDs: {
+			{Kind: "CustomResourceDefinition", Group: "apiextensions.k8s.io"},
+		},
+
+		PhaseRoles: {
+			{Kind: "ClusterRole", Group: "rbac.authorization.k8s.io"},
+			{Kind: "Role", Group: "rbac.authorization.k8s.io"},
+		},
+
+		PhaseBindings: {
+			{Kind: "ClusterRoleBinding", Group: "rbac.authorization.k8s.io"},
+			{Kind: "RoleBinding", Group: "rbac.authorization.k8s.io"},
+		},
+
+		PhaseInfrastructure: {
 			{Kind: "Service"},
-			{Kind: "Secret"},
-			{Kind: "ConfigMap"},
+			{Kind: "Issuer", Group: "cert-manager.io"},
+		},
+
+		PhaseDeploy: {
+			{Kind: "Certificate", Group: "cert-manager.io"},
+			{Kind: "Deployment", Group: "apps"},
+		},
+
+		PhaseScaling: {
+			{Kind: "VerticalPodAutoscaler", Group: "autoscaling.k8s.io"},
 		},
 
 		PhasePublish: {
+			{Kind: "PrometheusRule", Group: "monitoring.coreos.com"},
+			{Kind: "ServiceMonitor", Group: "monitoring.coreos.com"},
+			{Kind: "PodMonitor", Group: "monitoring.coreos.com"},
 			{Kind: "Ingress", Group: "networking.k8s.io"},
-			{Kind: "APIService", Group: "apiregistration.k8s.io"},
 			{Kind: "Route", Group: "route.openshift.io"},
-			{Kind: "MutatingWebhookConfiguration", Group: "admissionregistration.k8s.io"},
+			{Kind: "ConsoleYAMLSample", Group: "console.openshift.io"},
+			{Kind: "ConsoleQuickStart", Group: "console.openshift.io"},
+			{Kind: "ConsoleCLIDownload", Group: "console.openshift.io"},
+			{Kind: "ConsoleLink", Group: "console.openshift.io"},
+			{Kind: "ConsolePlugin", Group: "console.openshift.io"},
+		},
+
+		PhaseAdmission: {
 			{Kind: "ValidatingWebhookConfiguration", Group: "admissionregistration.k8s.io"},
+			{Kind: "MutatingWebhookConfiguration", Group: "admissionregistration.k8s.io"},
 		},
 	}
 )

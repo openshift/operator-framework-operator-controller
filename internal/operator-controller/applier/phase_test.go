@@ -50,8 +50,8 @@ func Test_PhaseSort(t *testing.T) {
 				{
 					Object: unstructured.Unstructured{
 						Object: map[string]interface{}{
-							"apiVersion": "apiregistration.k8s.io/v1",
-							"kind":       "APIService",
+							"apiVersion": "admissionregistration.k8s.io/v1",
+							"kind":       "ValidatingWebhookConfiguration",
 						},
 					},
 				},
@@ -135,6 +135,46 @@ func Test_PhaseSort(t *testing.T) {
 						},
 					},
 				},
+				{
+					Object: unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "v1",
+							"kind":       "ServiceAccount",
+						},
+					},
+				},
+				{
+					Object: unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "v1",
+							"kind":       "Secret",
+						},
+					},
+				},
+				{
+					Object: unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "v1",
+							"kind":       "Service",
+						},
+					},
+				},
+				{
+					Object: unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "autoscaling.k8s.io/v1",
+							"kind":       "VerticalPodAutoscaler",
+						},
+					},
+				},
+				{
+					Object: unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "monitoring.coreos.com/v1",
+							"kind":       "PrometheusRule",
+						},
+					},
+				},
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
@@ -164,7 +204,59 @@ func Test_PhaseSort(t *testing.T) {
 					},
 				},
 				{
-					Name: string(applier.PhaseRBAC),
+					Name: string(applier.PhaseIdentity),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "v1",
+									"kind":       "ServiceAccount",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: string(applier.PhaseConfiguration),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "v1",
+									"kind":       "Secret",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: string(applier.PhaseStorage),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "v1",
+									"kind":       "PersistentVolume",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: string(applier.PhaseCRDs),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "apiextensions.k8s.io/v1",
+									"kind":       "CustomResourceDefinition",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: string(applier.PhaseRoles),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -185,7 +277,7 @@ func Test_PhaseSort(t *testing.T) {
 					},
 				},
 				{
-					Name: string(applier.PhaseRBACBindings),
+					Name: string(applier.PhaseBindings),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -206,26 +298,13 @@ func Test_PhaseSort(t *testing.T) {
 					},
 				},
 				{
-					Name: string(applier.PhaseCRDs),
-					Objects: []v1.ClusterExtensionRevisionObject{
-						{
-							Object: unstructured.Unstructured{
-								Object: map[string]interface{}{
-									"apiVersion": "apiextensions.k8s.io/v1",
-									"kind":       "CustomResourceDefinition",
-								},
-							},
-						},
-					},
-				},
-				{
-					Name: string(applier.PhaseStorage),
+					Name: string(applier.PhaseInfrastructure),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
 									"apiVersion": "v1",
-									"kind":       "PersistentVolume",
+									"kind":       "Service",
 								},
 							},
 						},
@@ -253,13 +332,39 @@ func Test_PhaseSort(t *testing.T) {
 					},
 				},
 				{
+					Name: string(applier.PhaseScaling),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "autoscaling.k8s.io/v1",
+									"kind":       "VerticalPodAutoscaler",
+								},
+							},
+						},
+					},
+				},
+				{
 					Name: string(applier.PhasePublish),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
-									"apiVersion": "apiregistration.k8s.io/v1",
-									"kind":       "APIService",
+									"apiVersion": "monitoring.coreos.com/v1",
+									"kind":       "PrometheusRule",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name: string(applier.PhaseAdmission),
+					Objects: []v1.ClusterExtensionRevisionObject{
+						{
+							Object: unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"apiVersion": "admissionregistration.k8s.io/v1",
+									"kind":       "ValidatingWebhookConfiguration",
 								},
 							},
 						},
@@ -297,7 +402,7 @@ func Test_PhaseSort(t *testing.T) {
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseRBAC),
+					Name: string(applier.PhaseIdentity),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -310,7 +415,7 @@ func Test_PhaseSort(t *testing.T) {
 					},
 				},
 				{
-					Name: string(applier.PhaseDeploy),
+					Name: string(applier.PhaseConfiguration),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -320,6 +425,11 @@ func Test_PhaseSort(t *testing.T) {
 								},
 							},
 						},
+					},
+				},
+				{
+					Name: string(applier.PhaseDeploy),
+					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
@@ -354,8 +464,8 @@ func Test_PhaseSort(t *testing.T) {
 				{
 					Object: unstructured.Unstructured{
 						Object: map[string]interface{}{
-							"apiVersion": "v1",
-							"kind":       "ConfigMap",
+							"apiVersion": "cert-manager.io/v1",
+							"kind":       "Certificate",
 							"metadata": map[string]interface{}{
 								"name": "test",
 							},
@@ -370,8 +480,8 @@ func Test_PhaseSort(t *testing.T) {
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
-									"apiVersion": "v1",
-									"kind":       "ConfigMap",
+									"apiVersion": "apps/v1",
+									"kind":       "Deployment",
 									"metadata": map[string]interface{}{
 										"name": "test",
 									},
@@ -381,8 +491,8 @@ func Test_PhaseSort(t *testing.T) {
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
-									"apiVersion": "apps/v1",
-									"kind":       "Deployment",
+									"apiVersion": "cert-manager.io/v1",
+									"kind":       "Certificate",
 									"metadata": map[string]interface{}{
 										"name": "test",
 									},
@@ -456,7 +566,7 @@ func Test_PhaseSort(t *testing.T) {
 					Object: unstructured.Unstructured{
 						Object: map[string]interface{}{
 							"apiVersion": "v1",
-							"kind":       "Service",
+							"kind":       "Secret",
 							"metadata": map[string]interface{}{
 								"name": "test",
 							},
@@ -474,21 +584,10 @@ func Test_PhaseSort(t *testing.T) {
 						},
 					},
 				},
-				{
-					Object: unstructured.Unstructured{
-						Object: map[string]interface{}{
-							"apiVersion": "v1",
-							"kind":       "Secret",
-							"metadata": map[string]interface{}{
-								"name": "test",
-							},
-						},
-					},
-				},
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseDeploy),
+					Name: string(applier.PhaseConfiguration),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -506,17 +605,6 @@ func Test_PhaseSort(t *testing.T) {
 								Object: map[string]interface{}{
 									"apiVersion": "v1",
 									"kind":       "Secret",
-									"metadata": map[string]interface{}{
-										"name": "test",
-									},
-								},
-							},
-						},
-						{
-							Object: unstructured.Unstructured{
-								Object: map[string]interface{}{
-									"apiVersion": "v1",
-									"kind":       "Service",
 									"metadata": map[string]interface{}{
 										"name": "test",
 									},
@@ -569,7 +657,7 @@ func Test_PhaseSort(t *testing.T) {
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseDeploy),
+					Name: string(applier.PhaseConfiguration),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -653,7 +741,7 @@ func Test_PhaseSort(t *testing.T) {
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseDeploy),
+					Name: string(applier.PhaseConfiguration),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -773,7 +861,7 @@ func Test_PhaseSort(t *testing.T) {
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseDeploy),
+					Name: string(applier.PhaseConfiguration),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -823,6 +911,11 @@ func Test_PhaseSort(t *testing.T) {
 								},
 							},
 						},
+					},
+				},
+				{
+					Name: string(applier.PhaseDeploy),
+					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
 								Object: map[string]interface{}{
@@ -891,7 +984,7 @@ func Test_PhaseSort(t *testing.T) {
 			},
 			want: []v1.ClusterExtensionRevisionPhase{
 				{
-					Name: string(applier.PhaseRBAC),
+					Name: string(applier.PhaseRoles),
 					Objects: []v1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{

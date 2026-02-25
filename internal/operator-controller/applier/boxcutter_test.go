@@ -119,7 +119,7 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 			Revision:            1,
 			Phases: []ocv1.ClusterExtensionRevisionPhase{
 				{
-					Name: "deploy",
+					Name: "configuration",
 					Objects: []ocv1.ClusterExtensionRevisionObject{
 						{
 							Object: unstructured.Unstructured{
@@ -219,7 +219,7 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 	t.Log("by checking the rendered objects are present in the correct phases")
 	require.Equal(t, []ocv1.ClusterExtensionRevisionPhase{
 		{
-			Name: string(applier.PhaseDeploy),
+			Name: string(applier.PhaseInfrastructure),
 			Objects: []ocv1.ClusterExtensionRevisionObject{
 				{
 					Object: unstructured.Unstructured{
@@ -233,6 +233,11 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		{
+			Name: string(applier.PhaseDeploy),
+			Objects: []ocv1.ClusterExtensionRevisionObject{
 				{
 					Object: unstructured.Unstructured{
 						Object: map[string]interface{}{
