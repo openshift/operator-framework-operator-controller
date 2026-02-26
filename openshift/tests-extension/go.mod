@@ -11,7 +11,7 @@ require (
 	github.com/openshift/api v0.0.0-20260128000234-c16ec2bcf089
 	github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13
 	github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
-	github.com/operator-framework/operator-controller v1.5.1
+	github.com/operator-framework/operator-controller v1.8.0
 	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cobra v1.10.2
 	github.com/tidwall/gjson v1.18.0
@@ -78,7 +78,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
-	github.com/prometheus/procfs v0.19.2 // indirect
+	github.com/prometheus/procfs v0.20.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
