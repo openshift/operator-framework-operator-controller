@@ -8,6 +8,8 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
@@ -1167,6 +1169,85 @@ func Test_CheckWebhookNameIsDNS1123SubDomain(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			errs := validators.CheckWebhookNameIsDNS1123SubDomain(tc.bundle)
+			require.Equal(t, tc.expectedErrs, errs)
+		})
+	}
+}
+
+func newUnstructuredObject(gvk schema.GroupVersionKind, name string) unstructured.Unstructured {
+	obj := unstructured.Unstructured{}
+	obj.SetGroupVersionKind(gvk)
+	obj.SetName(name)
+	return obj
+}
+
+func Test_CheckObjectSupport(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		bundle       *bundle.RegistryV1
+		expectedErrs []error
+	}{
+		{
+			name:         "accepts bundles with no other objects",
+			bundle:       &bundle.RegistryV1{},
+			expectedErrs: nil,
+		},
+		{
+			name: "accepts bundles with supported object kinds",
+			bundle: &bundle.RegistryV1{
+				Others: []unstructured.Unstructured{
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}, "my-secret"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, "my-configmap"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}, "my-sa"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}, "my-service"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"}, "my-clusterrole"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"}, "my-clusterrolebinding"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"}, "my-role"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"}, "my-rolebinding"),
+				},
+			},
+			expectedErrs: nil,
+		},
+		{
+			name: "rejects bundles with unsupported object kinds",
+			bundle: &bundle.RegistryV1{
+				Others: []unstructured.Unstructured{
+					newUnstructuredObject(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, "my-deployment"),
+				},
+			},
+			expectedErrs: []error{
+				errors.New(`unsupported resource "my-deployment" with kind "Deployment"`),
+			},
+		},
+		{
+			name: "reports errors for each unsupported object",
+			bundle: &bundle.RegistryV1{
+				Others: []unstructured.Unstructured{
+					newUnstructuredObject(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, "my-deployment"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, "my-statefulset"),
+				},
+			},
+			expectedErrs: []error{
+				errors.New(`unsupported resource "my-deployment" with kind "Deployment"`),
+				errors.New(`unsupported resource "my-statefulset" with kind "StatefulSet"`),
+			},
+		},
+		{
+			name: "accepts supported objects and rejects unsupported objects in the same bundle",
+			bundle: &bundle.RegistryV1{
+				Others: []unstructured.Unstructured{
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, "my-configmap"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, "my-job"),
+					newUnstructuredObject(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}, "my-secret"),
+				},
+			},
+			expectedErrs: []error{
+				errors.New(`unsupported resource "my-job" with kind "Job"`),
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := validators.CheckObjectSupport(tc.bundle)
 			require.Equal(t, tc.expectedErrs, errs)
 		})
 	}

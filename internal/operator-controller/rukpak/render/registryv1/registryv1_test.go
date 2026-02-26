@@ -34,6 +34,7 @@ func Test_BundleValidatorHasAllValidationFns(t *testing.T) {
 		validators.CheckConversionWebhookCRDReferenceUniqueness,
 		validators.CheckConversionWebhooksReferenceOwnedCRDs,
 		validators.CheckWebhookRules,
+		validators.CheckObjectSupport,
 	}
 	actualValidationFns := registryv1.BundleValidator
 

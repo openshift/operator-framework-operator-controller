@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+	regv1bundle "github.com/operator-framework/operator-registry/pkg/lib/bundle"
 
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle"
 )
@@ -344,6 +345,19 @@ func CheckWebhookRules(rv1 *bundle.RegistryV1) []error {
 					}
 				}
 			}
+		}
+	}
+	return errs
+}
+
+// CheckObjectSupport checks that the non-CRD and non-CSV bundle objects are supported by the
+// registry+v1 standard
+func CheckObjectSupport(rv1 *bundle.RegistryV1) []error {
+	var errs []error
+	for _, obj := range rv1.Others {
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
+		if ok, _ := regv1bundle.IsSupported(kind); !ok {
+			errs = append(errs, fmt.Errorf("unsupported resource %q with kind %q", obj.GetName(), kind))
 		}
 	}
 	return errs

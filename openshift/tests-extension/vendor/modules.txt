@@ -282,7 +282,7 @@ github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
 ## explicit; go 1.24.0
 github.com/openshift/origin/test/extended/util/image
 # github.com/operator-framework/operator-controller v1.5.1 => ../../
-## explicit; go 1.25.3
+## explicit; go 1.25.7
 github.com/operator-framework/operator-controller/api/v1
 # github.com/pborman/uuid v1.2.1
 ## explicit

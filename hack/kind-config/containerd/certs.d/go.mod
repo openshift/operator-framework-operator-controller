@@ -1,6 +1,6 @@
 module hack-cert.d
 
-go 1.25.3
+go 1.25.7
 
 // This file is present in the certs.d directory to ensure that
 // certs.d/host:port directories are not included in the main go

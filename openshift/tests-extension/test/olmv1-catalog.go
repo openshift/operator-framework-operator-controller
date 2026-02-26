@@ -11,7 +11,6 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,38 +76,12 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 		strings.ReplaceAll(endpoint, "?", ""),
 		strings.ReplaceAll(catalog, "-", ""))
 
-	// create service account object
-	serviceAccount := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobNamePrefix,
-			Namespace: "default",
-		},
-	}
-
-	err = k8sClient.Create(ctx, serviceAccount)
-
-	Expect(err).To(Or(BeNil(), Satisfy(apierrors.IsAlreadyExists)),
-		"Failed to ensure ServiceAccount %s", jobNamePrefix)
-
-	DeferCleanup(func(ctx SpecContext) {
-		_ = k8sClient.Delete(ctx, serviceAccount)
-	})
-
-	job := buildCurlJob(jobNamePrefix, "default", serviceURL, serviceAccount)
-
+	job := buildCurlJob(jobNamePrefix, "default", serviceURL)
 	err = k8sClient.Create(ctx, job)
 	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
 
 	DeferCleanup(func(ctx SpecContext) {
 		_ = k8sClient.Delete(ctx, job)
-		// We poll for deletion success so that the cleanup succeeds only when
-		// the job is deleted. Then, we can move onto deleting the service
-		// account without issue.
-		Eventually(func(g Gomega) {
-			recheck := &batchv1.Job{}
-			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(job), recheck)
-			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), fmt.Sprintf("Job %v should be deleted", job.Name))
-		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 
 	By("Waiting for Job to succeed")
@@ -230,7 +203,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 })
 
-func buildCurlJob(prefix, namespace, url string, serviceAccount *corev1.ServiceAccount) *batchv1.Job {
+func buildCurlJob(prefix, namespace, url string) *batchv1.Job {
 	backoff := int32(1)
 	// This means the k8s garbage collector will automatically delete the job 5 minutes
 	// after it has completed or failed.
@@ -259,8 +232,7 @@ func buildCurlJob(prefix, namespace, url string, serviceAccount *corev1.ServiceA
 			BackoffLimit:            &backoff,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					ServiceAccountName: serviceAccount.Name,
-					RestartPolicy:      corev1.RestartPolicyNever,
+					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
 						Name:    "api-tester",
 						Image:   "registry.redhat.io/rhel8/httpd-24:latest",
