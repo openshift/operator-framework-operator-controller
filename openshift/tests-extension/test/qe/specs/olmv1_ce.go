@@ -1771,12 +1771,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		if err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("clusterextension", "extension-argocd-83026", "-p", "{\"spec\": {\"source\": {\"catalog\": {\"version\": \"v0.5.0\"}}}}", "--type=merge").Execute(); err != nil {
 			e2e.Failf("patch clusterextension failed:%v", err)
 		}
-		ceArgocd.WaitProgressingMessage(oc, "Desired state reached")
+		ceArgocd.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 3, 180, 0)
 		g.By("3)upgrade it to v0.7.0")
 		if err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("clusterextension", "extension-argocd-83026", "-p", "{\"spec\": {\"source\": {\"catalog\": {\"version\": \"v0.7.0\"}}}}", "--type=merge").Execute(); err != nil {
 			e2e.Failf("patch clusterextension failed:%v", err)
 		}
-		ceArgocd.WaitProgressingMessage(oc, "Desired state reached")
+		ceArgocd.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 3, 180, 0)
 	})
 
 	g.It("PolarionID:69196-[OTP][Level0][Skipped:Disconnected]Supports Version Ranges during clusterextension upgrade", func() {
