@@ -31,3 +31,4 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: catalogd
+  serviceDiscoveryRole: EndpointSlice
