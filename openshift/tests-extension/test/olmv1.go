@@ -73,15 +73,17 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs", func() {
 	})
 })
 
-// Keeping this test as skip:disconnected, so we can attempt to install a "real" operator, rather than a generated one
-// There is an equivalent in-cluster positive test below
+// Uses the in-cluster built bundle (catalogdata + operatordata). Standalone; does not rely on Red Hat index.
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation", func() {
 	var (
 		namespace string
 		k8sClient client.Client
+		unique    string
+		ccName    string
+		opName    string
 	)
 
-	BeforeEach(func() {
+	BeforeEach(func(ctx SpecContext) {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		k8sClient = env.Get().K8sClient
 		namespace = "install-test-ns-" + rand.String(4)
@@ -96,6 +98,19 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			By(fmt.Sprintf("deleting namespace %s", namespace))
 			_ = k8sClient.Delete(context.Background(), ns)
 		})
+
+		By("building in-cluster catalog and bundle")
+		testVersion := env.Get().OpenShiftVersion
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}": "", // Auto-filled
+			"{{ NAMESPACE }}":   "", // Auto-filled
+			"{{ VERSION }}":     testVersion,
+			"{{ TEST-CONTROLLER }}": image.ShellImage(),
+		}
+		unique, _, ccName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			catalogdata.AssetNames, catalogdata.Asset,
+			operatordata.AssetNames, operatordata.Asset,
+		)
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -111,14 +126,14 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 			Skip("Requires OCP Catalogs: not OpenShift")
 		}
 
-		By("ensuring no ClusterExtension and CRD for quay-operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+		By("ensuring no ClusterExtension and CRD for the operator")
+		helpers.EnsureCleanupClusterExtension(context.Background(), opName, "")
 
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0", namespace, "")
+		name, cleanup := helpers.CreateClusterExtension(opName, "", namespace, unique, helpers.WithCatalogNameSelector(ccName))
 		DeferCleanup(cleanup)
 
-		By("waiting for the quay-operator ClusterExtension to be installed")
+		By("waiting for the ClusterExtension to be installed")
 		helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
 	})
 })
