@@ -11,6 +11,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,13 +77,50 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 		strings.ReplaceAll(endpoint, "?", ""),
 		strings.ReplaceAll(catalog, "-", ""))
 
-	job := buildCurlJob(jobNamePrefix, "default", serviceURL)
-	err = k8sClient.Create(ctx, job)
-	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
+	// Create the ServiceAccount first
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobNamePrefix,
+			Namespace: "default",
+		},
+	}
+
+	// Create the Job
+	job := buildCurlJob(jobNamePrefix, "default", serviceURL, serviceAccount.Name)
 
 	DeferCleanup(func(ctx SpecContext) {
-		_ = k8sClient.Delete(ctx, job)
+		// Force delete job with zero grace period to ensure cleanup doesn't hang
+		// Use Foreground propagation to ensure Pods are deleted before the Job is removed,
+		// guaranteeing the ServiceAccount isn't deleted while Pods are still using it
+		deletePolicy := metav1.DeletePropagationForeground
+		gracePeriod := int64(0)
+		// Poll for service account deletion - in case we have race condtions
+		// or a bad API call.
+		Eventually(func(ctx SpecContext) error {
+			err := k8sClient.Delete(ctx, job, &client.DeleteOptions{
+				GracePeriodSeconds: &gracePeriod,
+				PropagationPolicy:  &deletePolicy,
+			})
+			return client.IgnoreNotFound(err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		// While the delete call may be successful, we need to ensure the deletion itself has
+		// occurred first before deleting the service account.
+		Eventually(func(g Gomega) {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(job), &batchv1.Job{})
+			g.Expect(err).To(WithTransform(apierrors.IsNotFound, BeTrue()), "Expected a 'NotFound' error, but got: %v", err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		// We should also poll for service account deletion too.
+		Eventually(func(ctx SpecContext) error {
+			err = k8sClient.Delete(ctx, serviceAccount)
+			return client.IgnoreNotFound(err)
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
+
+	err = k8sClient.Create(ctx, serviceAccount)
+	Expect(err).NotTo(HaveOccurred(), "failed to create ServiceAccount")
+
+	err = k8sClient.Create(ctx, job)
+	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
 
 	By("Waiting for Job to succeed")
 	Eventually(func(g Gomega) {
@@ -94,7 +132,7 @@ func verifyCatalogEndpoint(ctx SpecContext, catalog, endpoint, query string) {
 				return
 			}
 			if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
-				Fail(fmt.Sprintf("Job failed: %s", c.Message))
+				StopTrying(fmt.Sprintf("Job failed: %s", c.Message)).Now()
 			}
 		}
 	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
@@ -203,7 +241,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 })
 
-func buildCurlJob(prefix, namespace, url string) *batchv1.Job {
+func buildCurlJob(prefix, namespace, url, serviceAccountName string) *batchv1.Job {
 	backoff := int32(1)
 	// This means the k8s garbage collector will automatically delete the job 5 minutes
 	// after it has completed or failed.
@@ -232,7 +270,8 @@ func buildCurlJob(prefix, namespace, url string) *batchv1.Job {
 			BackoffLimit:            &backoff,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
+					ServiceAccountName: serviceAccountName,
+					RestartPolicy:      corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
 						Name:    "api-tester",
 						Image:   "registry.redhat.io/rhel8/httpd-24:latest",
