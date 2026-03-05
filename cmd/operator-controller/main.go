@@ -479,6 +479,7 @@ func run() error {
 		CertificateProvider:         certProvider,
 		IsWebhookSupportEnabled:     certProvider != nil,
 		IsSingleOwnNamespaceEnabled: features.OperatorControllerFeatureGate.Enabled(features.SingleOwnNamespaceInstallSupport),
+		IsDeploymentConfigEnabled:   features.OperatorControllerFeatureGate.Enabled(features.DeploymentConfig),
 	}
 	var cerCfg reconcilerConfigurator
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
@@ -610,13 +611,14 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		Scheme:           c.mgr.GetScheme(),
 		ManifestProvider: c.regv1ManifestProvider,
 	}
+	fieldOwner := fmt.Sprintf("%s/clusterextension-controller", fieldOwnerPrefix)
 	appl := &applier.Boxcutter{
 		Client:            c.mgr.GetClient(),
 		Scheme:            c.mgr.GetScheme(),
 		RevisionGenerator: rg,
 		Preflights:        c.preflights,
 		PreAuthorizer:     preAuth,
-		FieldOwner:        fmt.Sprintf("%s/clusterextension-controller", fieldOwnerPrefix),
+		FieldOwner:        fieldOwner,
 	}
 	revisionStatesGetter := &controllers.BoxcutterRevisionStatesGetter{Reader: c.mgr.GetClient()}
 	storageMigrator := &applier.BoxcutterStorageMigrator{
@@ -624,6 +626,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		Scheme:             c.mgr.GetScheme(),
 		ActionClientGetter: acg,
 		RevisionGenerator:  rg,
+		FieldOwner:         fieldOwner,
 	}
 	ceReconciler.ReconcileSteps = []controllers.ReconcileStepFunc{
 		controllers.HandleFinalizers(c.finalizers),
