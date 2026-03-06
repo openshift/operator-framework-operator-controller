@@ -506,17 +506,15 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		g.By("check wrong sa")
 		defer ce75492WrongSa.Delete(oc)
 		_ = ce75492WrongSa.CreateWithoutCheck(oc)
-		// All environments (Env1-4) now validate ServiceAccount existence at the start of the
-		// reconciliation pipeline, before any bundle operations. This provides:
+		// All environments now validate ServiceAccount existence at the start of the reconciliation
+		// pipeline (after finalizer handling, before revision state retrieval). This provides:
 		// - Consistent error messages across all feature gate combinations
 		// - Fail-fast behavior (no wasted reconciliation cycles)
-		// - User-facing error in Progressing condition: "installation cannot proceed due to missing ServiceAccount"
-		// - Detailed error in Installed condition: "service account \"xxx\" not found in namespace \"yyy\""
-		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") && !olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "missing ServiceAccount", 10, 60, 0)
-		} else {
-			ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "not found", 10, 60, 0)
-		}
+		// - User-facing error format: "operation cannot proceed due to the following validation error(s):
+		//   service account \"xxx\" not found in namespace \"yyy\""
+		//
+		// The validation uses ServiceAccountValidator which performs a direct CoreV1 API Get call.
+		ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "not found", 10, 60, 0)
 	})
 
 	g.It("PolarionID:75493-[OTP][Level0]cluster extension can be installed with enough permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa"), func() {
