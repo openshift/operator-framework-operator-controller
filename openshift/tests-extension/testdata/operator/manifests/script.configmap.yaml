@@ -10,4 +10,4 @@ data:
     echo true > /tmp/www/started
     echo true > /tmp/www/ready
     echo true > /tmp/www/live
-    python3 -m http.server 8081 --directory /tmp/www
+    python3 -m http.server 8081 --bind :: --directory /tmp/www
