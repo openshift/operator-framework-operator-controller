@@ -97,7 +97,7 @@ func dockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1772823294, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -117,12 +117,12 @@ func manifestsRegistryClusterserviceversionYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 4481, mode: os.FileMode(420), modTime: time.Unix(1770203182, 0)}
+	info := bindataFileInfo{name: "manifests/registry.clusterserviceversion.yaml", size: 4481, mode: os.FileMode(420), modTime: time.Unix(1772823294, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _manifestsScriptConfigmapYaml = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x74\xce\xbd\x4e\xc4\x30\x10\x04\xe0\xde\x4f\x31\x1c\xb5\xe3\x0b\x34\x27\x17\x34\xd4\xb4\xf4\x26\x5e\xf0\xea\xf0\x8f\xd6\x4b\xa2\x48\x3c\x3c\x92\x05\x5c\x95\x72\xf7\x1b\x69\x26\x34\x7e\x25\xe9\x5c\x8b\xc7\x3a\x9b\x2b\x97\xe8\xf1\x5c\xcb\x3b\x7f\xbc\x84\x66\x32\x69\x88\x41\x83\x37\x40\x09\x99\x3c\x92\x6a\x8b\xb6\x2f\xc2\x4d\xcd\x1f\x8d\xe7\xd4\x93\xc7\xb7\x01\x80\xfb\x3b\xf7\xc6\xc5\xf5\x34\x2e\x5a\x52\xc5\xe9\xb7\x06\xf3\xf4\x30\x9d\x4f\x03\xf2\x35\xb2\xc0\x36\x38\xcd\xcd\x6d\xdb\x76\x8b\xab\x7c\x11\x9e\xfe\xc1\x75\x0d\xa2\x14\x8f\x03\x42\x21\xee\xc7\xfc\xc9\x2b\x0d\x6d\xbb\xa6\x5a\x1e\x61\xf3\x58\x3d\x75\x92\x95\x04\x97\xf3\x65\x86\xb5\x91\x85\x16\xad\xb2\xdf\x26\xfd\x04\x00\x00\xff\xff\x76\x45\x48\x23\x22\x01\x00\x00")
+var _manifestsScriptConfigmapYaml = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x74\xce\xbd\x4e\x03\x31\x10\x04\xe0\xde\x4f\x31\x84\xda\xe7\x1c\x34\x91\x0b\x1a\x6a\x5a\x7a\xe7\xbc\xe0\x55\xf0\x8f\xd6\xcb\x9d\x4e\xe2\xe1\x91\x2c\x48\xaa\x94\xbb\xdf\x48\x33\xa1\xf1\x3b\x49\xe7\x5a\x3c\xd6\xd9\x5c\xb8\x44\x8f\xd7\x5a\x3e\xf8\xf3\x2d\x34\x93\x49\x43\x0c\x1a\xbc\x01\x4a\xc8\xe4\x91\x54\x5b\xb4\x7d\x11\x6e\x6a\xfe\x69\x3c\xa7\x9e\x3c\x7e\x0c\x00\x3c\x3e\xb8\x33\x17\xd7\xd3\xb8\x68\x49\x15\x87\xbf\x1a\xcc\xd3\xd3\x74\x3c\x0c\xc8\x97\xc8\x02\xdb\xe0\x34\x37\xb7\x6d\xdb\x2d\xae\xf2\x4d\x78\xb9\x82\xeb\x1a\x44\x29\xde\x0f\x08\x85\xb8\xdf\xe7\x2f\x5e\x69\x68\xdb\x35\xd5\xf2\x0c\x9b\xc7\xea\xa9\x93\xac\x24\x38\x1d\x4f\x33\xac\x3d\x73\x89\xf0\x1e\xd6\x46\x16\x5a\xb4\xca\x7e\x1b\xf7\x1b\x00\x00\xff\xff\x0d\x14\xb3\x2a\x2c\x01\x00\x00")
 
 func manifestsScriptConfigmapYamlBytes() ([]byte, error) {
 	return bindataRead(
@@ -137,7 +137,7 @@ func manifestsScriptConfigmapYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/script.configmap.yaml", size: 290, mode: os.FileMode(420), modTime: time.Unix(1770203126, 0)}
+	info := bindataFileInfo{name: "manifests/script.configmap.yaml", size: 300, mode: os.FileMode(420), modTime: time.Unix(1772823456, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -157,7 +157,7 @@ func metadataAnnotationsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 732, mode: os.FileMode(420), modTime: time.Unix(1772823294, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -177,7 +177,7 @@ func metadataPropertiesYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1759823502, 0)}
+	info := bindataFileInfo{name: "metadata/properties.yaml", size: 73, mode: os.FileMode(420), modTime: time.Unix(1772823294, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -197,7 +197,7 @@ func testsScorecardConfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1756998653, 0)}
+	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1772823294, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
