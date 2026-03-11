@@ -142,6 +142,8 @@ func NewClusterExtensionObject(pkg, version, ceName, saName, namespace string, o
 }
 
 // ExpectClusterExtensionToBeInstalled checks that the ClusterExtension has both Progressing=True and Installed=True.
+// Uses InstallTimeout because the BoxcutterRuntime requires all availability probes to pass
+// before marking the extension as installed.
 func ExpectClusterExtensionToBeInstalled(ctx context.Context, name string) {
 	k8sClient := env.Get().K8sClient
 	Eventually(func(g Gomega) {
@@ -153,13 +155,30 @@ func ExpectClusterExtensionToBeInstalled(ctx context.Context, name string) {
 		g.Expect(conditions).NotTo(BeEmpty(), fmt.Sprintf("ClusterExtension %q has empty status.conditions", name))
 
 		progressing := meta.FindStatusCondition(conditions, string(olmv1.TypeProgressing))
+		installed := meta.FindStatusCondition(conditions, string(olmv1.TypeInstalled))
+
+		pStatus, pReason, pMsg := conditionSummary(progressing)
+		iStatus, iReason, iMsg := conditionSummary(installed)
+		fmt.Fprintf(GinkgoWriter, "CE %q: Progressing=%s/%s (%s), Installed=%s/%s (%s)\n",
+			name, pStatus, pReason, pMsg, iStatus, iReason, iMsg)
+
 		g.Expect(progressing).ToNot(BeNil(), "Progressing condition not found")
 		g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue), "Progressing should be True")
 
-		installed := meta.FindStatusCondition(conditions, string(olmv1.TypeInstalled))
 		g.Expect(installed).ToNot(BeNil(), "Installed condition not found")
 		g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "Installed should be True")
-	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
+	}).WithTimeout(InstallTimeout).WithPolling(DefaultPolling).Should(Succeed())
+}
+
+func conditionSummary(cond *metav1.Condition) (string, string, string) {
+	if cond == nil {
+		return "<nil>", "", ""
+	}
+	msg := cond.Message
+	if len(msg) > 120 {
+		msg = msg[:120] + "..."
+	}
+	return string(cond.Status), cond.Reason, msg
 }
 
 // EnsureCleanupClusterExtension attempts to delete any ClusterExtension and a specified CRD
