@@ -1324,6 +1324,97 @@
     "environmentSelector": {}
   },
   {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply environment variables from deploymentConfig to operator deployment containers",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply environment variables from deploymentConfig to operator deployment containers",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply environment variables from deploymentConfig to operator deployment containers": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply resource requirements from deploymentConfig to operator deployment containers",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply resource requirements from deploymentConfig to operator deployment containers",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply resource requirements from deploymentConfig to operator deployment containers": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply tolerations from deploymentConfig to operator deployment pods",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply tolerations from deploymentConfig to operator deployment pods",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply tolerations from deploymentConfig to operator deployment pods": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply node selector from deploymentConfig to operator deployment pods",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply node selector from deploymentConfig to operator deployment pods",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply node selector from deploymentConfig to operator deployment pods": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig.env has an invalid type",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig.env has an invalid type",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig.env has an invalid type": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig contains an unknown field",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig contains an unknown field",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should reach a terminal blocked state when deploymentConfig contains an unknown field": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply annotations from deploymentConfig to operator deployment and its pod template",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply annotations from deploymentConfig to operator deployment and its pod template",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnected] OLMv1 DeploymentConfig support should apply annotations from deploymentConfig to operator deployment and its pod template": {}
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
     "originalName": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed",
     "labels": {
