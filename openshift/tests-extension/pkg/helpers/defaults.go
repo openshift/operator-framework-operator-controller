@@ -14,6 +14,12 @@ const (
 	// DefaultTimeout is how long we wait before giving up on an Eventually check.
 	DefaultTimeout = 5 * time.Minute
 
+	// InstallTimeout is how long we wait for an operator to be fully installed.
+	// With the BoxcutterRuntime, Installed=True is only set after all availability
+	// probes pass (Deployments available, CRDs established, etc.), which can take
+	// longer than DefaultTimeout on resource-constrained or non-standard clusters.
+	InstallTimeout = 10 * time.Minute
+
 	// DefaultPolling is how often we check again during an Eventually test.
 	DefaultPolling = 3 * time.Second
 )
