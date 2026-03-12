@@ -3,22 +3,39 @@ package boxcutter
 
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"pkg.package-operator.run/boxcutter/machinery"
 	"pkg.package-operator.run/boxcutter/machinery/types"
-	"pkg.package-operator.run/boxcutter/ownerhandling"
 	"pkg.package-operator.run/boxcutter/validation"
 )
 
 // Revision represents multiple phases at a given point in time.
 type Revision = types.Revision
 
+// RevisionBuilder is a Revision with methods to attach options.
+type RevisionBuilder = types.RevisionBuilder
+
+// NewRevision creates a new RevisionBuilder with the given name, rev and phases.
+var NewRevision = types.NewRevision
+
+// NewRevisionWithOwner creates a new RevisionBuilder
+// with the given name, rev, phases and owner.
+var NewRevisionWithOwner = types.NewRevisionWithOwner
+
 // Phase represents a collection of objects lifecycled together.
 type Phase = types.Phase
+
+// PhaseBuilder is a Phase with methods to attach options.
+type PhaseBuilder = types.PhaseBuilder
+
+// NewPhase creates a new PhaseBuilder with the given name and objects.
+var NewPhase = types.NewPhase
+
+// NewPhaseWithOwner creates a new PhaseBuilder with the given name, objects and owner.
+var NewPhaseWithOwner = types.NewPhaseWithOwner
 
 // ObjectReconcileOption is the common interface for object reconciliation options.
 type ObjectReconcileOption = types.ObjectReconcileOption
@@ -86,6 +103,11 @@ var WithPhaseReconcileOptions = types.WithPhaseReconcileOptions
 // WithPhaseTeardownOptions applies the given options only to the given Phase.
 var WithPhaseTeardownOptions = types.WithPhaseTeardownOptions
 
+// WithOwner sets an owning object and the strategy to use with it.
+// Ensures controller-refs are set to track the owner and
+// enables handover between owners.
+var WithOwner = types.WithOwner
+
 // ProgressProbeType is a well-known probe type used to guard phase progression.
 const ProgressProbeType = types.ProgressProbeType
 
@@ -93,14 +115,7 @@ const ProgressProbeType = types.ProgressProbeType
 type RevisionEngine = machinery.RevisionEngine
 
 // OwnerStrategy interface needed for RevisionEngine.
-type OwnerStrategy interface {
-	SetControllerReference(owner, obj metav1.Object) error
-	GetController(obj metav1.Object) (metav1.OwnerReference, bool)
-	IsController(owner, obj metav1.Object) bool
-	CopyOwnerReferences(objA, objB metav1.Object)
-	ReleaseController(obj metav1.Object)
-	RemoveOwner(owner, obj metav1.Object)
-}
+type OwnerStrategy = types.OwnerStrategy
 
 // RevisionEngineOptions holds all configuration options for the RevisionEngine.
 type RevisionEngineOptions struct {
@@ -114,7 +129,6 @@ type RevisionEngineOptions struct {
 
 	// Optional
 
-	OwnerStrategy  OwnerStrategy
 	PhaseValidator *validation.PhaseValidator
 }
 
@@ -124,20 +138,16 @@ func NewPhaseEngine(opts RevisionEngineOptions) (*machinery.PhaseEngine, error) 
 		return nil, err
 	}
 
-	if opts.OwnerStrategy == nil {
-		opts.OwnerStrategy = ownerhandling.NewNative(opts.Scheme)
-	}
-
 	if opts.PhaseValidator == nil {
 		opts.PhaseValidator = validation.NewNamespacedPhaseValidator(opts.RestMapper, opts.Writer)
 	}
 
 	comp := machinery.NewComparator(
-		opts.OwnerStrategy, opts.DiscoveryClient, opts.Scheme, opts.FieldOwner)
+		opts.DiscoveryClient, opts.Scheme, opts.FieldOwner)
 
 	oe := machinery.NewObjectEngine(
 		opts.Scheme, opts.Reader, opts.Writer,
-		opts.OwnerStrategy, comp, opts.FieldOwner, opts.SystemPrefix,
+		comp, opts.FieldOwner, opts.SystemPrefix,
 	)
 
 	return machinery.NewPhaseEngine(oe, opts.PhaseValidator), nil
@@ -149,19 +159,15 @@ func NewRevisionEngine(opts RevisionEngineOptions) (*RevisionEngine, error) {
 		return nil, err
 	}
 
-	if opts.OwnerStrategy == nil {
-		opts.OwnerStrategy = ownerhandling.NewNative(opts.Scheme)
-	}
-
 	pval := validation.NewNamespacedPhaseValidator(opts.RestMapper, opts.Writer)
 	rval := validation.NewRevisionValidator()
 
 	comp := machinery.NewComparator(
-		opts.OwnerStrategy, opts.DiscoveryClient, opts.Scheme, opts.FieldOwner)
+		opts.DiscoveryClient, opts.Scheme, opts.FieldOwner)
 
 	oe := machinery.NewObjectEngine(
 		opts.Scheme, opts.Reader, opts.Writer,
-		opts.OwnerStrategy, comp, opts.FieldOwner, opts.SystemPrefix,
+		comp, opts.FieldOwner, opts.SystemPrefix,
 	)
 	pe := machinery.NewPhaseEngine(oe, pval)
 

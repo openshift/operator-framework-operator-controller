@@ -3,6 +3,7 @@ package machinery
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -304,8 +305,10 @@ func reportStart(or ObjectResult) string {
 		actionStr = "Action (PAUSED)"
 	}
 
+	var out strings.Builder
+
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	msg := fmt.Sprintf(
+	fmt.Fprintf(&out,
 		"Object %s.%s %s/%s\n"+
 			`%s: %q`+"\n",
 		gvk.Kind, gvk.GroupVersion().String(),
@@ -323,26 +326,26 @@ func reportStart(or ObjectResult) string {
 	sort.Strings(probeTypes)
 
 	if len(probeTypes) > 0 {
-		msg += "Probes:\n"
+		fmt.Fprintln(&out, "Probes:")
 	}
 
 	for _, probeType := range probeTypes {
 		probeRes := probes[probeType]
 		switch probeRes.Status {
 		case types.ProbeStatusTrue:
-			msg += fmt.Sprintf("- %s: Succeeded\n", probeType)
+			fmt.Fprintf(&out, "- %s: Succeeded\n", probeType)
 		case types.ProbeStatusFalse:
-			msg += fmt.Sprintf("- %s: Failed\n", probeType)
+			fmt.Fprintf(&out, "- %s: Failed\n", probeType)
 		case types.ProbeStatusUnknown:
-			msg += fmt.Sprintf("- %s: Unknown\n", probeType)
+			fmt.Fprintf(&out, "- %s: Unknown\n", probeType)
 		}
 
 		for _, m := range probeRes.Messages {
-			msg += "  - " + m + "\n"
+			fmt.Fprintf(&out, "  - %s\n", m)
 		}
 	}
 
-	return msg
+	return out.String()
 }
 
 func runProbes(obj Object, probes map[string]types.Prober) types.ProbeResultContainer {

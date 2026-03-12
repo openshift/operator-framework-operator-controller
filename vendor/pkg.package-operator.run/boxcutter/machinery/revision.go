@@ -40,14 +40,12 @@ type revisionValidator interface {
 type phaseEngine interface {
 	Reconcile(
 		ctx context.Context,
-		owner client.Object,
 		revision int64,
 		phase types.Phase,
 		opts ...types.PhaseReconcileOption,
 	) (PhaseResult, error)
 	Teardown(
 		ctx context.Context,
-		owner client.Object,
 		revision int64,
 		phase types.Phase,
 		opts ...types.PhaseTeardownOption,
@@ -143,24 +141,27 @@ func (r *revisionResult) GetPhases() []PhaseResult {
 }
 
 func (r *revisionResult) String() string {
-	out := fmt.Sprintf(
+	var out strings.Builder
+	fmt.Fprintf(&out,
 		"Revision\nComplete: %t\nIn Transition: %t\n",
 		r.IsComplete(), r.InTransition(),
 	)
 
 	if err := r.GetValidationError(); err != nil {
-		out += "Validation Errors:\n"
+		fmt.Fprintln(&out, "Validation Errors:")
+
 		for _, err := range err.Unwrap() {
-			out += "- " + err.Error() + "\n"
+			fmt.Fprintf(&out, "- %s\n", err.Error())
 		}
 	}
 
 	phasesWithResults := map[string]struct{}{}
-	out += "Phases:\n"
+
+	fmt.Fprintln(&out, "Phases:")
 
 	for _, ores := range r.phasesResults {
 		phasesWithResults[ores.GetName()] = struct{}{}
-		out += "- " + strings.TrimSpace(strings.ReplaceAll(ores.String(), "\n", "\n  ")) + "\n"
+		fmt.Fprintf(&out, "- %s\n", strings.TrimSpace(strings.ReplaceAll(ores.String(), "\n", "\n  ")))
 	}
 
 	for _, p := range r.phases {
@@ -168,10 +169,10 @@ func (r *revisionResult) String() string {
 			continue
 		}
 
-		out += fmt.Sprintf("- Phase %q (Pending)\n", p)
+		fmt.Fprintf(&out, "- Phase %q (Pending)\n", p)
 	}
 
-	return out
+	return out.String()
 }
 
 // Reconcile runs actions to bring actual state closer to desired.
@@ -180,7 +181,7 @@ func (re *RevisionEngine) Reconcile(
 	opts ...types.RevisionReconcileOption,
 ) (RevisionResult, error) {
 	var options types.RevisionReconcileOptions
-	for _, opt := range opts {
+	for _, opt := range append(opts, rev.GetReconcileOptions()...) {
 		opt.ApplyToRevisionReconcileOptions(&options)
 	}
 
@@ -204,7 +205,7 @@ func (re *RevisionEngine) Reconcile(
 	// Reconcile
 	for _, phase := range rev.GetPhases() {
 		pres, err := re.phaseEngine.Reconcile(
-			ctx, rev.GetOwner(), rev.GetRevisionNumber(),
+			ctx, rev.GetRevisionNumber(),
 			phase, options.ForPhase(phase.GetName())...)
 		if err != nil {
 			return rres, fmt.Errorf("reconciling object: %w", err)
@@ -279,34 +280,39 @@ func (r *revisionTeardownResult) GetGonePhaseNames() []string {
 }
 
 func (r *revisionTeardownResult) String() string {
-	out := fmt.Sprintf(
-		"Revision Teardown\nActive: %s\n",
-		r.active,
-	)
+	var out strings.Builder
+	fmt.Fprintln(&out, "Revision Teardown")
+
+	if len(r.active) > 0 {
+		fmt.Fprintf(&out, "Active: %s\n", r.active)
+	}
 
 	if len(r.waiting) > 0 {
-		out += "Waiting Phases:\n"
+		fmt.Fprintln(&out, "Waiting Phases:")
+
 		for _, waiting := range r.waiting {
-			out += "- " + waiting + "\n"
+			fmt.Fprintf(&out, "- %s\n", waiting)
 		}
 	}
 
 	if len(r.gone) > 0 {
-		out += "Gone Phases:\n"
+		fmt.Fprintln(&out, "Gone Phases:")
+
 		for _, gone := range r.gone {
-			out += "- " + gone + "\n"
+			fmt.Fprintf(&out, "- %s\n", gone)
 		}
 	}
 
 	phasesWithResults := map[string]struct{}{}
-	out += "Phases:\n"
+
+	fmt.Fprintln(&out, "Phases:")
 
 	for _, ores := range r.phases {
 		phasesWithResults[ores.GetName()] = struct{}{}
-		out += "- " + strings.TrimSpace(strings.ReplaceAll(ores.String(), "\n", "\n  ")) + "\n"
+		fmt.Fprintf(&out, "- %s\n", strings.TrimSpace(strings.ReplaceAll(ores.String(), "\n", "\n  ")))
 	}
 
-	return out
+	return out.String()
 }
 
 // Teardown ensures the given revision is safely removed from the cluster.
@@ -315,7 +321,7 @@ func (re *RevisionEngine) Teardown(
 	opts ...types.RevisionTeardownOption,
 ) (RevisionTeardownResult, error) {
 	var options types.RevisionTeardownOptions
-	for _, opt := range opts {
+	for _, opt := range append(opts, rev.GetTeardownOptions()...) {
 		opt.ApplyToRevisionTeardownOptions(&options)
 	}
 
@@ -336,7 +342,7 @@ func (re *RevisionEngine) Teardown(
 		res.active = p.GetName()
 
 		pres, err := re.phaseEngine.Teardown(
-			ctx, rev.GetOwner(), rev.GetRevisionNumber(),
+			ctx, rev.GetRevisionNumber(),
 			p, options.ForPhase(p.GetName())...)
 		if err != nil {
 			return nil, fmt.Errorf("teardown phase: %w", err)

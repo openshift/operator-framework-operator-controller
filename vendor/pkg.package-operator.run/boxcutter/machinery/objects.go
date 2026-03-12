@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -23,11 +22,10 @@ import (
 
 // ObjectEngine reconciles individual objects.
 type ObjectEngine struct {
-	scheme        *runtime.Scheme
-	cache         client.Reader
-	writer        client.Writer
-	ownerStrategy objectEngineOwnerStrategy
-	comparator    comparator
+	scheme     *runtime.Scheme
+	cache      client.Reader
+	writer     client.Writer
+	comparator comparator
 
 	fieldOwner   string
 	systemPrefix string
@@ -38,18 +36,16 @@ func NewObjectEngine(
 	scheme *runtime.Scheme,
 	cache client.Reader,
 	writer client.Writer,
-	ownerStrategy objectEngineOwnerStrategy,
 	comparator comparator,
 
 	fieldOwner string,
 	systemPrefix string,
 ) *ObjectEngine {
 	return &ObjectEngine{
-		scheme:        scheme,
-		cache:         cache,
-		writer:        writer,
-		ownerStrategy: ownerStrategy,
-		comparator:    comparator,
+		scheme:     scheme,
+		cache:      cache,
+		writer:     writer,
+		comparator: comparator,
 
 		fieldOwner:   fieldOwner,
 		systemPrefix: systemPrefix,
@@ -73,19 +69,20 @@ type objectEngineOwnerStrategy interface {
 
 type comparator interface {
 	Compare(
-		owner client.Object,
 		desiredObject, actualObject Object,
+		opts ...types.ComparatorOption,
 	) (res CompareResult, err error)
 }
 
 const (
+	managedByLabel        string = "app.kubernetes.io/managed-by"
+	managedByLabelValue   string = "boxcutter"
 	boxcutterManagedLabel string = "boxcutter-managed"
 )
 
 // Teardown ensures the given object is safely removed from the cluster.
 func (e *ObjectEngine) Teardown(
 	ctx context.Context,
-	owner client.Object, // Owner of the object.
 	revision int64, // Revision number, must start at 1.
 	desiredObject Object,
 	opts ...types.ObjectTeardownOption,
@@ -102,15 +99,12 @@ func (e *ObjectEngine) Teardown(
 		panic("owner revision must be set and start at 1")
 	}
 
-	if len(owner.GetUID()) == 0 {
-		panic("owner must be persisted to cluster, empty UID")
-	}
-
-	// Shortcut when Owner is orphaning its dependents.
-	// If we don't check this, we might be too quick and start deleting
-	// dependents that should be kept on the cluster!
-	if controllerutil.ContainsFinalizer(owner, "orphan") || options.Orphan {
-		err := removeBoxcutterManagedLabel(ctx, e.writer, desiredObject.(*unstructured.Unstructured))
+	// The "orphan" finalizer on the owner object indicates that the Owner
+	// is being deleted and orphaning its dependents. This finalizer is
+	// managed by KCM's gc controller. If we observe it, we are racing with
+	// the gc controller, and should not delete dependent objects.
+	if options.Orphan || (options.Owner != nil && controllerutil.ContainsFinalizer(options.Owner, "orphan")) {
+		err := e.removeBoxcutterManagedLabelsAndAnnotations(ctx, e.writer, desiredObject)
 		if err != nil {
 			return false, err
 		}
@@ -145,13 +139,21 @@ func (e *ObjectEngine) Teardown(
 		return false, fmt.Errorf("getting object revision: %w", err)
 	}
 
-	ctrlSit, _ := e.detectOwner(owner, actualObject, nil)
-	if actualRevision != revision || ctrlSit != ctrlSituationIsController {
-		// Remove us from owners list:
-		patch := actualObject.DeepCopyObject().(Object)
-		e.ownerStrategy.RemoveOwner(owner, patch)
+	// Object is not owned by this revision
+	if actualRevision != revision {
+		if options.Owner == nil {
+			// No Owner to remove from the object, return.
+			return true, nil
+		}
 
-		return true, e.writer.Patch(ctx, patch, client.MergeFrom(actualObject))
+		ctrlSit, _ := e.detectOwner(options.Owner, options.OwnerStrategy, actualObject, nil)
+		if ctrlSit != ctrlSituationIsController {
+			// Remove us from owners list:
+			patch := actualObject.DeepCopyObject().(Object)
+			options.OwnerStrategy.RemoveOwner(options.Owner, patch)
+
+			return true, e.writer.Patch(ctx, patch, client.MergeFrom(actualObject))
+		}
 	}
 
 	// Actually delete the object.
@@ -178,7 +180,6 @@ func (e *ObjectEngine) Teardown(
 // Reconcile runs actions to bring actual state closer to desired.
 func (e *ObjectEngine) Reconcile(
 	ctx context.Context,
-	owner client.Object, // Owner of the object.
 	revision int64, // Revision number, must start at 1.
 	desiredObject Object,
 	opts ...types.ObjectReconcileOption,
@@ -193,7 +194,7 @@ func (e *ObjectEngine) Reconcile(
 		labels = map[string]string{}
 	}
 
-	labels[boxcutterManagedLabel] = "True"
+	labels[managedByLabel] = managedByLabelValue
 	desiredObject.SetLabels(labels)
 
 	options.Default()
@@ -201,10 +202,6 @@ func (e *ObjectEngine) Reconcile(
 	// Sanity checks.
 	if revision == 0 {
 		panic("owner revision must be set and start at 1")
-	}
-
-	if len(owner.GetUID()) == 0 {
-		panic("owner must be persistet to cluster, empty UID")
 	}
 
 	if err := ensureGVKIsSet(desiredObject, e.scheme); err != nil {
@@ -215,10 +212,12 @@ func (e *ObjectEngine) Reconcile(
 	desiredObject = desiredObject.DeepCopyObject().(Object)
 	e.setObjectRevision(desiredObject, revision)
 
-	if err := e.ownerStrategy.SetControllerReference(
-		owner, desiredObject,
-	); err != nil {
-		return nil, fmt.Errorf("set controller reference: %w", err)
+	if options.Owner != nil {
+		if err := options.OwnerStrategy.SetControllerReference(
+			options.Owner, desiredObject,
+		); err != nil {
+			return nil, fmt.Errorf("set controller reference: %w", err)
+		}
 	}
 
 	// Lookup actual object state on cluster.
@@ -261,27 +260,66 @@ func (e *ObjectEngine) Reconcile(
 	}
 
 	return e.objectUpdateHandling(
-		ctx, owner, revision,
-		desiredObject, actualObject, options,
+		ctx, revision, desiredObject,
+		actualObject, options,
 	)
+}
+
+func (e *ObjectEngine) checkSituation(
+	desiredObject Object,
+	actualObject Object,
+	options types.ObjectReconcileOptions,
+) (
+	ctrlSit ctrlSituation,
+	compareRes CompareResult,
+	actualOwner *metav1.OwnerReference,
+	err error,
+) {
+	var compareOpts []types.ComparatorOption
+
+	if options.Owner != nil {
+		ctrlSit, actualOwner = e.detectOwner(
+			options.Owner, options.OwnerStrategy, actualObject, options.PreviousOwners)
+
+		compareOpts = append(compareOpts, types.WithOwner(options.Owner, options.OwnerStrategy))
+	} else {
+		if e.isBoxcutterManaged(actualObject) {
+			ctrlSit = ctrlSituationIsController
+		} else {
+			ctrlSit = ctrlSituationNoController
+		}
+	}
+
+	// An object already exists on the cluster.
+	// Before doing anything else, we have to figure out
+	// who owns and controls the object.
+	compareRes, err = e.comparator.Compare(desiredObject, actualObject, compareOpts...)
+	if err != nil {
+		err = fmt.Errorf("diverge check: %w", err)
+
+		return ctrlSit,
+			compareRes,
+			actualOwner,
+			err
+	}
+
+	return ctrlSit,
+		compareRes,
+		actualOwner,
+		err
 }
 
 func (e *ObjectEngine) objectUpdateHandling(
 	ctx context.Context,
-	owner client.Object,
 	revision int64,
 	desiredObject Object,
 	actualObject Object,
 	options types.ObjectReconcileOptions,
 ) (ObjectResult, error) {
-	// An object already exists on the cluster.
-	// Before doing anything else, we have to figure out
-	// who owns and controls the object.
-	ctrlSit, actualOwner := e.detectOwner(owner, actualObject, options.PreviousOwners)
-
-	compareRes, err := e.comparator.Compare(owner, desiredObject, actualObject)
+	ctrlSit, compareRes, actualOwner, err := e.checkSituation(
+		desiredObject, actualObject, options)
 	if err != nil {
-		return nil, fmt.Errorf("diverge check: %w", err)
+		return nil, err
 	}
 
 	// Ensure revision linearity.
@@ -412,13 +450,16 @@ func (e *ObjectEngine) objectUpdateHandling(
 	// ObjectResult ModifiedFields does not contain ownerReference changes
 	// introduced here, this may lead to Updated Actions without modifications.
 	e.setObjectRevision(desiredObject, revision)
-	e.ownerStrategy.CopyOwnerReferences(actualObject, desiredObject)
-	e.ownerStrategy.ReleaseController(desiredObject)
 
-	if err := e.ownerStrategy.SetControllerReference(
-		owner, desiredObject,
-	); err != nil {
-		return nil, fmt.Errorf("set controller reference: %w", err)
+	if options.Owner != nil {
+		options.OwnerStrategy.CopyOwnerReferences(actualObject, desiredObject)
+		options.OwnerStrategy.ReleaseController(desiredObject)
+
+		if err := options.OwnerStrategy.SetControllerReference(
+			options.Owner, desiredObject,
+		); err != nil {
+			return nil, fmt.Errorf("set controller reference: %w", err)
+		}
 	}
 
 	// Write changes.
@@ -443,11 +484,16 @@ func (e *ObjectEngine) objectUpdateHandling(
 	), nil
 }
 
+// isBoxcutterManaged is used to detect if we have managed this object at some point.
+// It's only purpose is to prevent boxcutter immediately re-adopting objects when
+// resources get orphaned by the GC.
 func (e *ObjectEngine) isBoxcutterManaged(obj client.Object) bool {
-	for k := range obj.GetLabels() {
-		if strings.HasPrefix(k, boxcutterManagedLabel) {
-			return true
-		}
+	labels := obj.GetLabels()
+	annotations := obj.GetAnnotations()
+
+	_, hasRevisionAnnotation := annotations[e.revisionAnnotation()]
+	if labels[managedByLabel] == managedByLabelValue && hasRevisionAnnotation {
+		return true
 	}
 
 	return false
@@ -478,12 +524,12 @@ func (e *ObjectEngine) apply(
 		return err
 	}
 
-	o := []client.ApplyOption{
-		client.FieldOwner(e.fieldOwner),
-	}
+	o := make([]client.ApplyOption, 0, len(opts)+1)
+	o = append(o, client.FieldOwner(e.fieldOwner))
 	o = append(o, opts...)
 
 	var ac runtime.ApplyConfiguration
+
 	switch v := obj.(type) {
 	case runtime.ApplyConfiguration:
 		ac = v
@@ -514,24 +560,25 @@ const (
 
 func (e *ObjectEngine) detectOwner(
 	owner client.Object,
+	ownerStrategy objectEngineOwnerStrategy,
 	actualObject Object,
 	previousOwners []client.Object,
 ) (ctrlSituation, *metav1.OwnerReference) {
 	// e.ownerStrategy may either work on .metadata.ownerReferences or
 	// on an annotation to allow cross-namespace and cross-cluster refs.
-	ownerRef, ok := e.ownerStrategy.GetController(actualObject)
+	ownerRef, ok := ownerStrategy.GetController(actualObject)
 	if !ok {
 		return ctrlSituationNoController, nil
 	}
 
 	// Are we already controller?
-	if e.ownerStrategy.IsController(owner, actualObject) {
+	if ownerStrategy.IsController(owner, actualObject) {
 		return ctrlSituationIsController, &ownerRef
 	}
 
 	// Check if previous owner is controller.
 	for _, previousOwner := range previousOwners {
-		if e.ownerStrategy.IsController(previousOwner, actualObject) {
+		if ownerStrategy.IsController(previousOwner, actualObject) {
 			return ctrlSituationPreviousIsController, &ownerRef
 		}
 	}
@@ -596,14 +643,22 @@ func (e *ObjectEngine) revisionAnnotation() string {
 	return e.systemPrefix + "/revision"
 }
 
-func removeBoxcutterManagedLabel(
-	ctx context.Context, w client.Writer, obj *unstructured.Unstructured,
+func (e *ObjectEngine) removeBoxcutterManagedLabelsAndAnnotations(
+	ctx context.Context, w client.Writer, obj Object,
 ) error {
-	updated := obj.DeepCopy()
+	updated := obj.DeepCopyObject().(Object)
+
+	annotations := obj.GetAnnotations()
+	delete(annotations, e.revisionAnnotation())
+	obj.SetAnnotations(annotations)
 
 	labels := updated.GetLabels()
+	if l, ok := labels[managedByLabel]; ok && l == managedByLabelValue {
+		delete(labels, managedByLabel)
+	}
 
 	delete(labels, boxcutterManagedLabel)
+
 	updated.SetLabels(labels)
 
 	if err := w.Patch(ctx, updated, client.MergeFrom(obj)); err != nil {

@@ -1,15 +1,15 @@
 package validation
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func validateObjectMetadata(obj *unstructured.Unstructured) []error {
+func validateObjectMetadata(obj client.Object) []error {
 	var errs []error
 
 	// Type Meta
-	if len(obj.GetAPIVersion()) == 0 {
+	if len(obj.GetObjectKind().GroupVersionKind().Version) == 0 {
 		errs = append(errs,
 			field.Required(
 				field.NewPath("apiVersion"),
@@ -17,7 +17,7 @@ func validateObjectMetadata(obj *unstructured.Unstructured) []error {
 			))
 	}
 
-	if len(obj.GetKind()) == 0 {
+	if len(obj.GetObjectKind().GroupVersionKind().Kind) == 0 {
 		errs = append(errs,
 			field.Required(
 				field.NewPath("kind"),

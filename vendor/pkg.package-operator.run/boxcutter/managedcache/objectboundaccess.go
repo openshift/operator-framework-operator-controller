@@ -338,6 +338,7 @@ func (m *objectBoundAccessManagerImpl[T]) handleAccessorRequest(
 
 	go func(ctx context.Context, doneCh chan<- cacheDone) {
 		defer wg.Done()
+
 		doneCh <- cacheDone{key: key, err: ctrlcache.Start(ctx)}
 	}(ctx, doneCh)
 
@@ -364,6 +365,7 @@ func (m *objectBoundAccessManagerImpl[T]) request(
 	}
 
 	responseCh := make(chan accessorResponse, 1)
+
 	req.responseCh = responseCh
 	select {
 	case accCh <- req:

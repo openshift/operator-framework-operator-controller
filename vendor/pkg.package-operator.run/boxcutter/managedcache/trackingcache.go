@@ -156,6 +156,7 @@ func (c *trackingCache) Start(ctx context.Context) error {
 	ctx = logr.NewContext(ctx, c.log)
 
 	cacheErrCh := make(chan error)
+
 	go func() {
 		cacheErrCh <- c.Cache.Start(ctx)
 	}()
@@ -261,6 +262,7 @@ func (c *trackingCache) ensureCacheSyncForGVK(ctx context.Context, gvk schema.Gr
 			if _, ok := c.waitingForSync[gvk]; ok {
 				// -> don't start another WaitForCacheSync and instead queue up in c.waitingForSync[gvk].
 				log.V(-1).Info("new call waiting for WaitForCacheSync already in flight")
+
 				c.waitingForSync[gvk] = append(c.waitingForSync[gvk], errCh)
 
 				return
@@ -268,6 +270,7 @@ func (c *trackingCache) ensureCacheSyncForGVK(ctx context.Context, gvk schema.Gr
 
 			obj := &unstructured.Unstructured{}
 			obj.SetGroupVersionKind(gvk)
+
 			i, err := c.Cache.GetInformer(ctx, obj, cache.BlockUntilSynced(false))
 			if err != nil {
 				errCh <- err
@@ -279,6 +282,7 @@ func (c *trackingCache) ensureCacheSyncForGVK(ctx context.Context, gvk schema.Gr
 			isNewInformer := !c.knownInformers.Has(gvk)
 			if isNewInformer {
 				c.knownInformers.Insert(gvk)
+
 				if err := c.cacheSourcer.handleNewInformer(i); err != nil {
 					errCh <- err
 
@@ -298,15 +302,20 @@ func (c *trackingCache) ensureCacheSyncForGVK(ctx context.Context, gvk schema.Gr
 
 			stopCh := make(chan struct{})
 			c.cacheWaitInFlight[gvk] = stopCh
+
 			go func() {
 				log.V(-1).Info("waiting for new informer to sync")
+
 				if toolscache.WaitForCacheSync(stopCh, i.HasSynced) {
 					log.V(-1).Info("informer synced successfully")
+
 					c.informerSyncCh <- informerSyncResponse{gvk: gvk, err: nil}
 
 					return
 				}
+
 				log.V(-1).Info("wait for informer sync canceled")
+
 				c.informerSyncCh <- informerSyncResponse{gvk: gvk, err: context.Canceled}
 			}()
 		},
@@ -394,6 +403,7 @@ func (c *trackingCache) RemoveInformer(ctx context.Context, obj client.Object) e
 	c.gvkRequestCh <- trackingCacheRequest{
 		do: func(ctx context.Context) {
 			defer close(errCh)
+
 			err := c.Cache.RemoveInformer(ctx, obj)
 			if err != nil {
 				errCh <- err
@@ -463,20 +473,24 @@ func (c *trackingCache) removeOtherInformers(ctx context.Context, gvksToKeep set
 			}
 
 			var errs []error
+
 			for _, gvkToStop := range gvksToStop {
 				obj := &unstructured.Unstructured{}
 				obj.SetGroupVersionKind(gvkToStop)
+
 				if err := c.Cache.RemoveInformer(ctx, obj); err != nil {
 					errs = append(errs, err)
 
 					continue
 				}
+
 				if err := c.stopInformer(ctx, gvkToStop, nil); err != nil {
 					errs = append(errs, err)
 
 					continue
 				}
 			}
+
 			errCh <- errors.Join(errs...)
 		},
 	}
@@ -524,6 +538,7 @@ func (c *trackingCache) watch(ctx context.Context, gvks sets.Set[schema.GroupVer
 func (c *trackingCache) Free(ctx context.Context, user client.Object) error {
 	c.watchesByUserLock.Lock()
 	defer c.watchesByUserLock.Unlock()
+
 	delete(c.watchesByUser, toAccessManagerKey(user))
 
 	c.accessLock.Lock()

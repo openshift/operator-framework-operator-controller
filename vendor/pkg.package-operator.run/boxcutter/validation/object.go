@@ -11,7 +11,6 @@ import (
 	apimachineryerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,16 +62,22 @@ func NewNamespacedObjectValidator(
 // It returns an ObjectValidationError when it was successfully able to validate the Object.
 // It returns a different error when unable to validate the object.
 func (d *ObjectValidator) Validate(
-	ctx context.Context, owner client.Object,
-	obj *unstructured.Unstructured,
+	ctx context.Context,
+	obj client.Object,
+	opts ...bctypes.ObjectReconcileOption,
 ) error {
+	var options bctypes.ObjectReconcileOptions
+	for _, opt := range opts {
+		opt.ApplyToObjectReconcileOptions(&options)
+	}
+
 	// Static metadata validation.
 	errs := validateObjectMetadata(obj)
 
-	if !d.allowNamespaceEscalation {
+	if options.Owner != nil && !d.allowNamespaceEscalation {
 		// Ensure we are not leaving the namespace we are operating in.
 		if err := validateNamespace(
-			d.restMapper, owner.GetNamespace(), obj,
+			d.restMapper, options.Owner.GetNamespace(), obj,
 		); err != nil {
 			errs = append(errs, err)
 			// we don't want to do a dry-run when this already fails.
@@ -116,7 +121,7 @@ func (e MustBeInNamespaceError) Error() string {
 func validateNamespace(
 	restMapper restMapper,
 	namespace string,
-	obj *unstructured.Unstructured,
+	obj client.Object,
 ) error {
 	// shortcut if Namespaces are not limited.
 	if len(namespace) == 0 {
@@ -167,7 +172,7 @@ func (e DryRunValidationError) Unwrap() error {
 func validateDryRun(
 	ctx context.Context,
 	w client.Writer,
-	obj *unstructured.Unstructured,
+	obj client.Object,
 ) error {
 	objectPatch, mErr := json.Marshal(obj)
 	if mErr != nil {
@@ -175,7 +180,7 @@ func validateDryRun(
 	}
 
 	patch := client.RawPatch(types.ApplyPatchType, objectPatch)
-	dst := obj.DeepCopyObject().(*unstructured.Unstructured)
+	dst := obj.DeepCopyObject().(client.Object)
 	err := w.Patch(ctx, dst, patch, client.FieldOwner("dummy"), client.ForceOwnership, client.DryRunAll)
 
 	if apimachineryerrors.IsNotFound(err) {

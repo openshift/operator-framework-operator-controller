@@ -41,8 +41,13 @@ func NewNamespacedPhaseValidator(
 
 // Validate runs validation of the phase and its objects.
 func (v *PhaseValidator) Validate(
-	ctx context.Context, owner client.Object, phase types.Phase,
+	ctx context.Context, phase types.Phase, opts ...types.PhaseReconcileOption,
 ) error {
+	var options types.PhaseReconcileOptions
+	for _, opt := range opts {
+		opt.ApplyToPhaseReconcileOptions(&options)
+	}
+
 	phaseError := validatePhaseName(phase)
 
 	var (
@@ -50,10 +55,8 @@ func (v *PhaseValidator) Validate(
 		errs         []error
 	)
 
-	for _, o := range phase.GetObjects() {
-		obj := &o
-
-		err := v.ObjectValidator.Validate(ctx, owner, obj)
+	for _, obj := range phase.GetObjects() {
+		err := v.ObjectValidator.Validate(ctx, obj, options.ForObject(obj)...)
 		if err == nil {
 			continue
 		}
@@ -121,13 +124,12 @@ func checkForObjectDuplicates(phases ...types.Phase) []ObjectValidationError {
 	conflicts := map[types.ObjectRef]map[string]struct{}{}
 
 	for _, phase := range phases {
-		for _, o := range phase.GetObjects() {
-			obj := &o
+		for _, obj := range phase.GetObjects() {
 			ref := types.ToObjectRef(obj)
 
 			otherPhase, ok := uniqueObjectsInPhase[ref]
 			if !ok {
-				uniqueObjectsInPhase[ref] = phase.Name
+				uniqueObjectsInPhase[ref] = phase.GetName()
 
 				continue
 			}
@@ -146,7 +148,7 @@ func checkForObjectDuplicates(phases ...types.Phase) []ObjectValidationError {
 	ovs := make([]ObjectValidationError, 0, len(conflicts))
 
 	for objRef, phasesMap := range conflicts {
-		var phases []string
+		phases := make([]string, 0, len(phasesMap))
 		for p := range phasesMap {
 			phases = append(phases, p)
 		}
