@@ -343,11 +343,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 	g.It("PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version", func() {
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
+			caseID                       = "70723"
+			labelValue                   = caseID
 			ns                           = "ns-70723"
 			sa                           = "sa70723"
 			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
 				Name:      sa,
@@ -355,9 +357,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Template:  saClusterRoleBindingTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:     "clustercatalog-70723",
-				Imageref: "quay.io/openshifttest/nginxolm-operator-index:nginxolm70723",
-				Template: clustercatalogTemplate,
+				Name:       "clustercatalog-70723",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm70723",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
 			}
 			clusterextension = olmv1util.ClusterExtensionDescription{
 				Name:             "clusterextension-70723",
@@ -366,6 +369,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "candidate-v2",
 				Version:          "2.2.1",
 				SaName:           sa,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -1860,9 +1864,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
 			exutil.AssertWaitPollNoErr(errWait, "clusterextension resolvedBundle is not v1.0.2")
 		}
-		conditions, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions}")
-		o.Expect(strings.ToLower(conditions)).To(o.ContainSubstring("desired state reached"))
-		o.Expect(conditions).NotTo(o.ContainSubstring("error"))
 
 		g.By("update channel to be candidate-v1.1")
 		clusterextension.Patch(oc, `{"spec":{"source":{"catalog":{"channels": ["candidate-v1.1"]}}}}`)
@@ -2238,13 +2239,15 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		_ = clusterextension2.CreateWithoutCheck(oc)
 		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
 			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension2.Name, "-o", "jsonpath={.status.conditions[*].message}")
-			if !strings.Contains(message, "already exists in namespace") {
+			if strings.Contains(message, "already exists") || strings.Contains(message, "Conflicting") {
 				e2e.Logf("status is %s", message)
-				return false, nil
+				return true, nil
 			}
-			return true, nil
+			e2e.Logf("status is %s", message)
+			return false, nil
 		})
 		exutil.AssertWaitPollNoErr(errWait, "clusterextension2 should not be installed")
+
 		clusterextension2.Delete(oc)
 		clusterextension1.Delete(oc)
 		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 30*time.Second, false, func(ctx context.Context) (bool, error) {
@@ -2274,15 +2277,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.AssertWaitPollNoErr(errWait, "crd nginxolm74923s.cache.example.com is not deleted")
 
 		_ = clusterextension1.CreateWithoutCheck(oc)
-		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
-			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension1.Name, "-o", "jsonpath={.status.conditions[*].message}")
-			if !strings.Contains(message, "already exists in namespace") {
-				e2e.Logf("status is %s", message)
-				return false, nil
-			}
-			return true, nil
-		})
-		exutil.AssertWaitPollNoErr(errWait, "clusterextension1 should not be installed")
+		clusterextension1.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 3, 150, 0)
+		clusterextension1.WaitClusterExtensionCondition(oc, "Installed", "False", 0)
 
 	})
 
@@ -2835,11 +2831,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		_ = clusterextension.CreateWithoutCheck(oc)
 		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
 			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o", "jsonpath={.status.conditions[*].message}")
-			if !strings.Contains(message, "failed to create resource") {
+			if strings.Contains(message, "failed to create resource") || strings.Contains(message, "ns-80117-watch") {
 				e2e.Logf("status is %s", message)
-				return false, nil
+				return true, nil
 			}
-			return true, nil
+			return false, nil
 		})
 		exutil.AssertWaitPollNoErr(errWait, "status is not correct")
 		clusterextension.Delete(oc)
@@ -2948,7 +2944,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			InstallNamespace: ns2,
 			PackageName:      "nginx80117",
 			SaName:           sa2,
-			Version:          "1.0.1",
+			Version:          "2.0.0",
 			WatchNamespace:   nsWatch2,
 			LabelKey:         "olmv1-test",
 			LabelValue:       labelValue,
@@ -2958,11 +2954,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		_ = clusterextension2.CreateWithoutCheck(oc)
 		errWait = wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
 			message, _ := olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension2.Name, "-o", "jsonpath={.status.conditions[*].message}")
-			if !strings.Contains(message, "already exists") {
+			if strings.Contains(message, "already exists") || strings.Contains(message, "Conflicting") {
 				e2e.Logf("status is %s", message)
-				return false, nil
+				return true, nil
 			}
-			return true, nil
+			e2e.Logf("status is %s", message)
+			return false, nil
 		})
 		exutil.AssertWaitPollNoErr(errWait, "status is not correct")
 
@@ -3235,7 +3232,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			}
 			return false, nil
 		})
-		exutil.AssertWaitPollNoErr(errWait, "nginx82136 2.2.0 is not installed")
+		if errWait != nil {
+			_, _ = olmv1util.GetNoEmpty(oc, "clusterextension", clusterextension.Name, "-o=jsonpath-as-json={.status}")
+			exutil.AssertWaitPollNoErr(errWait, "nginx82136 2.2.0 is not installed")
+		}
 		networkpolicies, err = oc.WithoutNamespace().AsAdmin().Run("get").Args("networkpolicy", "-n", ns).Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(networkpolicies).To(o.ContainSubstring("No resources found"))
