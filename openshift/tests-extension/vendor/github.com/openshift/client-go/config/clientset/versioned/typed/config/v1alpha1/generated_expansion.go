@@ -10,6 +10,6 @@ type ClusterImagePolicyExpansion interface{}
 
 type ClusterMonitoringExpansion interface{}
 
-type ImagePolicyExpansion interface{}
-
 type InsightsDataGatherExpansion interface{}
+
+type PKIExpansion interface{}

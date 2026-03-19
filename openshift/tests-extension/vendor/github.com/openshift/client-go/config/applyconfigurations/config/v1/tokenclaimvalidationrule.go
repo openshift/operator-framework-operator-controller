@@ -8,6 +8,10 @@ import (
 
 // TokenClaimValidationRuleApplyConfiguration represents a declarative configuration of the TokenClaimValidationRule type for use
 // with apply.
+//
+// TokenClaimValidationRule represents a validation rule based on token claims.
+// If type is RequiredClaim, requiredClaim must be set.
+// If Type is CEL, CEL must be set and RequiredClaim must be omitted.
 type TokenClaimValidationRuleApplyConfiguration struct {
 	Type          *configv1.TokenValidationRuleType              `json:"type,omitempty"`
 	RequiredClaim *TokenRequiredClaimApplyConfiguration          `json:"requiredClaim,omitempty"`
