@@ -622,26 +622,26 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		url1 := clustercatalog.ContentURL
 
 		g.By("Check the url response of clustercatalog-75441")
-		getCmd := fmt.Sprintf("curl -ki %s -H \"Accept-Encoding: gzip\" --output -", url1)
-		// #nosec G204 -- url1 (ContentURL) is obtained from trusted ClusterCatalog Kubernetes resource
-		stringMessage, err := exec.Command("bash", "-c", getCmd).Output()
+		// Run curl from inside the cluster using oc exec to handle DNS resolution on all architectures
+		podnameStr, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("pod", "-n", "openshift-catalogd", "-l", "control-plane=catalogd-controller-manager", "-o=jsonpath={.items[0].metadata.name}").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
-		if !strings.Contains(strings.ToLower(string(stringMessage)), "content-encoding: gzip") {
-			e2e.Logf("response is %s", string(stringMessage))
+		o.Expect(podnameStr).NotTo(o.BeEmpty())
+		stringMessage, err := oc.AsAdmin().WithoutNamespace().Run("exec").Args("-n", "openshift-catalogd", podnameStr, "--", "curl", "-ki", url1, "-H", "Accept-Encoding: gzip").Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		if !strings.Contains(strings.ToLower(stringMessage), "content-encoding: gzip") {
+			e2e.Logf("response is %s", stringMessage)
 			e2e.Failf("string Content-Encoding: gzip not in the output")
 		}
-		if !strings.Contains(strings.ToLower(string(stringMessage)), "content-type: application/jsonl") {
-			e2e.Logf("response is %s", string(stringMessage))
+		if !strings.Contains(strings.ToLower(stringMessage), "content-type: application/jsonl") {
+			e2e.Logf("response is %s", stringMessage)
 			e2e.Failf("string Content-Type: application/jsonl not in the output")
 		}
 		g.By("Check the url response of clustercatalog-75441v2")
 		url2 := clustercatalog1.ContentURL
-		getCmd2 := fmt.Sprintf("curl -ki %s -H \"Accept-Encoding: gzip\"", url2)
-		// #nosec G204 -- url2 (ContentURL) is obtained from trusted ClusterCatalog Kubernetes resource
-		stringMessage2, err := exec.Command("bash", "-c", getCmd2).Output()
+		stringMessage2, err := oc.AsAdmin().WithoutNamespace().Run("exec").Args("-n", "openshift-catalogd", podnameStr, "--", "curl", "-ki", url2, "-H", "Accept-Encoding: gzip").Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(strings.ToLower(string(stringMessage2))).NotTo(o.ContainSubstring("content-encoding: gzip"))
-		o.Expect(strings.ToLower(string(stringMessage2))).To(o.ContainSubstring("content-type: application/jsonl"))
+		o.Expect(strings.ToLower(stringMessage2)).NotTo(o.ContainSubstring("content-encoding: gzip"))
+		o.Expect(strings.ToLower(stringMessage2)).To(o.ContainSubstring("content-type: application/jsonl"))
 
 	})
 
