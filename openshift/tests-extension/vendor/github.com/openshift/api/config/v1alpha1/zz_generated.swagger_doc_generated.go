@@ -80,42 +80,19 @@ func (RetentionSizeConfig) SwaggerDoc() map[string]string {
 	return map_RetentionSizeConfig
 }
 
-var map_ClusterImagePolicy = map[string]string{
-	"":         "ClusterImagePolicy holds cluster-wide configuration for image signature verification\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
-	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"spec":     "spec contains the configuration for the cluster image policy.",
-	"status":   "status contains the observed state of the resource.",
+var map_AdditionalAlertmanagerConfig = map[string]string{
+	"":               "AdditionalAlertmanagerConfig represents configuration for additional Alertmanager instances. The `AdditionalAlertmanagerConfig` resource defines settings for how a component communicates with additional Alertmanager instances.",
+	"name":           "name is a unique identifier for this Alertmanager configuration entry. The name must be a valid DNS subdomain (RFC 1123): lowercase alphanumeric characters, hyphens, or periods, and must start and end with an alphanumeric character. Minimum length is 1 character (empty string is invalid). Maximum length is 253 characters.",
+	"authorization":  "authorization configures the authentication method for Alertmanager connections. Supports bearer token authentication. When omitted, no authentication is used.",
+	"pathPrefix":     "pathPrefix defines an optional URL path prefix to prepend to the Alertmanager API endpoints. For example, if your Alertmanager is behind a reverse proxy at \"/alertmanager/\", set this to \"/alertmanager\" so requests go to \"/alertmanager/api/v1/alerts\" instead of \"/api/v1/alerts\". This is commonly needed when Alertmanager is deployed behind ingress controllers or load balancers. When no prefix is needed, omit this field; do not set it to \"/\" as that would produce paths with double slashes (e.g. \"//api/v1/alerts\"). Must start with \"/\", must not end with \"/\", and must not be exactly \"/\". Must not contain query strings (\"?\") or fragments (\"#\").",
+	"scheme":         "scheme defines the URL scheme to use when communicating with Alertmanager instances. Possible values are `HTTP` or `HTTPS`. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. The current default value is `HTTP`.",
+	"staticConfigs":  "staticConfigs is a list of statically configured Alertmanager endpoints in the form of `<host>:<port>`. Each entry must be a valid hostname, IPv4 address, or IPv6 address (in brackets) followed by a colon and a valid port number (1-65535). Examples: \"alertmanager.example.com:9093\", \"192.168.1.100:9093\", \"[::1]:9093\" At least one endpoint must be specified (minimum 1, maximum 10 endpoints). Each entry must be unique and non-empty (empty string is invalid).",
+	"timeoutSeconds": "timeoutSeconds defines the timeout in seconds for requests to Alertmanager. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time. Currently the default is 10 seconds. Minimum value is 1 second. Maximum value is 600 seconds (10 minutes).",
+	"tlsConfig":      "tlsConfig defines the TLS settings to use for Alertmanager connections. When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.",
 }
 
-func (ClusterImagePolicy) SwaggerDoc() map[string]string {
-	return map_ClusterImagePolicy
-}
-
-var map_ClusterImagePolicyList = map[string]string{
-	"":         "ClusterImagePolicyList is a list of ClusterImagePolicy resources\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
-	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-}
-
-func (ClusterImagePolicyList) SwaggerDoc() map[string]string {
-	return map_ClusterImagePolicyList
-}
-
-var map_ClusterImagePolicySpec = map[string]string{
-	"":       "CLusterImagePolicySpec is the specification of the ClusterImagePolicy custom resource.",
-	"scopes": "scopes defines the list of image identities assigned to a policy. Each item refers to a scope in a registry implementing the \"Docker Registry HTTP API V2\". Scopes matching individual images are named Docker references in the fully expanded form, either using a tag or digest. For example, docker.io/library/busybox:latest (not busybox:latest). More general scopes are prefixes of individual-image scopes, and specify a repository (by omitting the tag or digest), a repository namespace, or a registry host (by only specifying the host name and possibly a port number) or a wildcard expression starting with `*.`, for matching all subdomains (not including a port number). Wildcards are only supported for subdomain matching, and may not be used in the middle of the host, i.e.  *.example.com is a valid case, but example*.*.com is not. If multiple scopes match a given image, only the policy requirements for the most specific scope apply. The policy requirements for more general scopes are ignored. In addition to setting a policy appropriate for your own deployed applications, make sure that a policy on the OpenShift image repositories quay.io/openshift-release-dev/ocp-release, quay.io/openshift-release-dev/ocp-v4.0-art-dev (or on a more general scope) allows deployment of the OpenShift images required for cluster operation. If a scope is configured in both the ClusterImagePolicy and the ImagePolicy, or if the scope in ImagePolicy is nested under one of the scopes from the ClusterImagePolicy, only the policy from the ClusterImagePolicy will be applied. For additional details about the format, please refer to the document explaining the docker transport field, which can be found at: https://github.com/containers/image/blob/main/docs/containers-policy.json.5.md#docker",
-	"policy": "policy contains configuration to allow scopes to be verified, and defines how images not matching the verification policy will be treated.",
-}
-
-func (ClusterImagePolicySpec) SwaggerDoc() map[string]string {
-	return map_ClusterImagePolicySpec
-}
-
-var map_ClusterImagePolicyStatus = map[string]string{
-	"conditions": "conditions provide details on the status of this API Resource.",
-}
-
-func (ClusterImagePolicyStatus) SwaggerDoc() map[string]string {
-	return map_ClusterImagePolicyStatus
+func (AdditionalAlertmanagerConfig) SwaggerDoc() map[string]string {
+	return map_AdditionalAlertmanagerConfig
 }
 
 var map_AlertmanagerConfig = map[string]string{
@@ -150,6 +127,26 @@ var map_Audit = map[string]string{
 
 func (Audit) SwaggerDoc() map[string]string {
 	return map_Audit
+}
+
+var map_AuthorizationConfig = map[string]string{
+	"":            "AuthorizationConfig defines the authentication method for Alertmanager connections.",
+	"type":        "type specifies the authentication type to use. Valid value is \"BearerToken\" (bearer token authentication). When set to BearerToken, the bearerToken field must be specified.",
+	"bearerToken": "bearerToken defines the secret reference containing the bearer token. Required when type is \"BearerToken\", and forbidden otherwise. The secret must exist in the openshift-monitoring namespace.",
+}
+
+func (AuthorizationConfig) SwaggerDoc() map[string]string {
+	return map_AuthorizationConfig
+}
+
+var map_BasicAuth = map[string]string{
+	"":         "BasicAuth defines basic authentication settings for the remote write endpoint URL.",
+	"username": "username defines the secret reference containing the username for basic authentication. The secret must exist in the openshift-monitoring namespace.",
+	"password": "password defines the secret reference containing the password for basic authentication. The secret must exist in the openshift-monitoring namespace.",
+}
+
+func (BasicAuth) SwaggerDoc() map[string]string {
+	return map_BasicAuth
 }
 
 var map_ClusterMonitoring = map[string]string{
@@ -203,6 +200,81 @@ var map_ContainerResource = map[string]string{
 
 func (ContainerResource) SwaggerDoc() map[string]string {
 	return map_ContainerResource
+}
+
+var map_DropEqualActionConfig = map[string]string{
+	"":            "DropEqualActionConfig configures the DropEqual action. Drops targets for which the concatenated source_labels do match the value of target_label. Requires Prometheus >= v2.41.0.",
+	"targetLabel": "targetLabel is the label name whose value is compared to the concatenated source_labels; targets that match are dropped. Must be between 1 and 128 characters in length.",
+}
+
+func (DropEqualActionConfig) SwaggerDoc() map[string]string {
+	return map_DropEqualActionConfig
+}
+
+var map_HashModActionConfig = map[string]string{
+	"":            "HashModActionConfig configures the HashMod action. target_label is set to the modulus of a hash of the concatenated source_labels (target = hash % modulus).",
+	"targetLabel": "targetLabel is the label name where the hash modulus result is written. Must be between 1 and 128 characters in length.",
+	"modulus":     "modulus is the divisor applied to the hash of the concatenated source label values (target = hash % modulus). Required when using the HashMod action so the intended behavior is explicit. Must be between 1 and 1000000.",
+}
+
+func (HashModActionConfig) SwaggerDoc() map[string]string {
+	return map_HashModActionConfig
+}
+
+var map_KeepEqualActionConfig = map[string]string{
+	"":            "KeepEqualActionConfig configures the KeepEqual action. Drops targets for which the concatenated source_labels do not match the value of target_label. Requires Prometheus >= v2.41.0.",
+	"targetLabel": "targetLabel is the label name whose value is compared to the concatenated source_labels; targets that do not match are dropped. Must be between 1 and 128 characters in length.",
+}
+
+func (KeepEqualActionConfig) SwaggerDoc() map[string]string {
+	return map_KeepEqualActionConfig
+}
+
+var map_Label = map[string]string{
+	"":      "Label represents a key/value pair for external labels.",
+	"key":   "key is the name of the label. Prometheus supports UTF-8 label names, so any valid UTF-8 string is allowed. Must be between 1 and 128 characters in length.",
+	"value": "value is the value of the label. Must be between 1 and 128 characters in length.",
+}
+
+func (Label) SwaggerDoc() map[string]string {
+	return map_Label
+}
+
+var map_LabelMapActionConfig = map[string]string{
+	"":            "LabelMapActionConfig configures the LabelMap action. Regex is matched against all source label names (not just source_labels). Matching label values are copied to new label names given by replacement, with match group references (${1}, ${2}, ...) substituted.",
+	"replacement": "replacement is the template for new label names; match group references (${1}, ${2}, ...) are substituted from the matched label name. Required when using the LabelMap action so the intended behavior is explicit and the platform does not need to apply defaults. Use \"$1\" for the first capture group, \"$2\" for the second, etc. Must be between 1 and 255 characters in length. Empty string is invalid as it would produce invalid label names.",
+}
+
+func (LabelMapActionConfig) SwaggerDoc() map[string]string {
+	return map_LabelMapActionConfig
+}
+
+var map_LowercaseActionConfig = map[string]string{
+	"":            "LowercaseActionConfig configures the Lowercase action. Maps the concatenated source_labels to their lower case and writes to target_label. Requires Prometheus >= v2.36.0.",
+	"targetLabel": "targetLabel is the label name where the lower-cased value is written. Must be between 1 and 128 characters in length.",
+}
+
+func (LowercaseActionConfig) SwaggerDoc() map[string]string {
+	return map_LowercaseActionConfig
+}
+
+var map_MetadataConfig = map[string]string{
+	"":           "MetadataConfig defines whether and how to send series metadata to remote write storage.",
+	"sendPolicy": "sendPolicy specifies whether to send metadata and how it is configured. Default: send metadata using platform-chosen defaults (e.g. send interval 30 seconds). Custom: send metadata using the settings in the custom field.",
+	"custom":     "custom defines custom metadata send settings. Required when sendPolicy is Custom (must have at least one property), and forbidden when sendPolicy is Default.",
+}
+
+func (MetadataConfig) SwaggerDoc() map[string]string {
+	return map_MetadataConfig
+}
+
+var map_MetadataConfigCustom = map[string]string{
+	"":                    "MetadataConfigCustom defines custom settings for sending series metadata when sendPolicy is Custom. At least one property must be set when sendPolicy is Custom (e.g. sendIntervalSeconds).",
+	"sendIntervalSeconds": "sendIntervalSeconds is the interval in seconds at which metadata is sent. When omitted, the platform chooses a reasonable default (e.g. 30 seconds). Minimum value is 1 second. Maximum value is 86400 seconds (24 hours).",
+}
+
+func (MetadataConfigCustom) SwaggerDoc() map[string]string {
+	return map_MetadataConfigCustom
 }
 
 var map_MetricsServerConfig = map[string]string{
@@ -292,141 +364,39 @@ func (CRIOCredentialProviderConfigStatus) SwaggerDoc() map[string]string {
 var map_ImagePolicy = map[string]string{
 	"":         "ImagePolicy holds namespace-wide configuration for image signature verification\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
 	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-	"spec":     "spec holds user settable values for configuration",
-	"status":   "status contains the observed state of the resource.",
+	"spec":     "spec defines the desired configuration of the CRI-O Credential Provider. This field is required and must be provided when creating the resource.",
+	"status":   "status represents the current state of the CRIOCredentialProviderConfig. When omitted or nil, it indicates that the status has not yet been set by the controller. The controller will populate this field with validation conditions and operational state.",
 }
 
-func (ImagePolicy) SwaggerDoc() map[string]string {
-	return map_ImagePolicy
+func (CRIOCredentialProviderConfig) SwaggerDoc() map[string]string {
+	return map_CRIOCredentialProviderConfig
 }
 
-var map_ImagePolicyFulcioCAWithRekorRootOfTrust = map[string]string{
-	"":              "ImagePolicyFulcioCAWithRekorRootOfTrust defines the root of trust based on the Fulcio certificate and the Rekor public key.",
-	"fulcioCAData":  "fulcioCAData contains inline base64-encoded data for the PEM format fulcio CA. fulcioCAData must be at most 8192 characters.",
-	"rekorKeyData":  "rekorKeyData contains inline base64-encoded data for the PEM format from the Rekor public key. rekorKeyData must be at most 8192 characters.",
-	"fulcioSubject": "fulcioSubject specifies OIDC issuer and the email of the Fulcio authentication configuration.",
-}
-
-func (ImagePolicyFulcioCAWithRekorRootOfTrust) SwaggerDoc() map[string]string {
-	return map_ImagePolicyFulcioCAWithRekorRootOfTrust
-}
-
-var map_ImagePolicyList = map[string]string{
-	"":         "ImagePolicyList is a list of ImagePolicy resources\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+var map_CRIOCredentialProviderConfigList = map[string]string{
+	"":         "CRIOCredentialProviderConfigList contains a list of CRIOCredentialProviderConfig resources\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
 	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
-func (ImagePolicyList) SwaggerDoc() map[string]string {
-	return map_ImagePolicyList
+func (CRIOCredentialProviderConfigList) SwaggerDoc() map[string]string {
+	return map_CRIOCredentialProviderConfigList
 }
 
-var map_ImagePolicyPKIRootOfTrust = map[string]string{
-	"":                      "ImagePolicyPKIRootOfTrust defines the root of trust based on Root CA(s) and corresponding intermediate certificates.",
-	"caRootsData":           "caRootsData contains base64-encoded data of a certificate bundle PEM file, which contains one or more CA roots in the PEM format. The total length of the data must not exceed 8192 characters. ",
-	"caIntermediatesData":   "caIntermediatesData contains base64-encoded data of a certificate bundle PEM file, which contains one or more intermediate certificates in the PEM format. The total length of the data must not exceed 8192 characters. caIntermediatesData requires caRootsData to be set. ",
-	"pkiCertificateSubject": "pkiCertificateSubject defines the requirements imposed on the subject to which the certificate was issued.",
+var map_CRIOCredentialProviderConfigSpec = map[string]string{
+	"":            "CRIOCredentialProviderConfigSpec defines the desired configuration of the CRI-O Credential Provider.",
+	"matchImages": "matchImages is a list of string patterns used to determine whether the CRI-O credential provider should be invoked for a given image. This list is passed to the kubelet CredentialProviderConfig, and if any pattern matches the requested image, CRI-O credential provider will be invoked to obtain credentials for pulling that image or its mirrors. Depending on the platform, the CRI-O credential provider may be installed alongside an existing platform specific provider. Conflicts between the existing platform specific provider image match configuration and this list will be handled by the following precedence rule: credentials from built-in kubelet providers (e.g., ECR, GCR, ACR) take precedence over those from the CRIOCredentialProviderConfig when both match the same image. To avoid uncertainty, it is recommended to avoid configuring your private image patterns to overlap with existing platform specific provider config(e.g., the entries from https://github.com/openshift/machine-config-operator/blob/main/templates/common/aws/files/etc-kubernetes-credential-providers-ecr-credential-provider.yaml). You can check the resource's Status conditions to see if any entries were ignored due to exact matches with known built-in provider patterns.\n\nThis field is optional, the items of the list must contain between 1 and 50 entries. The list is treated as a set, so duplicate entries are not allowed.\n\nFor more details, see: https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/ https://github.com/cri-o/crio-credential-provider#architecture\n\nEach entry in matchImages is a pattern which can optionally contain a port and a path. Each entry must be no longer than 512 characters. Wildcards ('*') are supported for full subdomain labels, such as '*.k8s.io' or 'k8s.*.io', and for top-level domains, such as 'k8s.*' (which matches 'k8s.io' or 'k8s.net'). A global wildcard '*' (matching any domain) is not allowed. Wildcards may replace an entire hostname label (e.g., *.example.com), but they cannot appear within a label (e.g., f*oo.example.com) and are not allowed in the port or path. For example, 'example.*.com' is valid, but 'exa*mple.*.com' is not. Each wildcard matches only a single domain label, so '*.io' does **not** match '*.k8s.io'.\n\nA match exists between an image and a matchImage when all of the below are true: Both contain the same number of domain parts and each part matches. The URL path of an matchImages must be a prefix of the target image URL path. If the matchImages contains a port, then the port must match in the image as well.\n\nExample values of matchImages: - 123456789.dkr.ecr.us-east-1.amazonaws.com - *.azurecr.io - gcr.io - *.*.registry.io - registry.io:8080/path",
 }
 
-func (ImagePolicyPKIRootOfTrust) SwaggerDoc() map[string]string {
-	return map_ImagePolicyPKIRootOfTrust
+func (CRIOCredentialProviderConfigSpec) SwaggerDoc() map[string]string {
+	return map_CRIOCredentialProviderConfigSpec
 }
 
-var map_ImagePolicyPublicKeyRootOfTrust = map[string]string{
-	"":             "ImagePolicyPublicKeyRootOfTrust defines the root of trust based on a sigstore public key.",
-	"keyData":      "keyData contains inline base64-encoded data for the PEM format public key. KeyData must be at most 8192 characters.",
-	"rekorKeyData": "rekorKeyData contains inline base64-encoded data for the PEM format from the Rekor public key. rekorKeyData must be at most 8192 characters.",
+var map_CRIOCredentialProviderConfigStatus = map[string]string{
+	"":           "CRIOCredentialProviderConfigStatus defines the observed state of CRIOCredentialProviderConfig",
+	"conditions": "conditions represent the latest available observations of the configuration state. When omitted, it indicates that no conditions have been reported yet. The maximum number of conditions is 16. Conditions are stored as a map keyed by condition type, ensuring uniqueness.\n\nExpected condition types include: \"Validated\": indicates whether the matchImages configuration is valid",
 }
 
-func (ImagePolicyPublicKeyRootOfTrust) SwaggerDoc() map[string]string {
-	return map_ImagePolicyPublicKeyRootOfTrust
-}
-
-var map_ImagePolicySpec = map[string]string{
-	"":       "ImagePolicySpec is the specification of the ImagePolicy CRD.",
-	"scopes": "scopes defines the list of image identities assigned to a policy. Each item refers to a scope in a registry implementing the \"Docker Registry HTTP API V2\". Scopes matching individual images are named Docker references in the fully expanded form, either using a tag or digest. For example, docker.io/library/busybox:latest (not busybox:latest). More general scopes are prefixes of individual-image scopes, and specify a repository (by omitting the tag or digest), a repository namespace, or a registry host (by only specifying the host name and possibly a port number) or a wildcard expression starting with `*.`, for matching all subdomains (not including a port number). Wildcards are only supported for subdomain matching, and may not be used in the middle of the host, i.e.  *.example.com is a valid case, but example*.*.com is not. If multiple scopes match a given image, only the policy requirements for the most specific scope apply. The policy requirements for more general scopes are ignored. In addition to setting a policy appropriate for your own deployed applications, make sure that a policy on the OpenShift image repositories quay.io/openshift-release-dev/ocp-release, quay.io/openshift-release-dev/ocp-v4.0-art-dev (or on a more general scope) allows deployment of the OpenShift images required for cluster operation. If a scope is configured in both the ClusterImagePolicy and the ImagePolicy, or if the scope in ImagePolicy is nested under one of the scopes from the ClusterImagePolicy, only the policy from the ClusterImagePolicy will be applied. For additional details about the format, please refer to the document explaining the docker transport field, which can be found at: https://github.com/containers/image/blob/main/docs/containers-policy.json.5.md#docker",
-	"policy": "policy contains configuration to allow scopes to be verified, and defines how images not matching the verification policy will be treated.",
-}
-
-func (ImagePolicySpec) SwaggerDoc() map[string]string {
-	return map_ImagePolicySpec
-}
-
-var map_ImagePolicyStatus = map[string]string{
-	"conditions": "conditions provide details on the status of this API Resource.",
-}
-
-func (ImagePolicyStatus) SwaggerDoc() map[string]string {
-	return map_ImagePolicyStatus
-}
-
-var map_ImageSigstoreVerificationPolicy = map[string]string{
-	"":               "ImageSigstoreVerificationPolicy defines the verification policy for the items in the scopes list.",
-	"rootOfTrust":    "rootOfTrust specifies the root of trust for the policy.",
-	"signedIdentity": "signedIdentity specifies what image identity the signature claims about the image. The required matchPolicy field specifies the approach used in the verification process to verify the identity in the signature and the actual image identity, the default matchPolicy is \"MatchRepoDigestOrExact\".",
-}
-
-func (ImageSigstoreVerificationPolicy) SwaggerDoc() map[string]string {
-	return map_ImageSigstoreVerificationPolicy
-}
-
-var map_PKICertificateSubject = map[string]string{
-	"":         "PKICertificateSubject defines the requirements imposed on the subject to which the certificate was issued.",
-	"email":    "email specifies the expected email address imposed on the subject to which the certificate was issued, and must match the email address listed in the Subject Alternative Name (SAN) field of the certificate. The email should be a valid email address and at most 320 characters in length.",
-	"hostname": "hostname specifies the expected hostname imposed on the subject to which the certificate was issued, and it must match the hostname listed in the Subject Alternative Name (SAN) DNS field of the certificate. The hostname should be a valid dns 1123 subdomain name, optionally prefixed by '*.', and at most 253 characters in length. It should consist only of lowercase alphanumeric characters, hyphens, periods and the optional preceding asterisk.",
-}
-
-func (PKICertificateSubject) SwaggerDoc() map[string]string {
-	return map_PKICertificateSubject
-}
-
-var map_PolicyFulcioSubject = map[string]string{
-	"":            "PolicyFulcioSubject defines the OIDC issuer and the email of the Fulcio authentication configuration.",
-	"oidcIssuer":  "oidcIssuer contains the expected OIDC issuer. It will be verified that the Fulcio-issued certificate contains a (Fulcio-defined) certificate extension pointing at this OIDC issuer URL. When Fulcio issues certificates, it includes a value based on an URL inside the client-provided ID token. Example: \"https://expected.OIDC.issuer/\"",
-	"signedEmail": "signedEmail holds the email address the the Fulcio certificate is issued for. Example: \"expected-signing-user@example.com\"",
-}
-
-func (PolicyFulcioSubject) SwaggerDoc() map[string]string {
-	return map_PolicyFulcioSubject
-}
-
-var map_PolicyIdentity = map[string]string{
-	"":                "PolicyIdentity defines image identity the signature claims about the image. When omitted, the default matchPolicy is \"MatchRepoDigestOrExact\".",
-	"matchPolicy":     "matchPolicy sets the type of matching to be used. Valid values are \"MatchRepoDigestOrExact\", \"MatchRepository\", \"ExactRepository\", \"RemapIdentity\". When omitted, the default value is \"MatchRepoDigestOrExact\". If set matchPolicy to ExactRepository, then the exactRepository must be specified. If set matchPolicy to RemapIdentity, then the remapIdentity must be specified. \"MatchRepoDigestOrExact\" means that the identity in the signature must be in the same repository as the image identity if the image identity is referenced by a digest. Otherwise, the identity in the signature must be the same as the image identity. \"MatchRepository\" means that the identity in the signature must be in the same repository as the image identity. \"ExactRepository\" means that the identity in the signature must be in the same repository as a specific identity specified by \"repository\". \"RemapIdentity\" means that the signature must be in the same as the remapped image identity. Remapped image identity is obtained by replacing the \"prefix\" with the specified “signedPrefix” if the the image identity matches the specified remapPrefix.",
-	"exactRepository": "exactRepository is required if matchPolicy is set to \"ExactRepository\".",
-	"remapIdentity":   "remapIdentity is required if matchPolicy is set to \"RemapIdentity\".",
-}
-
-func (PolicyIdentity) SwaggerDoc() map[string]string {
-	return map_PolicyIdentity
-}
-
-var map_PolicyMatchExactRepository = map[string]string{
-	"repository": "repository is the reference of the image identity to be matched. The value should be a repository name (by omitting the tag or digest) in a registry implementing the \"Docker Registry HTTP API V2\". For example, docker.io/library/busybox",
-}
-
-func (PolicyMatchExactRepository) SwaggerDoc() map[string]string {
-	return map_PolicyMatchExactRepository
-}
-
-var map_PolicyMatchRemapIdentity = map[string]string{
-	"prefix":       "prefix is the prefix of the image identity to be matched. If the image identity matches the specified prefix, that prefix is replaced by the specified “signedPrefix” (otherwise it is used as unchanged and no remapping takes place). This useful when verifying signatures for a mirror of some other repository namespace that preserves the vendor’s repository structure. The prefix and signedPrefix values can be either host[:port] values (matching exactly the same host[:port], string), repository namespaces, or repositories (i.e. they must not contain tags/digests), and match as prefixes of the fully expanded form. For example, docker.io/library/busybox (not busybox) to specify that single repository, or docker.io/library (not an empty string) to specify the parent namespace of docker.io/library/busybox.",
-	"signedPrefix": "signedPrefix is the prefix of the image identity to be matched in the signature. The format is the same as \"prefix\". The values can be either host[:port] values (matching exactly the same host[:port], string), repository namespaces, or repositories (i.e. they must not contain tags/digests), and match as prefixes of the fully expanded form. For example, docker.io/library/busybox (not busybox) to specify that single repository, or docker.io/library (not an empty string) to specify the parent namespace of docker.io/library/busybox.",
-}
-
-func (PolicyMatchRemapIdentity) SwaggerDoc() map[string]string {
-	return map_PolicyMatchRemapIdentity
-}
-
-var map_PolicyRootOfTrust = map[string]string{
-	"":                  "PolicyRootOfTrust defines the root of trust based on the selected policyType.",
-	"policyType":        "policyType serves as the union's discriminator. Users are required to assign a value to this field, choosing one of the policy types that define the root of trust. \"PublicKey\" indicates that the policy relies on a sigstore publicKey and may optionally use a Rekor verification. \"FulcioCAWithRekor\" indicates that the policy is based on the Fulcio certification and incorporates a Rekor verification. \"PKI\" indicates that the policy is based on the certificates from Bring Your Own Public Key Infrastructure (BYOPKI). This value is enabled by turning on the SigstoreImageVerificationPKI feature gate.",
-	"publicKey":         "publicKey defines the root of trust based on a sigstore public key.",
-	"fulcioCAWithRekor": "fulcioCAWithRekor defines the root of trust based on the Fulcio certificate and the Rekor public key. For more information about Fulcio and Rekor, please refer to the document at: https://github.com/sigstore/fulcio and https://github.com/sigstore/rekor",
-	"pki":               "pki defines the root of trust based on Bring Your Own Public Key Infrastructure (BYOPKI) Root CA(s) and corresponding intermediate certificates.",
-}
-
-func (PolicyRootOfTrust) SwaggerDoc() map[string]string {
-	return map_PolicyRootOfTrust
+func (CRIOCredentialProviderConfigStatus) SwaggerDoc() map[string]string {
+	return map_CRIOCredentialProviderConfigStatus
 }
 
 var map_GatherConfig = map[string]string{
@@ -495,6 +465,112 @@ var map_Storage = map[string]string{
 
 func (Storage) SwaggerDoc() map[string]string {
 	return map_Storage
+}
+
+var map_CertificateConfig = map[string]string{
+	"":    "CertificateConfig specifies configuration parameters for certificates. At least one property must be specified.",
+	"key": "key specifies the cryptographic parameters for the certificate's key pair. Currently this is the only configurable parameter. When omitted in an overrides entry, the key configuration from defaults is used.",
+}
+
+func (CertificateConfig) SwaggerDoc() map[string]string {
+	return map_CertificateConfig
+}
+
+var map_CustomPKIPolicy = map[string]string{
+	"": "CustomPKIPolicy contains administrator-specified cryptographic configuration. Administrators must specify defaults for all certificates and may optionally override specific categories of certificates.",
+}
+
+func (CustomPKIPolicy) SwaggerDoc() map[string]string {
+	return map_CustomPKIPolicy
+}
+
+var map_DefaultCertificateConfig = map[string]string{
+	"":    "DefaultCertificateConfig specifies the default certificate configuration parameters. All fields are required to ensure that defaults are fully specified for all certificates.",
+	"key": "key specifies the cryptographic parameters for the certificate's key pair. This field is required in defaults to ensure all certificates have a well-defined key configuration.",
+}
+
+func (DefaultCertificateConfig) SwaggerDoc() map[string]string {
+	return map_DefaultCertificateConfig
+}
+
+var map_ECDSAKeyConfig = map[string]string{
+	"":      "ECDSAKeyConfig specifies parameters for ECDSA key generation.",
+	"curve": "curve specifies the NIST elliptic curve for ECDSA keys. Valid values are \"P256\", \"P384\", and \"P521\".\n\nWhen set to P256, the NIST P-256 curve (also known as secp256r1) is used, providing 128-bit security.\n\nWhen set to P384, the NIST P-384 curve (also known as secp384r1) is used, providing 192-bit security.\n\nWhen set to P521, the NIST P-521 curve (also known as secp521r1) is used, providing 256-bit security.",
+}
+
+func (ECDSAKeyConfig) SwaggerDoc() map[string]string {
+	return map_ECDSAKeyConfig
+}
+
+var map_KeyConfig = map[string]string{
+	"":          "KeyConfig specifies cryptographic parameters for key generation.",
+	"algorithm": "algorithm specifies the key generation algorithm. Valid values are \"RSA\" and \"ECDSA\".\n\nWhen set to RSA, the rsa field must be specified and the generated key will be an RSA key with the configured key size.\n\nWhen set to ECDSA, the ecdsa field must be specified and the generated key will be an ECDSA key using the configured elliptic curve.",
+	"rsa":       "rsa specifies RSA key parameters. Required when algorithm is RSA, and forbidden otherwise.",
+	"ecdsa":     "ecdsa specifies ECDSA key parameters. Required when algorithm is ECDSA, and forbidden otherwise.",
+}
+
+func (KeyConfig) SwaggerDoc() map[string]string {
+	return map_KeyConfig
+}
+
+var map_PKI = map[string]string{
+	"":         "PKI configures cryptographic parameters for certificates generated internally by OpenShift components.\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+}
+
+func (PKI) SwaggerDoc() map[string]string {
+	return map_PKI
+}
+
+var map_PKICertificateManagement = map[string]string{
+	"":       "PKICertificateManagement determines whether components use hardcoded defaults (Unmanaged), follow OpenShift best practices (Default), or use administrator-specified cryptographic parameters (Custom). This provides flexibility for organizations with specific compliance requirements or security policies while maintaining backwards compatibility for existing clusters.",
+	"mode":   "mode determines how PKI configuration is managed. Valid values are \"Unmanaged\", \"Default\", and \"Custom\".\n\nWhen set to Unmanaged, components use their existing hardcoded certificate generation behavior, exactly as if this feature did not exist. Each component generates certificates using whatever parameters it was using before this feature. While most components use RSA 2048, some may use different parameters. Use of this mode might prevent upgrading to the next major OpenShift release.\n\nWhen set to Default, OpenShift-recommended best practices for certificate generation are applied. The specific parameters may evolve across OpenShift releases to adopt improved cryptographic standards. In the initial release, this matches Unmanaged behavior for each component. In future releases, this may adopt ECDSA or larger RSA keys based on industry best practices. Recommended for most customers who want to benefit from security improvements automatically.\n\nWhen set to Custom, the certificate management parameters can be set explicitly. Use the custom field to specify certificate generation parameters.",
+	"custom": "custom contains administrator-specified cryptographic configuration. Use the defaults and category override fields to specify certificate generation parameters. Required when mode is Custom, and forbidden otherwise.",
+}
+
+func (PKICertificateManagement) SwaggerDoc() map[string]string {
+	return map_PKICertificateManagement
+}
+
+var map_PKIList = map[string]string{
+	"":         "PKIList is a collection of PKI resources.\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"items":    "items is a list of PKI resources",
+}
+
+func (PKIList) SwaggerDoc() map[string]string {
+	return map_PKIList
+}
+
+var map_PKIProfile = map[string]string{
+	"":                    "PKIProfile defines the certificate generation parameters that OpenShift components use to create certificates. Category overrides take precedence over defaults.",
+	"defaults":            "defaults specifies the default certificate configuration that applies to all certificates unless overridden by a category override.",
+	"signerCertificates":  "signerCertificates optionally overrides certificate parameters for certificate authority (CA) certificates that sign other certificates. When set, these parameters take precedence over defaults for all signer certificates. When omitted, the defaults are used for signer certificates.",
+	"servingCertificates": "servingCertificates optionally overrides certificate parameters for TLS server certificates used to serve HTTPS endpoints. When set, these parameters take precedence over defaults for all serving certificates. When omitted, the defaults are used for serving certificates.",
+	"clientCertificates":  "clientCertificates optionally overrides certificate parameters for client authentication certificates used to authenticate to servers. When set, these parameters take precedence over defaults for all client certificates. When omitted, the defaults are used for client certificates.",
+}
+
+func (PKIProfile) SwaggerDoc() map[string]string {
+	return map_PKIProfile
+}
+
+var map_PKISpec = map[string]string{
+	"":                      "PKISpec holds the specification for PKI configuration.",
+	"certificateManagement": "certificateManagement specifies how PKI configuration is managed for internally-generated certificates. This controls the certificate generation approach for all OpenShift components that create certificates internally, including certificate authorities, serving certificates, and client certificates.",
+}
+
+func (PKISpec) SwaggerDoc() map[string]string {
+	return map_PKISpec
+}
+
+var map_RSAKeyConfig = map[string]string{
+	"":        "RSAKeyConfig specifies parameters for RSA key generation.",
+	"keySize": "keySize specifies the size of RSA keys in bits. Valid values are multiples of 1024 from 2048 to 8192.",
+}
+
+func (RSAKeyConfig) SwaggerDoc() map[string]string {
+	return map_RSAKeyConfig
 }
 
 // AUTO-GENERATED FUNCTIONS END HERE
