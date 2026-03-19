@@ -4,6 +4,8 @@ package v1alpha1
 
 // ClusterMonitoringSpecApplyConfiguration represents a declarative configuration of the ClusterMonitoringSpec type for use
 // with apply.
+//
+// ClusterMonitoringSpec defines the desired state of Cluster Monitoring Operator
 type ClusterMonitoringSpecApplyConfiguration struct {
 	UserDefined                              *UserDefinedMonitoringApplyConfiguration                    `json:"userDefined,omitempty"`
 	AlertmanagerConfig                       *AlertmanagerConfigApplyConfiguration                       `json:"alertmanagerConfig,omitempty"`
@@ -31,6 +33,14 @@ func (b *ClusterMonitoringSpecApplyConfiguration) WithUserDefined(value *UserDef
 // If called multiple times, the AlertmanagerConfig field is set to the value of the last call.
 func (b *ClusterMonitoringSpecApplyConfiguration) WithAlertmanagerConfig(value *AlertmanagerConfigApplyConfiguration) *ClusterMonitoringSpecApplyConfiguration {
 	b.AlertmanagerConfig = value
+	return b
+}
+
+// WithPrometheusConfig sets the PrometheusConfig field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PrometheusConfig field is set to the value of the last call.
+func (b *ClusterMonitoringSpecApplyConfiguration) WithPrometheusConfig(value *PrometheusConfigApplyConfiguration) *ClusterMonitoringSpecApplyConfiguration {
+	b.PrometheusConfig = value
 	return b
 }
 
