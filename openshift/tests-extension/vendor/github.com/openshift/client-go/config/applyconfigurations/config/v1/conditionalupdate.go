@@ -8,6 +8,10 @@ import (
 
 // ConditionalUpdateApplyConfiguration represents a declarative configuration of the ConditionalUpdate type for use
 // with apply.
+//
+// ConditionalUpdate represents an update which is recommended to some
+// clusters on the version the current cluster is reconciling, but which
+// may not be recommended for the current cluster.
 type ConditionalUpdateApplyConfiguration struct {
 	Release    *ReleaseApplyConfiguration                `json:"release,omitempty"`
 	RiskNames  []string                                  `json:"riskNames,omitempty"`
