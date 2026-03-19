@@ -4,6 +4,12 @@ package v1
 
 // ClusterVersionStatusApplyConfiguration represents a declarative configuration of the ClusterVersionStatus type for use
 // with apply.
+//
+// ClusterVersionStatus reports the status of the cluster versioning,
+// including any upgrades that are in progress. The current field will
+// be set to whichever version the cluster is reconciling to, and the
+// conditions array will report whether the update succeeded, is in
+// progress, or is failing.
 type ClusterVersionStatusApplyConfiguration struct {
 	Desired                *ReleaseApplyConfiguration                          `json:"desired,omitempty"`
 	History                []UpdateHistoryApplyConfiguration                   `json:"history,omitempty"`
