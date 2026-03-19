@@ -8,7 +8,17 @@ import (
 
 // UpdateApplyConfiguration represents a declarative configuration of the Update type for use
 // with apply.
+//
+// Update represents an administrator update request.
 type UpdateApplyConfiguration struct {
+	// architecture is an optional field that indicates the desired
+	// value of the cluster architecture. In this context cluster
+	// architecture means either a single architecture or a multi
+	// architecture. architecture can only be set to Multi thereby
+	// only allowing updates from single to multi architecture. If
+	// architecture is set, image cannot be set and version must be
+	// set.
+	// Valid values are 'Multi' and empty.
 	Architecture *configv1.ClusterVersionArchitecture `json:"architecture,omitempty"`
 	Version      *string                              `json:"version,omitempty"`
 	Image        *string                              `json:"image,omitempty"`
