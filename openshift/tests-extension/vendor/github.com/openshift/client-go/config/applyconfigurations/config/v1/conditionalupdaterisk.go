@@ -8,6 +8,9 @@ import (
 
 // ConditionalUpdateRiskApplyConfiguration represents a declarative configuration of the ConditionalUpdateRisk type for use
 // with apply.
+//
+// ConditionalUpdateRisk represents a reason and cluster-state
+// for not recommending a conditional update.
 type ConditionalUpdateRiskApplyConfiguration struct {
 	Conditions    []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 	URL           *string                              `json:"url,omitempty"`
