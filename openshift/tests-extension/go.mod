@@ -8,10 +8,10 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.3
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20251105193959-75a0be5d9bd7
-	github.com/openshift/api v0.0.0-20260128000234-c16ec2bcf089
-	github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13
+	github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e
+	github.com/openshift/client-go v0.0.0-20260317180604-743f664b82d1
 	github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
-	github.com/operator-framework/operator-controller v1.8.0
+	github.com/operator-framework/operator-controller v1.8.1-0.20260319123036-8ccea5a0cf67
 	github.com/pborman/uuid v1.2.1
 	github.com/spf13/cobra v1.10.2
 	github.com/tidwall/gjson v1.18.0
