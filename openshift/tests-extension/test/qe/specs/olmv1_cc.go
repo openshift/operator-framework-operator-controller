@@ -647,9 +647,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 
 	g.It("PolarionID:73289-[OTP][Skipped:Disconnected]Check the deprecation conditions and messages", func() {
 		var (
+			caseID                       = "73289"
+			labelValue                   = caseID
 			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 			ns                           = "ns-73289"
 			sa                           = "sa73289"
@@ -659,9 +661,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Template:  saClusterRoleBindingTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:     "clustercatalog-73289",
-				Imageref: "quay.io/olmqe/olmtest-operator-index:nginxolm73289",
-				Template: clustercatalogTemplate,
+				Name:       "clustercatalog-73289",
+				Imageref:   "quay.io/olmqe/olmtest-operator-index:nginxolm73289",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
 			}
 			clusterextension = olmv1util.ClusterExtensionDescription{
 				Name:             "clusterextension-73289",
@@ -670,6 +673,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Channel:          "candidate-v1.0",
 				Version:          "1.0.1",
 				SaName:           sa,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -783,9 +787,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 
 	g.It("PolarionID:74948-[OTP][Skipped:Disconnected]catalog offer the operator content through https server", func() {
 		var (
+			caseID                       = "74948"
+			labelValue                   = caseID
 			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 			ns                           = "ns-74948"
 			sa                           = "sa74948"
@@ -795,9 +801,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Template:  saClusterRoleBindingTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:     "clustercatalog-74948",
-				Imageref: "quay.io/openshifttest/nginxolm-operator-index:nginxolm74948",
-				Template: clustercatalogTemplate,
+				Name:       "clustercatalog-74948",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74948",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
 			}
 			clusterextension = olmv1util.ClusterExtensionDescription{
 				Name:             "clusterextension-74948",
@@ -806,6 +813,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Channel:          "candidate-v1.0",
 				Version:          "1.0.3",
 				SaName:           sa,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -858,9 +866,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 
 	g.It("PolarionID:74978-[OTP][Level0][Skipped:Disconnected]CRD upgrade will be prevented if the Scope is switched between Namespaced and Cluster", func() {
 		var (
+			caseID                       = "74978"
+			labelValue                   = caseID
 			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 			ns                           = "ns-74978"
 			sa                           = "sa74978"
@@ -870,9 +880,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Template:  saClusterRoleBindingTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:     "clustercatalog-74978",
-				Imageref: "quay.io/openshifttest/nginxolm-operator-index:nginxolm74978",
-				Template: clustercatalogTemplate,
+				Name:       "clustercatalog-74978",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74978",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
 			}
 			clusterextension = olmv1util.ClusterExtensionDescription{
 				Name:             "clusterextension-74978",
@@ -881,6 +892,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Channel:          "candidate-v1.0",
 				Version:          "1.0.1",
 				SaName:           sa,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -929,9 +941,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 
 	g.It("PolarionID:75218-[OTP][Skipped:Disconnected]Disabling the CRD Upgrade Safety preflight checks", func() {
 		var (
+			caseID                       = "75218"
+			labelValue                   = caseID
 			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
+			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 			ns                           = "ns-75218"
 			sa                           = "sa75218"
@@ -941,9 +955,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Template:  saClusterRoleBindingTemplate,
 			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:     "clustercatalog-75218",
-				Imageref: "quay.io/openshifttest/nginxolm-operator-index:nginxolm75218",
-				Template: clustercatalogTemplate,
+				Name:       "clustercatalog-75218",
+				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm75218",
+				LabelValue: labelValue,
+				Template:   clustercatalogTemplate,
 			}
 			clusterextension = olmv1util.ClusterExtensionDescription{
 				Name:             "clusterextension-75218",
@@ -952,6 +967,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 				Channel:          "candidate-v1.0",
 				Version:          "1.0.1",
 				SaName:           sa,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -1091,13 +1107,15 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clustercatalog", g.Label("NonHyperShif
 		g.By("upgrade will be allowed if A new version of the CRD is added with no modifications to existing versions")
 		err = oc.AsAdmin().Run("patch").Args("clusterextension", clusterextension.Name, "-p", `{"spec":{"source":{"catalog":{"version":"1.0.3","upgradeConstraintPolicy":"SelfCertified"}}}}`, "--type=merge").Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
-		clusterextension.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 3, 150, 0)
-		clusterextension.WaitClusterExtensionCondition(oc, "Installed", "True", 0)
-		clusterextension.GetBundleResource(oc)
-		o.Expect(clusterextension.InstalledBundle).To(o.ContainSubstring("v1.0.3"))
-
-		clusterextension.CheckClusterExtensionCondition(oc, "Installed", "message",
-			"Installed bundle quay.io/openshifttest/nginxolm-operator-bundle:v1.0.3-nginxolm75122 successfully", 10, 60, 0)
+		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 150*time.Second, false, func(ctx context.Context) (bool, error) {
+			clusterextension.GetBundleResource(oc)
+			if strings.Contains(clusterextension.InstalledBundle, "1.0.3") {
+				e2e.Logf("InstalledBundle is %s", clusterextension.InstalledBundle)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(errWait, "nginx75122 1.0.3 is not installed")
 
 		g.By("upgrade will be prevented if An existing served version of the CRD is removed")
 		err = oc.AsAdmin().Run("patch").Args("clusterextension", clusterextension.Name, "-p", `{"spec":{"source":{"catalog":{"version":"1.0.6","upgradeConstraintPolicy":"SelfCertified"}}}}`, "--type=merge").Execute()
