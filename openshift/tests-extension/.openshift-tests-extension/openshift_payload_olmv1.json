@@ -1244,6 +1244,56 @@
     }
   },
   {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should install a cluster extension via the Boxcutter runtime",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should report active revisions in the ClusterExtension status after installation",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should label managed resources with OLM ownership metadata",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should clean up managed resources when a cluster extension is deleted",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should successfully reinstall a cluster extension after deletion",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:olmv1",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
     "name": "[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 Catalogs should be installed",
     "labels": {},
     "resources": {
