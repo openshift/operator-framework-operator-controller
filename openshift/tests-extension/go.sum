@@ -124,10 +124,10 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/openshift-eng/openshift-tests-extension v0.0.0-20251105193959-75a0be5d9bd7 h1:Z1swlS6b3Adm6RPhjqefs3DWnNFLDxRX+WC8GMXhja4=
 github.com/openshift-eng/openshift-tests-extension v0.0.0-20251105193959-75a0be5d9bd7/go.mod h1:6gkP5f2HL0meusT0Aim8icAspcD1cG055xxBZ9yC68M=
-github.com/openshift/api v0.0.0-20260128000234-c16ec2bcf089 h1:qcKLN7H1dh2wt59Knpc1J5XzCCStSeaaFyEHHilFypg=
-github.com/openshift/api v0.0.0-20260128000234-c16ec2bcf089/go.mod h1:d5uzF0YN2nQQFA0jIEWzzOZ+edmo6wzlGLvx5Fhz4uY=
-github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13 h1:6rd4zSo2UaWQcAPZfHK9yzKVqH0BnMv1hqMzqXZyTds=
-github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13/go.mod h1:YvOmPmV7wcJxpfhTDuFqqs2Xpb3M3ovsM6Qs/i2ptq4=
+github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e h1:n2fW82JRX5B/+eCULWIe06MAhJVaE8fUsvy0A0Gn9n4=
+github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e/go.mod h1:pyVjK0nZ4sRs4fuQVQ4rubsJdahI1PB94LnQ8sGdvxo=
+github.com/openshift/client-go v0.0.0-20260317180604-743f664b82d1 h1:Hr/R38eg5ZJXfbiaHumjJIN1buDZwhsm4ys4npVCXH0=
+github.com/openshift/client-go v0.0.0-20260317180604-743f664b82d1/go.mod h1:Za51LlH76ALiQ/aKGBYJXmyJNkA//IDJ+I///30CA2M=
 github.com/openshift/kubernetes v0.0.0-20251108023427-891f5bb03061 h1:XVgudZfcjtF8UPIUarXXu6z7tZJLxrenIXOaB8e0tRk=
 github.com/openshift/kubernetes v0.0.0-20251108023427-891f5bb03061/go.mod h1:w3+IfrXNp5RosdDXg3LB55yijJqR/FwouvVntYHQf0o=
 github.com/openshift/kubernetes/staging/src/k8s.io/api v0.0.0-20251108023427-891f5bb03061 h1:uE4i/OdgU+YypcJ7vc8abZJQRyd6zwnUpY9nSdBAHEs=
