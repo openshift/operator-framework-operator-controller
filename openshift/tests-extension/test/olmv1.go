@@ -115,7 +115,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
 
 		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.0", namespace, "")
+		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.10", namespace, "")
 		DeferCleanup(cleanup)
 
 		By("waiting for the quay-operator ClusterExtension to be installed")
