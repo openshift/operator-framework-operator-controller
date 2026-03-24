@@ -14,7 +14,6 @@ type ConfigV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	BackupsGetter
 	CRIOCredentialProviderConfigsGetter
-	ClusterImagePoliciesGetter
 	ClusterMonitoringsGetter
 	InsightsDataGathersGetter
 	PKIsGetter
@@ -31,10 +30,6 @@ func (c *ConfigV1alpha1Client) Backups() BackupInterface {
 
 func (c *ConfigV1alpha1Client) CRIOCredentialProviderConfigs() CRIOCredentialProviderConfigInterface {
 	return newCRIOCredentialProviderConfigs(c)
-}
-
-func (c *ConfigV1alpha1Client) ClusterImagePolicies() ClusterImagePolicyInterface {
-	return newClusterImagePolicies(c)
 }
 
 func (c *ConfigV1alpha1Client) ClusterMonitorings() ClusterMonitoringInterface {
