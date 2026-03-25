@@ -467,12 +467,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
-			// Add two volumes: one ConfigMap volume and one Secret volume
+			// Volume 1: Same name as bundle (bundle-emptydir-vol) but different type (ConfigMap vs emptyDir)
+			//           Should OVERRIDE bundle volume, not create duplicate
+			// Volume 2: Different name (config-secret-vol) - Should be APPENDED
 			inlineConfig = `{
     "deploymentConfig": {
       "volumes": [
         {
-          "name": "config-cm-vol",
+          "name": "bundle-emptydir-vol",
           "configMap": {
             "name": "test-cm-vol"
           }
@@ -566,17 +568,34 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Deployment manifest for debugging")
 		olmv1util.DumpDeploymentManifest(oc, deploymentName, ns)
 
-		g.By("Test Point 1: Verify volumes appended to Deployment")
+		g.By("Test Point 1: Verify volumes merge-with-override behavior in Deployment")
 		// Get all volume names from Deployment spec.template.spec.volumes
 		volumesPath := `jsonpath={range .spec.template.spec.volumes[*]}{.name}{"\n"}{end}`
 		volumesList, err := olmv1util.GetNoEmpty(oc, "deployment", deploymentName, "-n", ns, "-o", volumesPath)
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Volumes list:\n%s", volumesList)
 
-		// Verify config volumes are present
-		o.Expect(volumesList).To(o.ContainSubstring("config-cm-vol"), "ConfigMap volume should be appended")
+		// Verify volumes are present
+		o.Expect(volumesList).To(o.ContainSubstring("bundle-emptydir-vol"), "Volume with bundle name should exist")
 		o.Expect(volumesList).To(o.ContainSubstring("config-secret-vol"), "Secret volume should be appended")
-		e2e.Logf("Test Point 1 passed: Config volumes appended to Deployment")
+
+		// CRITICAL: Verify no duplicate volumes
+		volumeLines := strings.Split(strings.TrimSpace(volumesList), "\n")
+		bundleVolCount := 0
+		for _, vol := range volumeLines {
+			if strings.TrimSpace(vol) == "bundle-emptydir-vol" {
+				bundleVolCount++
+			}
+		}
+		o.Expect(bundleVolCount).To(o.Equal(1), "Should have exactly 1 bundle-emptydir-vol (no duplicates)")
+
+		// Verify bundle-emptydir-vol is now ConfigMap type (override), not emptyDir
+		volumeTypePath := `jsonpath={.spec.template.spec.volumes[?(@.name=="bundle-emptydir-vol")].configMap.name}`
+		volumeType, err := olmv1util.GetNoEmpty(oc, "deployment", deploymentName, "-n", ns, "-o", volumeTypePath)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(volumeType).To(o.Equal("test-cm-vol"), "bundle-emptydir-vol should be ConfigMap (override), not emptyDir")
+
+		e2e.Logf("Test Point 1 passed: Config volume OVERRIDES bundle volume (same name), no duplicates created")
 
 		g.By("Get operator Pod name")
 		podName, err := olmv1util.GetOperatorPodName(oc, ns, deploymentName, 1*time.Minute)
@@ -587,23 +606,21 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Pod manifest for debugging")
 		olmv1util.DumpPodManifest(oc, podName, ns)
 
-		g.By("Test Point 2: Verify direct append behavior in actual Pod (bundle volume + config volumes)")
+		g.By("Test Point 2: Verify merge-with-override behavior in actual Pod")
 		// Get all volume names from Pod spec.volumes
 		podVolumesPath := `jsonpath={range .spec.volumes[*]}{.name}{"\n"}{end}`
 		podVolumesList, err := olmv1util.GetNoEmpty(oc, "pod", podName, "-n", ns, "-o", podVolumesPath)
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Pod volumes list:\n%s", podVolumesList)
 
-		// Verify bundle volume is present (bundle has predefined emptyDir volume)
-		o.Expect(podVolumesList).To(o.ContainSubstring("bundle-emptydir-vol"), "Bundle emptyDir volume should be preserved in Pod")
-
-		// Verify config volumes are present in Pod
-		o.Expect(podVolumesList).To(o.ContainSubstring("config-cm-vol"), "ConfigMap volume should be appended to Pod")
+		// Verify volumes are present in Pod
+		o.Expect(podVolumesList).To(o.ContainSubstring("bundle-emptydir-vol"), "Volume with bundle name should exist in Pod")
 		o.Expect(podVolumesList).To(o.ContainSubstring("config-secret-vol"), "Secret volume should be appended to Pod")
 
-		// Count our configured volumes (not system volumes)
-		// Bundle has 1 volume: bundle-emptydir-vol
-		// Config adds 2 volumes: config-cm-vol, config-secret-vol
+		// CRITICAL: Count volumes to verify no duplicates
+		// Config has 2 volumes: bundle-emptydir-vol (override), config-secret-vol (append)
+		// Bundle originally had: bundle-emptydir-vol (emptyDir)
+		// Result should be: bundle-emptydir-vol (ConfigMap - overridden) + config-secret-vol (appended) = 2
 		podVolumeLines := strings.Split(strings.TrimSpace(podVolumesList), "\n")
 		bundleVolumeCount := 0
 		configVolumeCount := 0
@@ -612,20 +629,26 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			if vol == "bundle-emptydir-vol" {
 				bundleVolumeCount++
 			}
-			if vol == "config-cm-vol" || vol == "config-secret-vol" {
+			if vol == "config-secret-vol" {
 				configVolumeCount++
 			}
 		}
 
-		o.Expect(bundleVolumeCount).To(o.Equal(1), "Pod should have 1 bundle volume")
-		o.Expect(configVolumeCount).To(o.Equal(2), "Pod should have 2 config volumes appended")
+		o.Expect(bundleVolumeCount).To(o.Equal(1), "Pod should have exactly 1 bundle-emptydir-vol (no duplicates)")
+		o.Expect(configVolumeCount).To(o.Equal(1), "Pod should have 1 config-secret-vol (appended)")
+
+		// Verify bundle-emptydir-vol is ConfigMap type in Pod (proving override worked)
+		podVolumeTypePath := `jsonpath={.spec.volumes[?(@.name=="bundle-emptydir-vol")].configMap.name}`
+		podVolumeType, err := olmv1util.GetNoEmpty(oc, "pod", podName, "-n", ns, "-o", podVolumeTypePath)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(podVolumeType).To(o.Equal("test-cm-vol"), "Pod bundle-emptydir-vol should be ConfigMap (override), not emptyDir")
 
 		// Note: Pod may have additional system volumes (e.g., kube-api-access-xxx for serviceaccount token)
 		// We only verify our configured volumes are present, not the total count
-		e2e.Logf("Test Point 2 passed: Direct append in Pod - bundle volume (1) + config volumes (2) = %d configured volumes (total volumes: %d including system volumes)",
+		e2e.Logf("Test Point 2 passed: Merge-with-override in Pod - override (1) + append (1) = %d configured volumes (total volumes: %d including system volumes)",
 			bundleVolumeCount+configVolumeCount, len(podVolumeLines))
 
-		e2e.Logf("Test completed successfully - volumes direct append mechanism works correctly")
+		e2e.Logf("Test completed successfully - volumes merge-with-override mechanism works correctly")
 	})
 
 	g.It("PolarionID:87542-[Skipped:Disconnected]deploymentConfig volumeMounts are appended to all operator containers", func() {
@@ -644,12 +667,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
-			// Add volumes and volumeMounts together
+			// Volume 1: Same name as bundle (bundle-emptydir-vol) - matches volumeMount 1
+			// Volume 2: Different name (config-secret-vol) - matches volumeMount 2
+			// VolumeMount 1: Same name as bundle (bundle-emptydir-vol) but different path (/config-override vs /bundle-mount)
+			//                Should OVERRIDE bundle volumeMount, not create duplicate
+			// VolumeMount 2: Different name (config-secret-vol) - Should be APPENDED
 			inlineConfig = `{
     "deploymentConfig": {
       "volumes": [
         {
-          "name": "config-cm-vol",
+          "name": "bundle-emptydir-vol",
           "configMap": {
             "name": "test-cm-vol"
           }
@@ -663,8 +690,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
       ],
       "volumeMounts": [
         {
-          "name": "config-cm-vol",
-          "mountPath": "/config-cm-mount"
+          "name": "bundle-emptydir-vol",
+          "mountPath": "/config-override"
         },
         {
           "name": "config-secret-vol",
@@ -753,31 +780,18 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Deployment manifest for debugging")
 		olmv1util.DumpDeploymentManifest(oc, deploymentName, ns)
 
-		g.By("Test Point 1: Verify volumeMounts appended to Deployment containers")
-		// NOTE: This test uses DIFFERENT volumeMount names to avoid duplicate name scenario
-		//       Bundle has: bundle-emptydir-vol
-		//       Config has: config-cm-vol, config-secret-vol
-		//       This validates current OLMv1 "direct append" behavior
-		//       If OLMv1 should align with OLMv0 "merge with override", this test needs update
-		//
+		g.By("Test Point 1: Verify volumeMounts merge-with-override behavior in Deployment")
 		// Get all volumeMount names from the first (main) container
 		volumeMountsPath := `jsonpath={range .spec.template.spec.containers[0].volumeMounts[*]}{.name}{"\n"}{end}`
 		volumeMountsList, err := olmv1util.GetNoEmpty(oc, "deployment", deploymentName, "-n", ns, "-o", volumeMountsPath)
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("VolumeMounts list (main container):\n%s", volumeMountsList)
 
-		// Verify config volumeMounts are present (different names from bundle)
-		o.Expect(volumeMountsList).To(o.ContainSubstring("config-cm-vol"), "ConfigMap volumeMount should be appended")
+		// Verify volumeMounts are present
+		o.Expect(volumeMountsList).To(o.ContainSubstring("bundle-emptydir-vol"), "VolumeMount with bundle name should exist")
 		o.Expect(volumeMountsList).To(o.ContainSubstring("config-secret-vol"), "Secret volumeMount should be appended")
-		e2e.Logf("Test Point 1 passed: Config volumeMounts appended to container")
 
-		g.By("Verify bundle volumeMount is preserved")
-		// Verify bundle volumeMount is present (bundle has predefined volumeMount)
-		o.Expect(volumeMountsList).To(o.ContainSubstring("bundle-emptydir-vol"), "Bundle emptyDir volumeMount should be preserved")
-
-		// Count volumeMounts: should have bundle volumeMount(s) + 2 config volumeMounts
-		// Bundle has 1 volumeMount: bundle-emptydir-vol
-		// Config adds 2 volumeMounts: config-cm-vol, config-secret-vol
+		// CRITICAL: Verify no duplicate volumeMounts
 		volumeMountLines := strings.Split(strings.TrimSpace(volumeMountsList), "\n")
 		bundleVolumeMountCount := 0
 		configVolumeMountCount := 0
@@ -786,14 +800,22 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			if vm == "bundle-emptydir-vol" {
 				bundleVolumeMountCount++
 			}
-			if vm == "config-cm-vol" || vm == "config-secret-vol" {
+			if vm == "config-secret-vol" {
 				configVolumeMountCount++
 			}
 		}
 
-		o.Expect(bundleVolumeMountCount).To(o.Equal(1), "Should have 1 bundle volumeMount preserved")
-		o.Expect(configVolumeMountCount).To(o.Equal(2), "Should have 2 config volumeMounts appended")
-		e2e.Logf("VolumeMounts count: bundle (1) + config (2) = %d total", bundleVolumeMountCount+configVolumeMountCount)
+		o.Expect(bundleVolumeMountCount).To(o.Equal(1), "Should have exactly 1 bundle-emptydir-vol volumeMount (no duplicates)")
+		o.Expect(configVolumeMountCount).To(o.Equal(1), "Should have 1 config-secret-vol volumeMount (appended)")
+
+		// Verify bundle-emptydir-vol has override mountPath, not bundle's original path
+		volumeMountPathPath := `jsonpath={.spec.template.spec.containers[0].volumeMounts[?(@.name=="bundle-emptydir-vol")].mountPath}`
+		volumeMountPath, err := olmv1util.GetNoEmpty(oc, "deployment", deploymentName, "-n", ns, "-o", volumeMountPathPath)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(volumeMountPath).To(o.Equal("/config-override"), "bundle-emptydir-vol should have override mountPath (/config-override), not bundle's /bundle-mount")
+
+		e2e.Logf("Test Point 1 passed: Config volumeMount OVERRIDES bundle volumeMount (same name), no duplicates created")
+		e2e.Logf("VolumeMounts count: override (1) + append (1) = %d total", bundleVolumeMountCount+configVolumeMountCount)
 
 		g.By("Get operator Pod name")
 		podName, err := olmv1util.GetOperatorPodName(oc, ns, deploymentName, 1*time.Minute)
@@ -804,7 +826,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Pod manifest for debugging")
 		olmv1util.DumpPodManifest(oc, podName, ns)
 
-		g.By("Test Point 2: Verify volumeMounts applied to ALL containers in actual Pod")
+		g.By("Test Point 2: Verify volumeMounts merge-with-override in ALL containers in actual Pod")
 		// Get all containers info as JSON (one call instead of multiple)
 		podContainersJSONPath := `jsonpath={.spec.containers}`
 		podContainersJSON, err := olmv1util.GetNoEmpty(oc, "pod", podName, "-n", ns, "-o", podContainersJSONPath)
@@ -816,26 +838,38 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		containerCount := len(podContainersArray)
 		e2e.Logf("Total containers in Pod: %d", containerCount)
 
-		// Verify each container in Pod has the config volumeMounts
+		// Verify each container in Pod has the config volumeMounts with override behavior
 		for i, container := range podContainersArray {
 			containerName := container.Get("name").String()
 			volumeMountsArray := container.Get("volumeMounts").Array()
 
-			// Collect volumeMount names for verification
+			// Collect volumeMount names and paths for verification
 			volumeMountNames := make([]string, 0, len(volumeMountsArray))
+			bundleVolMountCount := 0
+			var bundleVolMountPath string
 			for _, vm := range volumeMountsArray {
-				volumeMountNames = append(volumeMountNames, vm.Get("name").String())
+				vmName := vm.Get("name").String()
+				volumeMountNames = append(volumeMountNames, vmName)
+				if vmName == "bundle-emptydir-vol" {
+					bundleVolMountCount++
+					bundleVolMountPath = vm.Get("mountPath").String()
+				}
 			}
 			volumeMountsStr := strings.Join(volumeMountNames, "\n")
 
-			// Each container in Pod should have config volumeMounts
-			o.Expect(volumeMountsStr).To(o.ContainSubstring("config-cm-vol"), fmt.Sprintf("Pod container %d (%s) should have config-cm-vol", i, containerName))
+			// Each container should have volumeMounts
+			o.Expect(volumeMountsStr).To(o.ContainSubstring("bundle-emptydir-vol"), fmt.Sprintf("Pod container %d (%s) should have bundle-emptydir-vol", i, containerName))
 			o.Expect(volumeMountsStr).To(o.ContainSubstring("config-secret-vol"), fmt.Sprintf("Pod container %d (%s) should have config-secret-vol", i, containerName))
-			e2e.Logf("Pod container %d (%s) has config volumeMounts applied", i, containerName)
-		}
-		e2e.Logf("Test Point 2 passed: VolumeMounts applied to ALL %d container(s) in actual Pod", containerCount)
 
-		e2e.Logf("Test completed successfully - volumeMounts append to all containers mechanism works correctly")
+			// CRITICAL: Verify no duplicates and override path
+			o.Expect(bundleVolMountCount).To(o.Equal(1), fmt.Sprintf("Container %d (%s) should have exactly 1 bundle-emptydir-vol (no duplicates)", i, containerName))
+			o.Expect(bundleVolMountPath).To(o.Equal("/config-override"), fmt.Sprintf("Container %d (%s) bundle-emptydir-vol should have override path /config-override", i, containerName))
+
+			e2e.Logf("Pod container %d (%s) has volumeMounts with merge-with-override applied (no duplicates, override path verified)", i, containerName)
+		}
+		e2e.Logf("Test Point 2 passed: VolumeMounts with merge-with-override applied to ALL %d container(s) in actual Pod", containerCount)
+
+		e2e.Logf("Test completed successfully - volumeMounts merge-with-override mechanism works correctly")
 	})
 
 	g.It("PolarionID:87543-[Skipped:Disconnected]deploymentConfig tolerations are appended to operator deployment without duplicates", func() {
