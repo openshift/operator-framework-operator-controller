@@ -82,6 +82,14 @@ type WithCollisionProtection = types.WithCollisionProtection
 // Can also be described as dry-run, as no modification will occur.
 type WithPaused = types.WithPaused
 
+// WithAggregatePhaseReconcileErrors causes phase reconciliation to aggregate all object
+// errors as a single error instead of returning on the first error.
+var WithAggregatePhaseReconcileErrors = types.WithAggregatePhaseReconcileErrors
+
+// WithAggregatePhaseTeardownErrors causes phase teardown to aggregate all object
+// errors as a single error instead of returning on the first error.
+var WithAggregatePhaseTeardownErrors = types.WithAggregatePhaseTeardownErrors
+
 // Prober needs to be implemented by any probing implementation.
 type Prober = types.Prober
 

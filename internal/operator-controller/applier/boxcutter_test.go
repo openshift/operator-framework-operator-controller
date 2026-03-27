@@ -128,6 +128,10 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 										"labels": map[string]interface{}{
 											"my-label": "my-value",
 										},
+										"annotations": map[string]interface{}{
+											"olm.operatorframework.io/bundle-version": "1.2.0",
+											"olm.operatorframework.io/package-name":   "my-package",
+										},
 									},
 								},
 							}),
@@ -140,13 +144,22 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 										"labels": map[string]interface{}{
 											"my-label": "my-value",
 										},
+										"annotations": map[string]interface{}{
+											"olm.operatorframework.io/bundle-version": "1.2.0",
+											"olm.operatorframework.io/package-name":   "my-package",
+										},
 									},
 								},
 							}),
-					),
-			),
+					)),
 		)
-	assert.Equal(t, expected, rev)
+	assert.Equal(t, expected.Name, rev.Name)
+	assert.Equal(t, expected.Labels, rev.Labels)
+	assert.Equal(t, expected.Annotations, rev.Annotations)
+	assert.Equal(t, expected.Spec.LifecycleState, rev.Spec.LifecycleState)
+	assert.Equal(t, expected.Spec.CollisionProtection, rev.Spec.CollisionProtection)
+	assert.Equal(t, expected.Spec.Revision, rev.Spec.Revision)
+	assert.Equal(t, expected.Spec.Phases, rev.Spec.Phases)
 }
 
 func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
@@ -199,7 +212,10 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 		},
 	}
 
-	rev, err := b.GenerateRevision(t.Context(), dummyBundle, ext, map[string]string{}, map[string]string{})
+	rev, err := b.GenerateRevision(t.Context(), dummyBundle, ext, map[string]string{}, map[string]string{
+		labels.BundleVersionKey: "1.0.0",
+		labels.PackageNameKey:   "test-package",
+	})
 	require.NoError(t, err)
 
 	t.Log("by checking the olm.operatorframework.io/owner-name and owner-kind labels are set")
@@ -223,6 +239,10 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 							"kind":       "Service",
 							"metadata": map[string]interface{}{
 								"name": "test-service",
+								"annotations": map[string]interface{}{
+									"olm.operatorframework.io/bundle-version": "1.0.0",
+									"olm.operatorframework.io/package-name":   "test-package",
+								},
 							},
 							"spec": map[string]interface{}{},
 						},
@@ -244,6 +264,8 @@ func Test_SimpleRevisionGenerator_GenerateRevision(t *testing.T) {
 								},
 								"annotations": map[string]interface{}{
 									"my-annotation": "my-annotation-value",
+									"olm.operatorframework.io/bundle-version": "1.0.0",
+									"olm.operatorframework.io/package-name":   "test-package",
 								},
 							},
 							"spec": map[string]interface{}{

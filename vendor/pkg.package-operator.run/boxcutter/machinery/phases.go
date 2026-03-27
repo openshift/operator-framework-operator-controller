@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"pkg.package-operator.run/boxcutter/machinery/types"
@@ -145,11 +146,24 @@ func (e *PhaseEngine) Teardown(
 
 	res := &phaseTeardownResult{name: phase.GetName()}
 
-	for _, obj := range phase.GetObjects() {
+	objects := phase.GetObjects()
+	errs := make([]error, 0, len(objects))
+
+	for _, obj := range objects {
 		gone, err := e.objectEngine.Teardown(
 			ctx, revision, obj, options.ForObject(obj)...)
 		if err != nil {
-			return res, fmt.Errorf("teardown object: %w", err)
+			err = fmt.Errorf("teardown %s: %w", types.ToObjectRef(obj), err)
+			if options.AggregateErrors {
+				errs = append(errs, err)
+				if apierrors.IsTooManyRequests(err) {
+					return res, errors.Join(errs...)
+				}
+
+				continue
+			} else {
+				return res, err
+			}
 		}
 
 		if gone {
@@ -159,7 +173,7 @@ func (e *PhaseEngine) Teardown(
 		}
 	}
 
-	return res, nil
+	return res, errors.Join(errs...)
 }
 
 // Reconcile runs actions to bring actual state closer to desired.
@@ -194,17 +208,30 @@ func (e *PhaseEngine) Reconcile(
 	}
 
 	// Reconcile
-	for _, obj := range phase.GetObjects() {
+	objects := phase.GetObjects()
+	errs := make([]error, 0, len(objects))
+
+	for _, obj := range objects {
 		ores, err := e.objectEngine.Reconcile(
 			ctx, revision, obj, options.ForObject(obj)...)
 		if err != nil {
-			return pres, fmt.Errorf("reconciling object: %w", err)
+			err = fmt.Errorf("reconciling %s: %w", types.ToObjectRef(obj), err)
+			if options.AggregateErrors {
+				errs = append(errs, err)
+				if apierrors.IsTooManyRequests(err) {
+					return pres, errors.Join(errs...)
+				}
+
+				continue
+			} else {
+				return pres, err
+			}
 		}
 
 		pres.objects = append(pres.objects, ores)
 	}
 
-	return pres, nil
+	return pres, errors.Join(errs...)
 }
 
 // PhaseResult interface to access results of phase reconcile.

@@ -69,6 +69,8 @@ type PhaseReconcileOptions struct {
 	DefaultObjectOptions []ObjectReconcileOption
 	// ObjectOptions maps ObjectOptions for specific objects.
 	ObjectOptions map[ObjectRef][]ObjectReconcileOption
+	// AggregateErrors aggregates all object errors from the phase and returns them as a single error.
+	AggregateErrors bool
 }
 
 // ForObject returns the options for the given object.
@@ -94,6 +96,8 @@ type PhaseTeardownOptions struct {
 	DefaultObjectOptions []ObjectTeardownOption
 	// ObjectOptions maps ObjectOptions for specific objects.
 	ObjectOptions map[ObjectRef][]ObjectTeardownOption
+	// AggregateErrors aggregates all object errors from the phase and returns them as a single error.
+	AggregateErrors bool
 }
 
 // ForObject returns the options for the given object.
@@ -267,6 +271,22 @@ func WithOrphan() ObjectTeardownOption {
 			opts.Orphan = true
 		},
 	}
+}
+
+// WithAggregatePhaseReconcileErrors causes phase reconciliation to aggregate all object
+// errors as a single error instead of returning on the first error.
+func WithAggregatePhaseReconcileErrors() PhaseReconcileOption {
+	return phaseReconcileOptionFn(func(opts *PhaseReconcileOptions) {
+		opts.AggregateErrors = true
+	})
+}
+
+// WithAggregatePhaseTeardownErrors causes phase teardown to aggregate all object
+// errors as a single error instead of returning on the first error.
+func WithAggregatePhaseTeardownErrors() PhaseTeardownOption {
+	return phaseTeardownOptionFn(func(opts *PhaseTeardownOptions) {
+		opts.AggregateErrors = true
+	})
 }
 
 // WithTeardownWriter tears down the revision with the given writer.
@@ -453,6 +473,30 @@ func (p *optionFn) ApplyToPhaseReconcileOptions(opts *PhaseReconcileOptions) {
 
 // ApplyToRevisionReconcileOptions implements RevisionReconcileOptions.
 func (p *optionFn) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
+	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
+}
+
+type phaseReconcileOptionFn func(opts *PhaseReconcileOptions)
+
+// ApplyToPhaseReconcileOptions implements PhaseOption.
+func (p phaseReconcileOptionFn) ApplyToPhaseReconcileOptions(opts *PhaseReconcileOptions) {
+	p(opts)
+}
+
+// ApplyToRevisionReconcileOptions implements RevisionReconcileOptions.
+func (p phaseReconcileOptionFn) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
+	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
+}
+
+type phaseTeardownOptionFn func(opts *PhaseTeardownOptions)
+
+// ApplyToPhaseTeardownOptions implements PhaseOption.
+func (p phaseTeardownOptionFn) ApplyToPhaseTeardownOptions(opts *PhaseTeardownOptions) {
+	p(opts)
+}
+
+// ApplyToRevisionTeardownOptions implements RevisionTeardownOptions.
+func (p phaseTeardownOptionFn) ApplyToRevisionTeardownOptions(opts *RevisionTeardownOptions) {
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }
 

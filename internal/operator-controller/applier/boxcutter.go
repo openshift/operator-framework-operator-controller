@@ -12,8 +12,12 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,12 +72,23 @@ func (r *SimpleRevisionGenerator) GenerateRevisionFromHelmRelease(
 		if err := yaml.Unmarshal([]byte(doc), &obj); err != nil {
 			return nil, err
 		}
-		obj.SetLabels(mergeLabelMaps(obj.GetLabels(), objectLabels))
+		obj.SetLabels(mergeStringMaps(obj.GetLabels(), objectLabels))
 
 		// Memory optimization: strip large annotations
 		// Note: ApplyStripTransform never returns an error in practice
 		_ = cache.ApplyStripAnnotationsTransform(&obj)
 		sanitizedUnstructured(ctx, &obj)
+
+		annotationUpdates := map[string]string{}
+		if v := helmRelease.Labels[labels.BundleVersionKey]; v != "" {
+			annotationUpdates[labels.BundleVersionKey] = v
+		}
+		if v := helmRelease.Labels[labels.PackageNameKey]; v != "" {
+			annotationUpdates[labels.PackageNameKey] = v
+		}
+		if len(annotationUpdates) > 0 {
+			obj.SetAnnotations(mergeStringMaps(obj.GetAnnotations(), annotationUpdates))
+		}
 
 		objs = append(objs, *ocv1ac.ClusterExtensionRevisionObject().
 			WithObject(obj))
@@ -126,7 +141,7 @@ func (r *SimpleRevisionGenerator) GenerateRevision(
 	// objectLabels
 	objs := make([]ocv1ac.ClusterExtensionRevisionObjectApplyConfiguration, 0, len(plain))
 	for _, obj := range plain {
-		obj.SetLabels(mergeLabelMaps(obj.GetLabels(), objectLabels))
+		obj.SetLabels(mergeStringMaps(obj.GetLabels(), objectLabels))
 
 		gvk, err := apiutil.GVKForObject(obj, r.Scheme)
 		if err != nil {
@@ -145,6 +160,17 @@ func (r *SimpleRevisionGenerator) GenerateRevision(
 			return nil, err
 		}
 		sanitizedUnstructured(ctx, &unstr)
+
+		annotationUpdates := map[string]string{}
+		if v := revisionAnnotations[labels.BundleVersionKey]; v != "" {
+			annotationUpdates[labels.BundleVersionKey] = v
+		}
+		if v := revisionAnnotations[labels.PackageNameKey]; v != "" {
+			annotationUpdates[labels.PackageNameKey] = v
+		}
+		if len(annotationUpdates) > 0 {
+			unstr.SetAnnotations(mergeStringMaps(unstr.GetAnnotations(), annotationUpdates))
+		}
 
 		objs = append(objs, *ocv1ac.ClusterExtensionRevisionObject().
 			WithObject(unstr))
@@ -211,7 +237,8 @@ func (r *SimpleRevisionGenerator) buildClusterExtensionRevision(
 
 	spec := ocv1ac.ClusterExtensionRevisionSpec().
 		WithLifecycleState(ocv1.ClusterExtensionRevisionLifecycleStateActive).
-		WithPhases(phases...)
+		WithPhases(phases...).
+		WithProgressionProbes(defaultProgressionProbes...)
 	if p := ext.Spec.ProgressDeadlineMinutes; p > 0 {
 		spec.WithProgressDeadlineMinutes(p)
 	}
@@ -602,6 +629,109 @@ func latestRevisionNumber(prevRevisions []ocv1.ClusterExtensionRevision) int64 {
 	return prevRevisions[len(prevRevisions)-1].Spec.Revision
 }
 
+var (
+	// defaultProgressionProbes is the default set of progression probes used to check for phase readiness
+	defaultProgressionProbes = []*ocv1ac.ProgressionProbeApplyConfiguration{
+		// CRD probe
+		ocv1ac.ProgressionProbe().
+			WithSelector(ocv1ac.ObjectSelector().
+				WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: "apiextensions.k8s.io",
+					Kind:  "CustomResourceDefinition",
+				})).
+			WithAssertions(ocv1ac.Assertion().
+				WithType(ocv1.ProbeTypeConditionEqual).
+				WithConditionEqual(
+					ocv1ac.ConditionEqualProbe().
+						WithType(string(apiextensions.Established)).
+						WithStatus(string(corev1.ConditionTrue)))),
+		// certmanager Certificate probe
+		ocv1ac.ProgressionProbe().
+			WithSelector(ocv1ac.ObjectSelector().
+				WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: certmanager.GroupName,
+					Kind:  "Certificate",
+				})).
+			WithAssertions(readyConditionAssertion),
+		// certmanager Issuer probe
+		ocv1ac.ProgressionProbe().
+			WithSelector(ocv1ac.ObjectSelector().
+				WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: certmanager.GroupName,
+					Kind:  "Issuer",
+				})).
+			WithAssertions(readyConditionAssertion),
+		// namespace probe; asserts that the namespace is in "Active" phase
+		ocv1ac.ProgressionProbe().
+			WithSelector(ocv1ac.ObjectSelector().
+				WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: corev1.GroupName,
+					Kind:  "Namespace",
+				})).
+			WithAssertions(ocv1ac.Assertion().
+				WithType(ocv1.ProbeTypeFieldValue).
+				WithFieldValue(ocv1ac.FieldValueProbe().
+					WithFieldPath("status.phase").
+					WithValue(string(corev1.NamespaceActive)))),
+		// PVC probe; asserts that the PVC is in "Bound" phase
+		ocv1ac.ProgressionProbe().
+			WithSelector(ocv1ac.ObjectSelector().
+				WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: corev1.GroupName,
+					Kind:  "PersistentVolumeClaim",
+				})).
+			WithAssertions(ocv1ac.Assertion().
+				WithType(ocv1.ProbeTypeFieldValue).
+				WithFieldValue(ocv1ac.FieldValueProbe().
+					WithFieldPath("status.phase").
+					WithValue(string(corev1.ClaimBound)))),
+		// StatefulSet probe
+		ocv1ac.ProgressionProbe().WithSelector(
+			ocv1ac.ObjectSelector().WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: appsv1.GroupName,
+					Kind:  "StatefulSet",
+				}),
+		).WithAssertions(replicasUpdatedAssertion, availableConditionAssertion),
+		// Deployment probe
+		ocv1ac.ProgressionProbe().WithSelector(
+			ocv1ac.ObjectSelector().WithType(ocv1.SelectorTypeGroupKind).
+				WithGroupKind(metav1.GroupKind{
+					Group: appsv1.GroupName,
+					Kind:  "Deployment",
+				}),
+		).WithAssertions(replicasUpdatedAssertion, availableConditionAssertion),
+	}
+
+	// readyConditionAssertion checks that the Type: "Ready" Condition is "True"
+	readyConditionAssertion = ocv1ac.Assertion().
+				WithType(ocv1.ProbeTypeConditionEqual).
+				WithConditionEqual(
+			ocv1ac.ConditionEqualProbe().
+				WithType("Ready").
+				WithStatus("True"))
+
+	// availableConditionAssertion checks if the Type: "Available" Condition is "True".
+	availableConditionAssertion = ocv1ac.Assertion().
+					WithType(ocv1.ProbeTypeConditionEqual).
+					WithConditionEqual(ocv1ac.ConditionEqualProbe().
+						WithType(string(appsv1.DeploymentAvailable)).
+						WithStatus(string(corev1.ConditionTrue)))
+
+	// replicasUpdatedAssertion checks if status.updatedReplicas == status.replicas.
+	// Works for StatefulSets, Deployments and ReplicaSets.
+	replicasUpdatedAssertion = ocv1ac.Assertion().
+					WithType(ocv1.ProbeTypeFieldsEqual).
+					WithFieldsEqual(ocv1ac.FieldsEqualProbe().
+						WithFieldA("status.updatedReplicas").
+						WithFieldB("status.replicas"))
+)
+
 func splitManifestDocuments(file string) []string {
 	// Estimate: typical manifests have ~50-100 lines per document
 	// Pre-allocate for reasonable bundle size to reduce allocations
@@ -671,9 +801,9 @@ func revisionManagementPerms(rev *ocv1ac.ClusterExtensionRevisionApplyConfigurat
 	}
 }
 
-func mergeLabelMaps(m1, m2 map[string]string) map[string]string {
-	mergedLabels := make(map[string]string, len(m1)+len(m2))
-	maps.Copy(mergedLabels, m1)
-	maps.Copy(mergedLabels, m2)
-	return mergedLabels
+func mergeStringMaps(m1, m2 map[string]string) map[string]string {
+	merged := make(map[string]string, len(m1)+len(m2))
+	maps.Copy(merged, m1)
+	maps.Copy(merged, m2)
+	return merged
 }
