@@ -1528,7 +1528,7 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {clusterextensionrevisions/finalizer} is not specified",
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Skipped:Disconnected] OLMv1 operator preflight checks should report error when {clusterobjectsets/finalizer} is not specified",
     "labels": {},
     "resources": {
       "isolation": {}
