@@ -534,7 +534,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			baseDir                  = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			// Select template based on runtime: Boxcutter needs clusterextensionrevisions/finalizers, Helm needs clusterextensions/finalizers
+			// Select template based on runtime: Boxcutter needs clusterobjectsets/finalizers, Helm needs clusterextensions/finalizers
 			saTemplate string
 		)
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
@@ -683,10 +683,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"ns-81538" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81538-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
 		// Check finalizers permission based on Boxcutter runtime feature gate
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81538-1 for first revision)
+			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81538-1 for first revision)
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81538-1] Verbs:[update]`, 3, 150, 0)
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81538-1] Verbs:[update]`, 3, 150, 0)
 		} else {
 			// Env2: Helm with preflight - expects clusterextensions/finalizers
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
@@ -793,10 +793,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"ns-81664" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81664-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
 		// Check finalizers permission based on Boxcutter runtime feature gate
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81664-1 for first revision)
+			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81664-1 for first revision)
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81664-1] Verbs:[update]`, 3, 150, 0)
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81664-1] Verbs:[update]`, 3, 150, 0)
 		} else {
 			// Env2: Helm with preflight - expects clusterextensions/finalizers
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
@@ -922,10 +922,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			`Namespace:"ns-81696" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81696-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
 		// Check finalizers permission based on Boxcutter runtime feature gate
 		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterextensionrevisions/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterExtensionRevision name (ce-81696-1 for first revision)
+			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
+			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81696-1 for first revision)
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensionrevisions/finalizers] ResourceNames:[ce-81696-1] Verbs:[update]`, 3, 150, 0)
+				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81696-1] Verbs:[update]`, 3, 150, 0)
 		} else {
 			// Env2: Helm with preflight - expects clusterextensions/finalizers
 			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",

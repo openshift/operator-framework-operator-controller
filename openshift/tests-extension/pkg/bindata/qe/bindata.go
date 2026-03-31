@@ -2436,7 +2436,7 @@ objects:
       name: "${NAME}-installer-clusterrole"
     rules:
     - apiGroups: [olm.operatorframework.io]
-      resources: [clusterextensionrevisions/finalizers]
+      resources: [clusterobjectsets/finalizers]
       verbs: [update]
     - apiGroups: [apiextensions.k8s.io]
       resources: [customresourcedefinitions]
@@ -2846,7 +2846,7 @@ objects:
       name: "${NAME}-installer-clusterrole"
     rules:
     - apiGroups: [olm.operatorframework.io]
-      resources: [clusterextensionrevisions/finalizers]
+      resources: [clusterobjectsets/finalizers]
       verbs: [update]
     - apiGroups: [apiextensions.k8s.io]
       resources: [customresourcedefinitions]
