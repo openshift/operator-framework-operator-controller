@@ -387,7 +387,7 @@ Feature: Install ClusterExtension
   @ProgressDeadline
   Scenario: Report ClusterExtension as not progressing if the rollout does not become available within given timeout
     Given min value for ClusterExtension .spec.progressDeadlineMinutes is set to 1
-    And min value for ClusterExtensionRevision .spec.progressDeadlineMinutes is set to 1
+    And min value for ClusterObjectSet .spec.progressDeadlineMinutes is set to 1
     When ClusterExtension is applied
       """
       apiVersion: olm.operatorframework.io/v1
@@ -409,7 +409,7 @@ Feature: Install ClusterExtension
               matchLabels:
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
-    Then ClusterExtensionRevision "${NAME}-1" reports Progressing as False with Reason ProgressDeadlineExceeded
+    Then ClusterObjectSet "${NAME}-1" reports Progressing as False with Reason ProgressDeadlineExceeded
     And ClusterExtension reports Progressing as False with Reason ProgressDeadlineExceeded and Message:
       """
       Revision has not rolled out for 1 minute(s).
@@ -420,7 +420,7 @@ Feature: Install ClusterExtension
   @ProgressDeadline
   Scenario: Report ClusterExtension as not progressing if the rollout does not complete within given timeout
     Given min value for ClusterExtension .spec.progressDeadlineMinutes is set to 1
-    And min value for ClusterExtensionRevision .spec.progressDeadlineMinutes is set to 1
+    And min value for ClusterObjectSet .spec.progressDeadlineMinutes is set to 1
     When ClusterExtension is applied
       """
       apiVersion: olm.operatorframework.io/v1
@@ -441,7 +441,7 @@ Feature: Install ClusterExtension
               matchLabels:
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
-    Then ClusterExtensionRevision "${NAME}-1" reports Progressing as False with Reason ProgressDeadlineExceeded
+    Then ClusterObjectSet "${NAME}-1" reports Progressing as False with Reason ProgressDeadlineExceeded
     And ClusterExtension reports Progressing as False with Reason ProgressDeadlineExceeded and Message:
       """
       Revision has not rolled out for 1 minute(s).
@@ -449,7 +449,7 @@ Feature: Install ClusterExtension
     And ClusterExtension reports Progressing transition between 1 and 2 minutes since its creation
 
   @BoxcutterRuntime
-  Scenario:  ClusterExtensionRevision is annotated with bundle properties
+  Scenario:  ClusterObjectSet is annotated with bundle properties
     When ClusterExtension is applied
       """
       apiVersion: olm.operatorframework.io/v1
@@ -470,13 +470,13 @@ Feature: Install ClusterExtension
                 "olm.operatorframework.io/metadata.name": test-catalog
       """
     # The annotation key and value come from the bundle's metadata/properties.yaml file
-    Then ClusterExtensionRevision "${NAME}-1" contains annotation "olm.properties" with value
+    Then ClusterObjectSet "${NAME}-1" contains annotation "olm.properties" with value
       """
       [{"type":"olm.test-property","value":"some-value"}]
       """
 
   @BoxcutterRuntime
-  Scenario: ClusterExtensionRevision is labeled with owner information
+  Scenario: ClusterObjectSet is labeled with owner information
     When ClusterExtension is applied
       """
       apiVersion: olm.operatorframework.io/v1
@@ -498,8 +498,37 @@ Feature: Install ClusterExtension
       """
     Then ClusterExtension is rolled out
     And ClusterExtension is available
-    And ClusterExtensionRevision "${NAME}-1" has label "olm.operatorframework.io/owner-kind" with value "ClusterExtension"
-    And ClusterExtensionRevision "${NAME}-1" has label "olm.operatorframework.io/owner-name" with value "${NAME}"
+    And ClusterObjectSet "${NAME}-1" has label "olm.operatorframework.io/owner-kind" with value "ClusterExtension"
+    And ClusterObjectSet "${NAME}-1" has label "olm.operatorframework.io/owner-name" with value "${NAME}"
+
+  @BoxcutterRuntime
+  Scenario: ClusterObjectSet objects are externalized to immutable Secrets
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: test
+            version: 1.2.0
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    Then ClusterExtension is rolled out
+    And ClusterExtension is available
+    And ClusterObjectSet "${NAME}-1" phase objects use refs
+    And ClusterObjectSet "${NAME}-1" ref Secrets exist in "olmv1-system" namespace
+    And ClusterObjectSet "${NAME}-1" ref Secrets are immutable
+    And ClusterObjectSet "${NAME}-1" ref Secrets are labeled with revision and owner
+    And ClusterObjectSet "${NAME}-1" ref Secrets have ownerReference to the revision
 
   @DeploymentConfig
   Scenario: deploymentConfig nodeSelector is applied to the operator deployment
@@ -535,3 +564,64 @@ Feature: Install ClusterExtension
             nodeSelector:
               kubernetes.io/os: linux
       """
+
+  @BoxcutterRuntime
+  Scenario: Install bundle with large CRD
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: large-crd-operator
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    Then ClusterExtension is rolled out
+    And ClusterExtension is available
+    And bundle "large-crd-operator.1.0.0" is installed in version "1.0.0"
+    And resource "customresourcedefinition/largecrdtests.largecrd.operatorframework.io" is installed
+    And resource "deployment/large-crd-operator" is installed
+
+  @BoxcutterRuntime
+  @PreflightPermissions
+  Scenario: Boxcutter preflight check detects missing CREATE permissions
+    Given ServiceAccount "olm-sa" without create permissions is available in ${TEST_NAMESPACE}
+    And ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: test
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+      """
+    And ClusterExtension reports Progressing as True with Reason Retrying and Message includes:
+      """
+      pre-authorization failed: service account requires the following permissions to manage cluster extension
+      """
+    And ClusterExtension reports Progressing as True with Reason Retrying and Message includes:
+      """
+      Verbs:[create]
+      """
+    When ServiceAccount "olm-sa" with needed permissions is available in ${TEST_NAMESPACE}
+    Then ClusterExtension is available
+    And ClusterExtension reports Progressing as True with Reason Succeeded
+    And ClusterExtension reports Installed as True

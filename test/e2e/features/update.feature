@@ -211,6 +211,58 @@ Feature: Update ClusterExtension
     And bundle "test-operator.1.0.4" is installed in version "1.0.4"
 
   @BoxcutterRuntime
+  Scenario: Detect collision when a second ClusterExtension installs the same package after an upgrade
+    Given ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: test
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+            version: 1.0.0
+      """
+    And ClusterExtension is rolled out
+    And ClusterExtension is available
+    When ClusterExtension is updated to version "1.0.1"
+    Then ClusterExtension is rolled out
+    And ClusterExtension is available
+    And bundle "test-operator.1.0.1" is installed in version "1.0.1"
+    And the current ClusterExtension is tracked for cleanup
+    When ClusterExtension is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterExtension
+      metadata:
+        name: ${NAME}-dup
+      spec:
+        namespace: ${TEST_NAMESPACE}
+        serviceAccount:
+          name: olm-sa
+        source:
+          sourceType: Catalog
+          catalog:
+            packageName: test
+            selector:
+              matchLabels:
+                "olm.operatorframework.io/metadata.name": test-catalog
+            version: 1.0.1
+      """
+    Then ClusterExtension reports Progressing as True with Reason Retrying and Message includes:
+      """
+      revision object collisions
+      """
+
+  @BoxcutterRuntime
   Scenario: Each update creates a new revision and resources not present in the new revision are removed from the cluster
     Given ClusterExtension is applied
       """
@@ -239,10 +291,10 @@ Feature: Update ClusterExtension
     And ClusterExtension is rolled out
     And ClusterExtension is available
     And ClusterExtension reports "${NAME}-2" as active revision
-    And ClusterExtensionRevision "${NAME}-2" reports Progressing as True with Reason Succeeded
-    And ClusterExtensionRevision "${NAME}-2" reports Available as True with Reason ProbesSucceeded
-    And ClusterExtensionRevision "${NAME}-1" is archived
-    And ClusterExtensionRevision "${NAME}-1" phase objects are not found or not owned by the revision
+    And ClusterObjectSet "${NAME}-2" reports Progressing as True with Reason Succeeded
+    And ClusterObjectSet "${NAME}-2" reports Available as True with Reason ProbesSucceeded
+    And ClusterObjectSet "${NAME}-1" is archived
+    And ClusterObjectSet "${NAME}-1" phase objects are not found or not owned by the revision
 
   @BoxcutterRuntime
   Scenario: Report all active revisions on ClusterExtension
@@ -270,6 +322,6 @@ Feature: Update ClusterExtension
     And ClusterExtension is available
     When ClusterExtension is updated to version "1.0.2"
     Then ClusterExtension reports "${NAME}-1, ${NAME}-2" as active revisions
-    And ClusterExtensionRevision "${NAME}-2" reports Progressing as True with Reason RollingOut
-    And ClusterExtensionRevision "${NAME}-2" reports Available as False with Reason ProbeFailure
+    And ClusterObjectSet "${NAME}-2" reports Progressing as True with Reason RollingOut
+    And ClusterObjectSet "${NAME}-2" reports Available as False with Reason ProbeFailure
 

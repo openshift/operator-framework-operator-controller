@@ -264,7 +264,7 @@ func run() error {
 	}
 
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
-		cacheOptions.ByObject[&ocv1.ClusterExtensionRevision{}] = crcache.ByObject{
+		cacheOptions.ByObject[&ocv1.ClusterObjectSet{}] = crcache.ByObject{
 			Label: k8slabels.Everything(),
 		}
 	}
@@ -476,7 +476,7 @@ func run() error {
 
 	var ctrlBuilderOpts []controllers.ControllerBuilderOption
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
-		ctrlBuilderOpts = append(ctrlBuilderOpts, controllers.WithOwns(&ocv1.ClusterExtensionRevision{}))
+		ctrlBuilderOpts = append(ctrlBuilderOpts, controllers.WithOwns(&ocv1.ClusterObjectSet{}))
 	}
 
 	ceReconciler := &controllers.ClusterExtensionReconciler{
@@ -634,6 +634,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		Preflights:        c.preflights,
 		PreAuthorizer:     preAuth,
 		FieldOwner:        fieldOwner,
+		SystemNamespace:   cfg.systemNamespace,
 	}
 	revisionStatesGetter := &controllers.BoxcutterRevisionStatesGetter{Reader: c.mgr.GetClient()}
 	storageMigrator := &applier.BoxcutterStorageMigrator{
@@ -679,7 +680,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 
 	cerCoreClient, err := corev1client.NewForConfig(c.mgr.GetConfig())
 	if err != nil {
-		return fmt.Errorf("unable to create client for ClusterExtensionRevision controller: %w", err)
+		return fmt.Errorf("unable to create client for ClusterObjectSet controller: %w", err)
 	}
 	cerTokenGetter := authentication.NewTokenGetter(cerCoreClient, authentication.WithExpirationDuration(1*time.Hour))
 
@@ -696,12 +697,12 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		return fmt.Errorf("unable to create revision engine factory: %w", err)
 	}
 
-	if err = (&controllers.ClusterExtensionRevisionReconciler{
+	if err = (&controllers.ClusterObjectSetReconciler{
 		Client:                c.mgr.GetClient(),
 		RevisionEngineFactory: revisionEngineFactory,
 		TrackingCache:         trackingCache,
 	}).SetupWithManager(c.mgr); err != nil {
-		return fmt.Errorf("unable to setup ClusterExtensionRevision controller: %w", err)
+		return fmt.Errorf("unable to setup ClusterObjectSet controller: %w", err)
 	}
 	return nil
 }
@@ -743,7 +744,6 @@ func (c *helmReconcilerConfigurator) Configure(ceReconciler *controllers.Cluster
 			c.mgr.GetClient(),
 			// Additional verbs / bundle manifest that are expected by the content manager to watch those resources
 			authorization.WithClusterCollectionVerbs("list", "watch"),
-			authorization.WithNamespacedCollectionVerbs("create"),
 		)
 	}
 
