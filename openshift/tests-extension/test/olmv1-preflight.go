@@ -30,13 +30,13 @@ import (
 type preflightAuthTestScenario int
 
 const (
-	scenarioMissingServicePerms                            preflightAuthTestScenario = 0
-	scenarioMissingCreateVerb                              preflightAuthTestScenario = 1
-	scenarioMissingClusterRoleBindingsPerms                preflightAuthTestScenario = 2
-	scenarioMissingNamedConfigMapPerms                     preflightAuthTestScenario = 3
-	scenarioMissingClusterExtensionsFinalizerPerms         preflightAuthTestScenario = 4
-	scenarioMissingEscalateAndBindPerms                    preflightAuthTestScenario = 5
-	scenarioMissingClusterExtensionRevisionsFinalizerPerms preflightAuthTestScenario = 6
+	scenarioMissingServicePerms                    preflightAuthTestScenario = 0
+	scenarioMissingCreateVerb                      preflightAuthTestScenario = 1
+	scenarioMissingClusterRoleBindingsPerms        preflightAuthTestScenario = 2
+	scenarioMissingNamedConfigMapPerms             preflightAuthTestScenario = 3
+	scenarioMissingClusterExtensionsFinalizerPerms preflightAuthTestScenario = 4
+	scenarioMissingEscalateAndBindPerms            preflightAuthTestScenario = 5
+	scenarioMissingClusterObjectSetsFinalizerPerms preflightAuthTestScenario = 6
 )
 
 const preflightBundleVersion = "0.0.5"
@@ -107,9 +107,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMPreflightPermissionChecks][Sk
 		runNegativePreflightTest(ctx, scenarioMissingClusterExtensionsFinalizerPerms, namespace, packageName, catalogName)
 	})
 
-	It("should report error when {clusterextensionrevisions/finalizer} is not specified", func(ctx SpecContext) {
+	It("should report error when {clusterobjectsets/finalizer} is not specified", func(ctx SpecContext) {
 		helpers.RequireFeatureGateEnabled(features.FeatureGateNewOLMBoxCutterRuntime)
-		runNegativePreflightTest(ctx, scenarioMissingClusterExtensionRevisionsFinalizerPerms, namespace, packageName, catalogName)
+		runNegativePreflightTest(ctx, scenarioMissingClusterObjectSetsFinalizerPerms, namespace, packageName, catalogName)
 	})
 
 	It("should report error when {escalate, bind} is not specified", func(ctx SpecContext) {
@@ -185,7 +185,7 @@ func createDeficientClusterRole(scenario preflightAuthTestScenario, name, ceName
 		baseRules = []rbacv1.PolicyRule{
 			{
 				APIGroups:     []string{"olm.operatorframework.io"},
-				Resources:     []string{"clusterextensionrevisions/finalizers"},
+				Resources:     []string{"clusterobjectsets/finalizers"},
 				Verbs:         []string{"update"},
 				ResourceNames: []string{ceName},
 			},
@@ -293,8 +293,8 @@ func createDeficientClusterRole(scenario preflightAuthTestScenario, name, ceName
 			}
 		}
 		rules = filtered
-	case scenarioMissingClusterExtensionRevisionsFinalizerPerms:
-		// Remove permission for clusterextensionrevisions/finalizers so preflight fails.
+	case scenarioMissingClusterObjectSetsFinalizerPerms:
+		// Remove permission for clusterobjectsets/finalizers so preflight fails.
 		filtered := []rbacv1.PolicyRule{}
 		for _, r := range rules {
 			if len(r.APIGroups) != 1 || r.APIGroups[0] != "olm.operatorframework.io" {
