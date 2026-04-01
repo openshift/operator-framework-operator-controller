@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/origin/test/extended/util/image"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,13 +49,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed"), func(ctx SpecContext) {
 			if !env.Get().IsOpenShift {
 				Skip("Requires OCP APIs: not OpenShift")
-			}
-			// TODO(OPRUN-4518): Re-enable once cluster-olm-operator is updated to read ClusterObjectSet
-			// instead of ClusterExtensionRevision. The upstream rename (operator-framework/operator-controller#2589)
-			// changed the CRD kind, but cluster-olm-operator still looks for ClusterExtensionRevision resources
-			// to detect incompatible operators via olm.maxOpenShiftVersion.
-			if helpers.IsFeatureGateEnabled(features.FeatureGateNewOLMBoxCutterRuntime) {
-				Skip("Skipping: cluster-olm-operator does not yet support ClusterObjectSet (renamed from ClusterExtensionRevision)")
 			}
 
 			By("waiting for InstalledOLMOperatorUpgradable to be true")
