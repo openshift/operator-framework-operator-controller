@@ -45,10 +45,10 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kubernetes v1.35.0
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
-	pkg.package-operator.run/boxcutter v0.12.0
+	pkg.package-operator.run/boxcutter v0.13.0
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/controller-tools v0.20.1
-	sigs.k8s.io/crdify v0.5.0
+	sigs.k8s.io/crdify v0.5.1-0.20260309184313-54162f2e3097
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2
 	sigs.k8s.io/yaml v1.6.0
 )

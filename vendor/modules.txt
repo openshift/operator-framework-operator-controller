@@ -1974,7 +1974,7 @@ oras.land/oras-go/v2/registry/remote/credentials/trace
 oras.land/oras-go/v2/registry/remote/errcode
 oras.land/oras-go/v2/registry/remote/internal/errutil
 oras.land/oras-go/v2/registry/remote/retry
-# pkg.package-operator.run/boxcutter v0.12.0
+# pkg.package-operator.run/boxcutter v0.13.0
 ## explicit; go 1.25.3
 pkg.package-operator.run/boxcutter
 pkg.package-operator.run/boxcutter/machinery
@@ -2055,7 +2055,7 @@ sigs.k8s.io/controller-tools/pkg/internal/crd
 sigs.k8s.io/controller-tools/pkg/loader
 sigs.k8s.io/controller-tools/pkg/markers
 sigs.k8s.io/controller-tools/pkg/version
-# sigs.k8s.io/crdify v0.5.0
+# sigs.k8s.io/crdify v0.5.1-0.20260309184313-54162f2e3097
 ## explicit; go 1.24.0
 sigs.k8s.io/crdify/pkg/config
 sigs.k8s.io/crdify/pkg/runner
@@ -2066,6 +2066,7 @@ sigs.k8s.io/crdify/pkg/validations/crd/scope
 sigs.k8s.io/crdify/pkg/validations/crd/storedversionremoval
 sigs.k8s.io/crdify/pkg/validations/property
 sigs.k8s.io/crdify/pkg/validators/crd
+sigs.k8s.io/crdify/pkg/validators/version
 sigs.k8s.io/crdify/pkg/validators/version/same
 sigs.k8s.io/crdify/pkg/validators/version/served
 # sigs.k8s.io/gateway-api v1.5.0
