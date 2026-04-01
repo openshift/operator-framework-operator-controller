@@ -1345,12 +1345,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
-			// CRITICAL: Only specify nodeAffinity, NOT podAffinity or podAntiAffinity
-			// This tests "selective override" mechanism:
+			// This test has TWO phases:
+			//
+			// PHASE 1 (Initial config): Tests "selective override" mechanism
 			//   - nodeAffinity: Overridden by config (bundle value replaced)
 			//   - podAffinity: NOT specified in config (bundle value preserved)
 			//   - podAntiAffinity: NOT specified in config (bundle value preserved)
-			// Bundle has all three affinity sub-types, config only has nodeAffinity
+			//   Bundle has all three affinity sub-types, config only has nodeAffinity
+			//
+			// PHASE 2 (Update to empty affinity): Tests "complete erasure"
+			//   - Update config to affinity: {} (empty object, all sub-fields nil)
+			//   - Expected: Deployment and new Pod should have NO affinity field
 			inlineConfig = `{
     "deploymentConfig": {
       "affinity": {
@@ -1436,7 +1441,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Deployment manifest for debugging")
 		olmv1util.DumpDeploymentManifest(oc, deploymentName, ns)
 
-		g.By("Test Point 1: Verify nodeAffinity override and selective override mechanism")
+		g.By("Phase 1 - Test Point 1: Verify nodeAffinity override and selective override mechanism")
 
 		// Get full affinity from Deployment as JSON for easier parsing
 		affinityJSONPath := `jsonpath={.spec.template.spec.affinity}`
@@ -1478,7 +1483,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		g.By("Dump Pod manifest for debugging")
 		olmv1util.DumpPodManifest(oc, podName, ns)
 
-		g.By("Test Point 2: Verify affinity applied to actual Pod spec")
+		g.By("Phase 1 - Test Point 2: Verify affinity applied to actual Pod spec")
 
 		// Get full affinity from Pod as JSON
 		podAffinityPath := `jsonpath={.spec.affinity}`
@@ -1507,7 +1512,101 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		e2e.Logf("Test Point 2 passed: Affinity configuration correctly applied to actual Pod")
 		e2e.Logf("Pod Affinity: %s", podAffinityJSON)
 
-		e2e.Logf("Test completed successfully - nodeAffinity selective override mechanism works correctly")
+		e2e.Logf("Phase 1 completed: nodeAffinity selective override mechanism works correctly")
+
+		// ========== Phase 2: Test empty affinity erasure ==========
+		g.By("Phase 2: Update deploymentConfig with empty affinity to test complete erasure")
+
+		g.By("Get current Deployment generation")
+		genPath := `jsonpath={.metadata.generation}`
+		currentGen, err := olmv1util.GetNoEmpty(oc, "deployment", deploymentName, "-n", ns, "-o", genPath)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		e2e.Logf("Current Deployment generation: %s", currentGen)
+
+		g.By("Update ClusterExtension with empty affinity config")
+		// IMPORTANT: Must use JSON Patch with "replace" operation
+		// Merge patch would merge empty {} with existing config, not replace it
+		// JSON Patch ensures the affinity field is replaced with empty object
+		jsonPatch := `[{"op": "replace", "path": "/spec/config/inline/deploymentConfig/affinity", "value": {}}]`
+		err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("clusterextension", extName,
+			"--type=json", "-p", jsonPatch).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		e2e.Logf("Updated ClusterExtension with empty affinity: affinity: {} (using JSON Patch replace)")
+
+		g.By("Wait for Deployment to reconcile with new config")
+		err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+			newGen, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("deployment", deploymentName,
+				"-n", ns, "-o", genPath).Output()
+			if err != nil {
+				e2e.Logf("Failed to get deployment generation: %v", err)
+				return false, nil
+			}
+			newGenTrimmed := strings.TrimSpace(newGen)
+			if newGenTrimmed != currentGen {
+				e2e.Logf("Deployment generation updated: %s -> %s", currentGen, newGenTrimmed)
+				return true, nil
+			}
+			return false, nil
+		})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		e2e.Logf("Deployment reconciled with empty affinity config")
+
+		g.By("Test Point 3: Verify entire affinity erased from Deployment")
+		affinityPath := `jsonpath={.spec.template.spec.affinity}`
+		affinityValue, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("deployment", deploymentName,
+			"-n", ns, "-o", affinityPath).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		e2e.Logf("Deployment affinity after empty config: '%s'", affinityValue)
+
+		// Verify affinity field is absent (nil)
+		trimmedAffinity := strings.TrimSpace(affinityValue)
+		isAffinityAbsent := trimmedAffinity == ""
+		o.Expect(isAffinityAbsent).To(o.BeTrue(), "Entire affinity should be absent (erased by empty affinity {})")
+
+		g.By("Wait for new Pod rollout after affinity removal")
+		// Use ReplicaSet hash to detect new pod (same logic as OCP-87555)
+		var newPodName string
+		initialPodHash := olmv1util.ExtractReplicaSetHash(podName)
+		if initialPodHash == "" {
+			g.Skip("Cannot extract ReplicaSet hash from initial pod name, skipping pod rollout verification")
+		}
+		e2e.Logf("Initial pod (Phase 1) ReplicaSet hash: %s", initialPodHash)
+		err = wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+			currentPodName, err := olmv1util.GetOperatorPodName(oc, ns, deploymentName, 30*time.Second)
+			if err != nil {
+				return false, nil // Pod might be terminating/restarting
+			}
+			currentPodHash := olmv1util.ExtractReplicaSetHash(currentPodName)
+			if currentPodHash != "" && currentPodHash != initialPodHash {
+				newPodName = currentPodName
+				e2e.Logf("Found new pod with different ReplicaSet hash: %s (was %s)", currentPodHash, initialPodHash)
+				return true, nil
+			}
+			return false, nil
+		})
+		exutil.AssertWaitPollNoErr(err, "New pod was not created after empty affinity update")
+		o.Expect(newPodName).NotTo(o.BeEmpty())
+		o.Expect(newPodName).NotTo(o.Equal(podName), "New pod should be created after affinity removal")
+		e2e.Logf("New Pod rolled out (after affinity removal): %s", newPodName)
+
+		g.By("Dump new Pod manifest for debugging")
+		olmv1util.DumpPodManifest(oc, newPodName, ns)
+
+		g.By("Test Point 4: Verify new Pod has no affinity")
+		podAffinityPath2 := `jsonpath={.spec.affinity}`
+		newPodAffinity, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("pod", newPodName,
+			"-n", ns, "-o", podAffinityPath2).Output()
+		o.Expect(err).NotTo(o.HaveOccurred())
+		e2e.Logf("New Pod affinity: '%s'", newPodAffinity)
+
+		// Verify new Pod has no affinity
+		trimmedNewPodAffinity := strings.TrimSpace(newPodAffinity)
+		isNewPodAffinityAbsent := trimmedNewPodAffinity == ""
+		o.Expect(isNewPodAffinityAbsent).To(o.BeTrue(), "New Pod should have no affinity (erased by empty affinity {})")
+		e2e.Logf("Test Point 4 passed: New Pod has no affinity")
+
+		e2e.Logf("Phase 2 completed: empty affinity {} successfully erased entire bundle affinity")
+		e2e.Logf("Test completed successfully - both selective override and complete erasure mechanisms verified")
 	})
 
 	g.It("PolarionID:87547-[Skipped:Disconnected]deploymentConfig podAffinity overrides existing podAffinity", func() {
@@ -1716,12 +1815,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			// CRITICAL: This tests TWO behaviors:
 			//   1. Selective override: podAntiAffinity overridden, podAffinity preserved
 			//   2. Empty nodeAffinity object behavior:
-			//      - OLMv1 CURRENT: Empty {} object preserved in manifest (cosmetic issue)
-			//      - OLMv1 EXPECTED (after fix): Empty {} cleaned to nil (match OLMv0)
-			//      - This test verifies CURRENT behavior, will need update when bug fixed
+			//      - OLMv1 BEFORE fix: Empty {} object preserved in manifest (cosmetic issue)
+			//      - OLMv1 AFTER fix: Empty {} cleaned to nil (match OLMv0)
+			//      - This test verifies FIXED behavior: empty sub-type is cleaned up to nil
 			//
 			// Config affinity sub-types:
-			//   - nodeAffinity: {} (empty object - tests bug OCPBUGS-76383)
+			//   - nodeAffinity: {} (empty object)
 			//   - podAntiAffinity: full config (overrides bundle)
 			//   - podAffinity: NOT specified (bundle value preserved)
 			inlineConfig = `{
@@ -1832,26 +1931,24 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 		e2e.Logf("podAntiAffinity override verified: Config replaced bundle podAntiAffinity")
 
-		// Part 2: Verify empty nodeAffinity behavior and podAffinity preservation
-		// Verify empty nodeAffinity object presence (CURRENT OLMv1 behavior)
-		// Step 1: Get nodeAffinity value directly to verify it's empty {}
+		// Part 2: Verify empty nodeAffinity cleanup and podAffinity preservation
+		// Step 1: Verify nodeAffinity field is ABSENT from manifest (cleaned up to nil)
 		nodeAffinityJSONPath := `jsonpath={.spec.template.spec.affinity.nodeAffinity}`
 		nodeAffinityJSON, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("deployment", deploymentName, "-n", ns, "-o", nodeAffinityJSONPath).Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Deployment nodeAffinity value: '%s'", nodeAffinityJSON)
 
-		// Step 2: Verify nodeAffinity is empty object {}
-		// Expected: "{}" or empty/whitespace (K8s may return empty for {})
+		// Step 2: Verify nodeAffinity is nil/absent (NOT empty object {})
 		trimmedNodeAffinity := strings.TrimSpace(nodeAffinityJSON)
-		// Check it's either "{}" or empty (both indicate empty object in manifest)
-		isEmptyObject := trimmedNodeAffinity == "{}"
-		o.Expect(isEmptyObject).To(o.BeTrue(), "nodeAffinity should be empty object {}")
-		e2e.Logf("Empty nodeAffinity verified: value='%s'", trimmedNodeAffinity)
+		// Empty string means field is absent (nil in Go, omitted from manifest)
+		isAbsent := trimmedNodeAffinity == ""
+		o.Expect(isAbsent).To(o.BeTrue(), "nodeAffinity should be absent (cleaned up from empty {} to nil)")
+		e2e.Logf("Empty nodeAffinity cleanup verified: field is absent (was empty {}, now nil)")
 
-		// Step 3: Verify bundle nodeAffinity values NOT present (overridden by empty {})
-		o.Expect(affinityJSON).NotTo(o.ContainSubstring("disktype"), "Bundle nodeAffinity 'disktype' should NOT be present (overridden by empty {})")
-		o.Expect(affinityJSON).NotTo(o.ContainSubstring("ssd"), "Bundle nodeAffinity value 'ssd' should NOT be present (overridden by empty {})")
-		e2e.Logf("Bundle nodeAffinity values confirmed absent (overridden by empty {})")
+		// Step 3: Verify bundle nodeAffinity values NOT present (erased by empty {})
+		o.Expect(affinityJSON).NotTo(o.ContainSubstring("disktype"), "Bundle nodeAffinity 'disktype' should NOT be present (erased by empty {})")
+		o.Expect(affinityJSON).NotTo(o.ContainSubstring("ssd"), "Bundle nodeAffinity value 'ssd' should NOT be present (erased by empty {})")
+		e2e.Logf("Bundle nodeAffinity values confirmed absent (erased by empty {})")
 
 		// Positive checks: Bundle podAffinity should be preserved (selective override)
 		o.Expect(affinityJSON).To(o.ContainSubstring("podAffinity"), "Bundle podAffinity should be preserved (selective override)")
@@ -1859,7 +1956,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		// NOTE: weight "100" appears in both bundle podAffinity and podAntiAffinity, so we rely on "cache" check
 
 		e2e.Logf("Selective override verified: podAffinity preserved from bundle, nodeAffinity overridden by empty {}")
-		e2e.Logf("Test Point 1 passed: podAntiAffinity overridden, podAffinity preserved, nodeAffinity empty {}")
+		e2e.Logf("Test Point 1 passed: podAntiAffinity overridden, podAffinity preserved, nodeAffinity cleaned up")
 
 		g.By("Get operator Pod name")
 		podName, err := olmv1util.GetOperatorPodName(oc, ns, deploymentName, 1*time.Minute)
@@ -1888,22 +1985,21 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(podAffinityJSON).NotTo(o.ContainSubstring("database"), "Pod should NOT have bundle's podAntiAffinity app=database")
 		// NOTE: Cannot check for weight "100" absence because it appears in podAffinity (which should be preserved)
 
-		// Verify empty nodeAffinity in Pod
-		// Step 1: Get Pod nodeAffinity value directly to verify it's empty {}
+		// Step 1: Get Pod nodeAffinity value to verify it's absent (nil)
 		podNodeAffinityPath := `jsonpath={.spec.affinity.nodeAffinity}`
 		podNodeAffinityJSON, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("pod", podName, "-n", ns, "-o", podNodeAffinityPath).Output()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Pod nodeAffinity value: '%s'", podNodeAffinityJSON)
 
-		// Step 2: Verify Pod nodeAffinity is empty object {}
+		// Step 2: Verify Pod nodeAffinity is absent (nil), NOT empty object {}
 		trimmedPodNodeAffinity := strings.TrimSpace(podNodeAffinityJSON)
-		isPodEmptyObject := trimmedPodNodeAffinity == "{}"
-		o.Expect(isPodEmptyObject).To(o.BeTrue(), "Pod nodeAffinity should be empty object {}")
-		e2e.Logf("Pod empty nodeAffinity verified: value='%s'", trimmedPodNodeAffinity)
+		isPodAbsent := trimmedPodNodeAffinity == ""
+		o.Expect(isPodAbsent).To(o.BeTrue(), "Pod nodeAffinity should be absent (cleaned up from empty {} to nil)")
+		e2e.Logf("Pod empty nodeAffinity cleanup verified: field is absent")
 
 		// Step 3: Verify bundle nodeAffinity values NOT present in Pod
-		o.Expect(podAffinityJSON).NotTo(o.ContainSubstring("disktype"), "Pod should NOT have bundle's nodeAffinity disktype (overridden by empty {})")
-		o.Expect(podAffinityJSON).NotTo(o.ContainSubstring("ssd"), "Pod should NOT have bundle's nodeAffinity value ssd (overridden by empty {})")
+		o.Expect(podAffinityJSON).NotTo(o.ContainSubstring("disktype"), "Pod should NOT have bundle's nodeAffinity disktype (erased by empty {})")
+		o.Expect(podAffinityJSON).NotTo(o.ContainSubstring("ssd"), "Pod should NOT have bundle's nodeAffinity value ssd (erased by empty {})")
 		e2e.Logf("Pod bundle nodeAffinity values confirmed absent")
 
 		// Bundle podAffinity preserved
@@ -1914,7 +2010,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		e2e.Logf("Test Point 2 passed: Affinity configuration correctly applied to actual Pod")
 		e2e.Logf("Pod Affinity: %s", podAffinityJSON)
 
-		e2e.Logf("Test completed successfully - podAntiAffinity override, podAffinity preserved, nodeAffinity empty {}")
+		e2e.Logf("Test completed successfully - podAntiAffinity override, podAffinity preserved, nodeAffinity cleaned up")
 	})
 
 	g.It("PolarionID:87549-[Skipped:Disconnected]deploymentConfig annotations are merged with existing taking precedence", func() {
