@@ -120,6 +120,85 @@ type ClusterMonitoringSpec struct {
 	// When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
 	// +optional
 	PrometheusOperatorAdmissionWebhookConfig PrometheusOperatorAdmissionWebhookConfig `json:"prometheusOperatorAdmissionWebhookConfig,omitempty,omitzero"`
+	// openShiftStateMetricsConfig is an optional field that can be used to configure the openshift-state-metrics
+	// agent that runs in the openshift-monitoring namespace. The openshift-state-metrics agent generates metrics
+	// about the state of OpenShift-specific Kubernetes objects, such as routes, builds, and deployments.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default, which is subject to change over time.
+	// +optional
+	OpenShiftStateMetricsConfig OpenShiftStateMetricsConfig `json:"openShiftStateMetricsConfig,omitempty,omitzero"`
+}
+
+// OpenShiftStateMetricsConfig provides configuration options for the openshift-state-metrics agent
+// that runs in the `openshift-monitoring` namespace. The openshift-state-metrics agent generates
+// metrics about the state of OpenShift-specific Kubernetes objects, such as routes, builds, and deployments.
+// +kubebuilder:validation:MinProperties=1
+type OpenShiftStateMetricsConfig struct {
+	// nodeSelector defines the nodes on which the Pods are scheduled.
+	// nodeSelector is optional.
+	//
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// The current default value is `kubernetes.io/os: linux`.
+	// When specified, nodeSelector must contain at least 1 entry and must not contain more than 10 entries.
+	// +optional
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// resources defines the compute resource requests and limits for the openshift-state-metrics container.
+	// This includes CPU, memory and HugePages constraints to help control scheduling and resource usage.
+	// When not specified, defaults are used by the platform. Requests cannot exceed limits.
+	// This field is optional.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// This is a simplified API that maps to Kubernetes ResourceRequirements.
+	// The current default values are:
+	//   resources:
+	//    - name: cpu
+	//      request: 1m
+	//      limit: null
+	//    - name: memory
+	//      request: 32Mi
+	//      limit: null
+	// Maximum length for this list is 10.
+	// Minimum length for this list is 1.
+	// Each resource name must be unique within this list.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	Resources []ContainerResource `json:"resources,omitempty"`
+	// tolerations defines tolerations for the pods.
+	// tolerations is optional.
+	//
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// Defaults are empty/unset.
+	// Maximum length for this list is 10.
+	// Minimum length for this list is 1.
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
+	// +optional
+	Tolerations []v1.Toleration `json:"tolerations,omitempty"`
+	// topologySpreadConstraints defines rules for how openshift-state-metrics Pods should be distributed
+	// across topology domains such as zones, nodes, or other user-defined labels.
+	// topologySpreadConstraints is optional.
+	// This helps improve high availability and resource efficiency by avoiding placing
+	// too many replicas in the same failure domain.
+	//
+	// When omitted, this means no opinion and the platform is left to choose a default, which is subject to change over time.
+	// This field maps directly to the `topologySpreadConstraints` field in the Pod spec.
+	// Default is empty list.
+	// Maximum length for this list is 10.
+	// Minimum length for this list is 1.
+	// Entries must have unique topologyKey and whenUnsatisfiable pairs.
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=topologyKey
+	// +listMapKey=whenUnsatisfiable
+	// +optional
+	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 // UserDefinedMonitoring config for user-defined projects.
@@ -567,6 +646,163 @@ type PrometheusOperatorAdmissionWebhookConfig struct {
 	// Default is empty list.
 	// Maximum length for this list is 10.
 	// Minimum length for this list is 1.
+	// Entries must have unique topologyKey and whenUnsatisfiable pairs.
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=topologyKey
+	// +listMapKey=whenUnsatisfiable
+	// +optional
+	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+}
+
+// PrometheusConfig provides configuration options for the Prometheus instance.
+// Use this configuration to control
+// Prometheus deployment, pod scheduling, resource allocation, retention policies, and external integrations.
+// +kubebuilder:validation:MinProperties=1
+type PrometheusConfig struct {
+	// additionalAlertmanagerConfigs configures additional Alertmanager instances that receive alerts from
+	// the Prometheus component. This is useful for organizations that need to:
+	//   - Send alerts to external monitoring systems (like PagerDuty, Slack, or custom webhooks)
+	//   - Route different types of alerts to different teams or systems
+	//   - Integrate with existing enterprise alerting infrastructure
+	//   - Maintain separate alert routing for compliance or organizational requirements
+	// When omitted, no additional Alertmanager instances are configured (default behavior).
+	// When provided, at least one configuration must be specified (minimum 1, maximum 10 items).
+	// Entries must have unique names (name is the list key).
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +listType=map
+	// +listMapKey=name
+	AdditionalAlertmanagerConfigs []AdditionalAlertmanagerConfig `json:"additionalAlertmanagerConfigs,omitempty"`
+	// enforcedBodySizeLimitBytes enforces a body size limit (in bytes) for Prometheus scraped metrics.
+	// If a scraped target's body response is larger than the limit, the scrape will fail.
+	// This helps protect Prometheus from targets that return excessively large responses.
+	// The value is specified in bytes (e.g., 4194304 for 4MB, 1073741824 for 1GB).
+	// When omitted, the Cluster Monitoring Operator automatically calculates an appropriate
+	// limit based on cluster capacity. Set an explicit value to override the automatic calculation.
+	// Minimum value is 10240 (10kB).
+	// Maximum value is 1073741824 (1GB).
+	// +kubebuilder:validation:Minimum=10240
+	// +kubebuilder:validation:Maximum=1073741824
+	// +optional
+	EnforcedBodySizeLimitBytes int64 `json:"enforcedBodySizeLimitBytes,omitempty"`
+	// externalLabels defines labels to be attached to time series and alerts
+	// when communicating with external systems such as federation, remote storage,
+	// and Alertmanager. These labels are not stored with metrics on disk; they are
+	// only added when data leaves Prometheus (e.g., during federation queries,
+	// remote write, or alert notifications).
+	// At least 1 label must be specified when set, with a maximum of 50 labels allowed.
+	// Each label key must be unique within this list.
+	// When omitted, no external labels are applied.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +listType=map
+	// +listMapKey=key
+	ExternalLabels []Label `json:"externalLabels,omitempty"`
+	// logLevel defines the verbosity of logs emitted by Prometheus.
+	// This field allows users to control the amount and severity of logs generated, which can be useful
+	// for debugging issues or reducing noise in production environments.
+	// Allowed values are Error, Warn, Info, and Debug.
+	// When set to Error, only errors will be logged.
+	// When set to Warn, both warnings and errors will be logged.
+	// When set to Info, general information, warnings, and errors will all be logged.
+	// When set to Debug, detailed debugging information will be logged.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default, that is subject to change over time.
+	// The current default value is `Info`.
+	// +optional
+	LogLevel LogLevel `json:"logLevel,omitempty"`
+	// nodeSelector defines the nodes on which the Pods are scheduled.
+	// nodeSelector is optional.
+	//
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// The current default value is `kubernetes.io/os: linux`.
+	// When specified, nodeSelector must contain at least one key-value pair (minimum of 1)
+	// and must not contain more than 10 entries.
+	// +optional
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// queryLogFile specifies the file to which PromQL queries are logged.
+	// This setting can be either a filename, in which
+	// case the queries are saved to an `emptyDir` volume
+	// at `/var/log/prometheus`, or a full path to a location where
+	// an `emptyDir` volume will be mounted and the queries saved.
+	// Writing to `/dev/stderr`, `/dev/stdout` or `/dev/null` is supported, but
+	// writing to any other `/dev/` path is not supported. Relative paths are
+	// also not supported.
+	// By default, PromQL queries are not logged.
+	// Must be an absolute path starting with `/` or a simple filename without path separators.
+	// Must not contain consecutive slashes, end with a slash, or include '..' path traversal.
+	// Must contain only alphanumeric characters, '.', '_', '-', or '/'.
+	// Must be between 1 and 255 characters in length.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:XValidation:rule="self.matches('^[a-zA-Z0-9._/-]+$')",message="must contain only alphanumeric characters, '.', '_', '-', or '/'"
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('/') || !self.contains('/')",message="must be an absolute path starting with '/' or a simple filename without '/'"
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/dev/') || self in ['/dev/stdout', '/dev/stderr', '/dev/null']",message="only /dev/stdout, /dev/stderr, and /dev/null are allowed as /dev/ paths"
+	// +kubebuilder:validation:XValidation:rule="!self.contains('//') && !self.endsWith('/') && !self.contains('..')",message="must not contain '//', end with '/', or contain '..'"
+	QueryLogFile string `json:"queryLogFile,omitempty"`
+	// remoteWrite defines the remote write configuration, including URL, authentication, and relabeling settings.
+	// Remote write allows Prometheus to send metrics it collects to external long-term storage systems.
+	// When omitted, no remote write endpoints are configured.
+	// When provided, at least one configuration must be specified (minimum 1, maximum 10 items).
+	// Entries must have unique names (name is the list key).
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	RemoteWrite []RemoteWriteSpec `json:"remoteWrite,omitempty"`
+	// resources defines the compute resource requests and limits for the Prometheus container.
+	// This includes CPU, memory and HugePages constraints to help control scheduling and resource usage.
+	// When not specified, defaults are used by the platform. Requests cannot exceed limits.
+	// Each entry must have a unique resource name.
+	// Minimum of 1 and maximum of 10 resource entries can be specified.
+	// The current default values are:
+	//   resources:
+	//    - name: cpu
+	//      request: 4m
+	//    - name: memory
+	//      request: 40Mi
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	Resources []ContainerResource `json:"resources,omitempty"`
+	// retention configures how long Prometheus retains metrics data and how much storage it can use.
+	// When omitted, the platform chooses reasonable defaults (currently 15 days retention, no size limit).
+	// +optional
+	Retention Retention `json:"retention,omitempty,omitzero"`
+	// tolerations defines tolerations for the pods.
+	// tolerations is optional.
+	//
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// Defaults are empty/unset.
+	// Maximum length for this list is 10
+	// Minimum length for this list is 1
+	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
+	// +optional
+	Tolerations []v1.Toleration `json:"tolerations,omitempty"`
+	// topologySpreadConstraints defines rules for how Prometheus Pods should be distributed
+	// across topology domains such as zones, nodes, or other user-defined labels.
+	// topologySpreadConstraints is optional.
+	// This helps improve high availability and resource efficiency by avoiding placing
+	// too many replicas in the same failure domain.
+	//
+	// When omitted, this means no opinion and the platform is left to choose a default, which is subject to change over time.
+	// This field maps directly to the `topologySpreadConstraints` field in the Pod spec.
+	// Default is empty list.
+	// Maximum length for this list is 10.
+	// Minimum length for this list is 1
 	// Entries must have unique topologyKey and whenUnsatisfiable pairs.
 	// +kubebuilder:validation:MaxItems=10
 	// +kubebuilder:validation:MinItems=1
