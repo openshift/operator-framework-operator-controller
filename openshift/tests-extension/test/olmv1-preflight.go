@@ -187,7 +187,7 @@ func createDeficientClusterRole(scenario preflightAuthTestScenario, name, ceName
 				APIGroups:     []string{"olm.operatorframework.io"},
 				Resources:     []string{"clusterobjectsets/finalizers"},
 				Verbs:         []string{"update"},
-				ResourceNames: []string{ceName},
+				ResourceNames: []string{fmt.Sprintf("%s-1", ceName)},
 			},
 		}
 	} else {
