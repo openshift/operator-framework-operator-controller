@@ -2168,6 +2168,12 @@ rules:
       - list
       - watch
   - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+  - apiGroups:
       - olm.operatorframework.io
     resources:
       - clusterobjectsets
@@ -2576,7 +2582,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1          # Allow temporary 2 pods (1 + 1) for zero-downtime updates
+      maxSurge: 1          # Allow temporary extra pod for zero-downtime updates
       maxUnavailable: 0    # Never allow pods to be unavailable during updates
   selector:
     matchLabels:
@@ -2727,7 +2733,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1          # Allow temporary 2 pods (1 + 1) for zero-downtime updates
+      maxSurge: 1          # Allow temporary extra pod for zero-downtime updates
       maxUnavailable: 0    # Never allow pods to be unavailable during updates
   selector:
     matchLabels:

@@ -30,6 +30,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.podman.io/image/v5/types"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -40,8 +41,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	"pkg.package-operator.run/boxcutter/managedcache"
@@ -106,7 +105,6 @@ type config struct {
 	catalogdCasDir       string
 	pullCasDir           string
 	globalPullSecret     string
-	kubeconfig           string
 }
 
 type reconcilerConfigurator interface {
@@ -186,7 +184,6 @@ func init() {
 	flags.StringVar(&cfg.cachePath, "cache-path", "/var/cache", "The local directory path used for filesystem based caching")
 	flags.StringVar(&cfg.systemNamespace, "system-namespace", "", "Configures the namespace that gets used to deploy system resources.")
 	flags.StringVar(&cfg.globalPullSecret, "global-pull-secret", "", "The <namespace>/<name> of the global pull secret that is going to be used to pull bundle images.")
-	flags.StringVar(&cfg.kubeconfig, "kubeconfig", "", "Path to kubeconfig file for API server access. Uses in-cluster config if empty.")
 
 	//adds version sub command
 	operatorControllerCmd.AddCommand(versionCommand)
@@ -328,18 +325,7 @@ func run() error {
 			"Metrics will not be served since the TLS certificate and key file are not provided.")
 	}
 
-	// Load REST config with kubeconfig support for non-default kubeconfig
-	var restConfig *rest.Config
-	if cfg.kubeconfig != "" {
-		setupLog.Info("loading kubeconfig from file", "path", cfg.kubeconfig)
-		restConfig, err = clientcmd.BuildConfigFromFlags("", cfg.kubeconfig)
-		if err != nil {
-			setupLog.Error(err, "unable to load kubeconfig")
-			return err
-		}
-	} else {
-		restConfig = ctrl.GetConfigOrDie()
-	}
+	restConfig := ctrl.GetConfigOrDie()
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                        scheme.Scheme,
 		Metrics:                       metricsServerOptions,
@@ -697,8 +683,13 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		return fmt.Errorf("unable to create revision engine factory: %w", err)
 	}
 
+	cosClient := &secretFallbackClient{
+		Client:          c.mgr.GetClient(),
+		apiReader:       c.mgr.GetAPIReader(),
+		systemNamespace: cfg.systemNamespace,
+	}
 	if err = (&controllers.ClusterObjectSetReconciler{
-		Client:                c.mgr.GetClient(),
+		Client:                cosClient,
 		RevisionEngineFactory: revisionEngineFactory,
 		TrackingCache:         trackingCache,
 	}).SetupWithManager(c.mgr); err != nil {
@@ -790,4 +781,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// secretFallbackClient wraps a cached client.Client and falls back to direct
+// API reads for Secrets outside the system namespace, where the cache does not watch.
+type secretFallbackClient struct {
+	client.Client
+	apiReader       client.Reader
+	systemNamespace string
+}
+
+func (c *secretFallbackClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, isSecret := obj.(*corev1.Secret); isSecret && key.Namespace != c.systemNamespace {
+		return c.apiReader.Get(ctx, key, obj, opts...)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
 }
