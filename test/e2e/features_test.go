@@ -18,7 +18,7 @@ var opts = godog.Options{
 	Format:      "pretty",
 	Paths:       []string{"features"},
 	Output:      colors.Colored(os.Stdout),
-	Concurrency: 1,
+	Concurrency: 100,
 	NoColors:    true,
 }
 
