@@ -5,6 +5,105 @@ This repository contains the OLMv1 tests for OpenShift.
 These tests run against OpenShift clusters and are meant to be used in the OpenShift CI/CD pipeline.
 They use the framework: https://github.com/openshift-eng/openshift-tests-extension
 
+## How it works
+
+Three things make these tests run automatically in OpenShift CI:
+
+1. **Build** -- The [operator-controller.Dockerfile](../operator-controller.Dockerfile) builds the
+   `olmv1-tests-ext` binary, gzips it, and places it at `/usr/bin/olmv1-tests-ext.gz` inside the
+   operator-controller payload image.
+
+2. **Registration** -- The [openshift/origin](https://github.com/openshift/origin) repo maps
+   the image tag `olm-operator-controller` to that binary path in
+   [pkg/test/extensions/binary.go](https://github.com/openshift/origin/blob/master/pkg/test/extensions/binary.go).
+   This tells `openshift-tests` where to find and extract the OLMv1 test binary.
+
+3. **Execution** -- Because the binary is inside the payload and registered in origin,
+   `openshift-tests` picks it up automatically. The tests then run in release validation jobs,
+   presubmit jobs for OpenShift org repositories, and periodic jobs.
+
+These tests run across many different environments -- architectures (arm64, ppc64le, s390x),
+network setups (disconnected, proxy), and topologies (SNO, bare metal, etc.) -- unless a test
+opts out with a skip label like `[Skipped:Disconnected]`.
+
+**Useful links:**
+
+| What | Link | Description |
+|------|------|-------------|
+| Release jobs | [amd64.ocp.releases.ci.openshift.org](https://amd64.ocp.releases.ci.openshift.org/) | Click any build to see all validation jobs run against it |
+| Component Readiness | [Sippy](https://sippy.dptools.openshift.org/sippy-ng/component_readiness/main) | Test results feed here. Failures trigger a red alert and a Slack notification to the team |
+| OpenShift CI docs | [docs.ci.openshift.org](https://docs.ci.openshift.org/) | General documentation on how OpenShift CI works |
+| Help with alerts | `#forum-ocp-testplatform` on Slack | Managed by the TRT team |
+| Help with OTE | `#wg-openshift-tests-extension` on Slack | Questions about the OpenShift Tests Extension framework |
+
+## Design Architecture
+
+This extension has two categories of tests. They differ in **where they run** in CI:
+
+### Standard tests (`test/`)
+
+Written by the OLMv1 development team. These run in **all** OpenShift CI jobs that use the
+`olmv1/*` suites -- release validation, presubmit, and periodic jobs.
+
+Each suite maps to a parent suite in `openshift-tests` (defined in [`cmd/main.go`](cmd/main.go)):
+
+| Suite | Runs inside | What it includes |
+|-------|-------------|------------------|
+| `olmv1/parallel` | `openshift/conformance/parallel` | All tests except `[Serial]` and `[Slow]` |
+| `olmv1/serial` | `openshift/conformance/serial` | `[Serial]` tests (excludes `[Disruptive]` and `[Slow]`) |
+| `olmv1/slow` | `openshift/optional/slow` | `[Slow]` tests only |
+| `olmv1/all` | *(standalone)* | Everything |
+
+These suites also pick up `Extended + ReleaseGate` tests from `test/qe/` (see below).
+
+### Extended tests (`test/qe/`)
+
+Migrated from the QE tests-private repository. The framework auto-labels every test under
+`test/qe/specs/` as `Extended` (see [`cmd/main.go`](cmd/main.go)).
+
+Whether a test also has the `ReleaseGate` label decides where it runs:
+
+| Labels | Runs in standard suites? | Runs in extended suites? | Where it runs in CI |
+|--------|--------------------------|--------------------------|---------------------|
+| `Extended` + `ReleaseGate` | Yes | Yes | Everywhere (release, presubmit, periodic) |
+| `Extended` only | No | Yes | QE periodic jobs only |
+
+The filter logic is in [`test/qe/util/filters/filters.go`](test/qe/util/filters/filters.go).
+
+The extended suites break down like this:
+
+```text
+olmv1/extended                        # All Extended tests
+├── extended/releasegate              # Extended + ReleaseGate (also in standard suites)
+└── extended/candidate                # Extended without ReleaseGate
+    ├── candidate/function            # Functional tests (no StressTest)
+    │   ├── candidate/parallel        # No [Serial], no [Slow]
+    │   ├── candidate/serial          # [Serial] only
+    │   ├── candidate/fast            # parallel + serial (no [Slow])
+    │   └── candidate/slow            # [Slow] only
+    └── candidate/stress              # StressTest label
+```
+
+## QE Periodic Jobs
+
+The QE periodic jobs live in the [openshift/release](https://github.com/openshift/release) repo at
+[ci-operator/config/openshift/operator-framework-operator-controller/](https://github.com/openshift/release/tree/master/ci-operator/config/openshift/operator-framework-operator-controller)
+(look for files ending in `__periodics.yaml`).
+
+Example ([source](https://github.com/openshift/release/blob/main/ci-operator/config/openshift/operator-framework-operator-controller/openshift-operator-framework-operator-controller-release-4.22__periodics.yaml#L112-L120)):
+
+```yaml
+- as: e2e-aws-ovn-techpreview-extended-f1
+  cron: 2 10 * * *
+  steps:
+    cluster_profile: openshift-org-aws
+    env:
+      FEATURE_SET: TechPreviewNoUpgrade
+      TEST_ARGS: --monitor=watch-namespaces
+      TEST_SUITE: olmv1/extended/candidate/fast
+    workflow: openshift-e2e-aws-ovn
+```
+
 ## How to Run the Tests Locally
 
 | Command                                         | Description                                                              |
@@ -202,19 +301,24 @@ ext.IgnoreObsoleteTests(
 or other tools that expected the Unique TestID tracked outside of this repository. [More info](https://github.com/openshift-eng/ci-test-mapping)
 Check the status of https://issues.redhat.com/browse/TRT-2208 before proceeding with test deletions.
 
-## E2E Test Configuration
+## Presubmit CI Jobs
 
 Tests are configured in: [ci-operator/config/openshift/operator-framework-operator-controller](https://github.com/openshift/release/blob/master/ci-operator/config/openshift/operator-framework-operator-controller/)
 
-Here is a CI job example:
+Every PR to `operator-framework-operator-controller` triggers presubmit jobs defined in the
+[main branch config](https://github.com/openshift/release/blob/master/ci-operator/config/openshift/operator-framework-operator-controller/openshift-operator-framework-operator-controller-main.yaml).
+
+These jobs run the `olmv1/all` suite (which includes standard tests **and** `Extended + ReleaseGate`
+tests) against a freshly built OpenShift release that includes the PR's images.
+
+Example ([source](https://github.com/openshift/release/blob/master/ci-operator/config/openshift/operator-framework-operator-controller/openshift-operator-framework-operator-controller-main.yaml)):
 
 ```yaml
 - as: e2e-aws-techpreview-olmv1-ext
   steps:
-    cluster_profile: aws
+    cluster_profile: aws-3
     env:
       FEATURE_SET: TechPreviewNoUpgrade
-
       # Only enable 'watch-namespaces' monitor to avoid job failures from other default monitors 
       # in openshift-tests (like apiserver checks, alert summaries, etc). In this job, the selected 
       # OLMv1 test passed, but the job failed because a default monitor failed. 
@@ -224,25 +328,51 @@ Here is a CI job example:
       #
       # See: ./openshift-tests run --help (option: --monitor)
       TEST_ARGS: --monitor=watch-namespaces
+      TEST_SUITE: olmv1/all
+    test:
+    - ref: openshift-e2e-test
+    workflow: openshift-e2e-aws
 
+- as: e2e-aws-olmv1-ext
+  steps:
+    cluster_profile: aws-3
+    env:
+      # Only enable 'watch-namespaces' monitor to avoid job failures from other default monitors 
+      # in openshift-tests (like apiserver checks, alert summaries, etc). In this job, the selected 
+      # OLMv1 test passed, but the job failed because a default monitor failed. 
+      #
+      # 'watch-namespaces' is very lightweight and rarely fails, so it's a safe choice.
+      # There is no way to fully disable all monitors, but we can use this option to reduce noise.
+      #
+      # See: ./openshift-tests run --help (option: --monitor)
+      TEST_ARGS: --monitor=watch-namespaces
       TEST_SUITE: olmv1/all
     test:
     - ref: openshift-e2e-test
     workflow: openshift-e2e-aws
 ```
 
-This uses the `openshift-tests` binary to run OLMv1 tests against a test OpenShift release.
+This works because `include_built_images: true` in the release config injects the PR's freshly
+built images into the test cluster. More info:
+[Testing with an ephemeral OpenShift release](https://docs.ci.openshift.org/docs/architecture/ci-operator/#testing-with-an-ephemeral-openshift-release).
 
-It works for pull request testing because of this:
+There is also a `tests-extension` sanity job that runs only when files under
+`openshift/tests-extension/` change. It verifies formatting, builds the binary, and checks
+that the metadata is up to date:
 
 ```yaml
-releases:
-  latest:
-    integration:
-      include_built_images: true
+- as: tests-extension
+  run_if_changed: ^(openshift/tests-extension/)
+  steps:
+    test:
+    - as: sanity
+      commands: |
+        cd openshift/tests-extension
+        make verify
+        make build
+        make verify-metadata
+      from: src
 ```
-
-More info: https://docs.ci.openshift.org/docs/architecture/ci-operator/#testing-with-an-ephemeral-openshift-release
 
 ## Makefile Commands
 
