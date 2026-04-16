@@ -1,13 +1,18 @@
 package extensione2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -48,6 +53,35 @@ func TestMain(m *testing.M) {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		panic(fmt.Sprintf("failed to run setup.sh: %v", err))
+	}
+
+	// Push images via crane through the port-forward.
+	// setup.sh tags images with CLUSTER_REGISTRY_HOST. We export them
+	// from the container runtime via "save" and push through the
+	// port-forward with crane.
+	containerRuntime := os.Getenv("CONTAINER_RUNTIME")
+	bundlePath := "bundles/registry-v1/registry-bundle:v0.0.1"
+	for _, path := range []string{bundlePath, catalogTag} {
+		srcRef := fmt.Sprintf("%s/%s", clusterRegistryHost, path)
+		saveCmd := exec.Command(containerRuntime, "save", srcRef) //nolint:gosec
+		tarData, err := saveCmd.Output()
+		if err != nil {
+			panic(fmt.Sprintf("failed to save image %s: %v", srcRef, err))
+		}
+		tag, err := name.NewTag(srcRef)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse tag %s: %v", srcRef, err))
+		}
+		img, err := tarball.Image(func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(tarData)), nil
+		}, &tag)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load image %s from tarball: %v", srcRef, err))
+		}
+		pushRef := fmt.Sprintf("%s/%s", localAddr, path)
+		if err := crane.Push(img, pushRef, crane.Insecure); err != nil {
+			panic(fmt.Sprintf("failed to push image %s: %v", pushRef, err))
+		}
 	}
 
 	os.Exit(m.Run())

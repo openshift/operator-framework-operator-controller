@@ -25,7 +25,6 @@ import (
 const (
 	DefaultNamespace = "operator-controller-e2e"
 	DefaultName      = "docker-registry"
-	NodePort         = int32(30000)
 )
 
 // Deploy ensures the image registry namespace, TLS certificate, deployment,
@@ -120,12 +119,10 @@ func Deploy(ctx context.Context, cfg *rest.Config, namespace, name string) error
 	svc := corev1ac.Service(name, namespace).
 		WithSpec(corev1ac.ServiceSpec().
 			WithSelector(map[string]string{"app": "registry"}).
-			WithType(corev1.ServiceTypeNodePort).
 			WithPorts(corev1ac.ServicePort().
 				WithName("http").
 				WithPort(5000).
-				WithTargetPort(intstr.FromInt32(5000)).
-				WithNodePort(NodePort),
+				WithTargetPort(intstr.FromInt32(5000)),
 			),
 		)
 	if err := c.Apply(ctx, svc, fieldOwner, client.ForceOwnership); err != nil {
