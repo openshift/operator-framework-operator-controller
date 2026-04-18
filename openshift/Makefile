@@ -41,12 +41,13 @@ export CATALOG_IMG := $(CLUSTER_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
 
 # Order matters here, the ".../registries.conf" entry must be last.
 export DOWNSTREAM_E2E_FLAGS := -count=1 -v
+export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile
 .PHONY: test-e2e
 test-e2e: ## Run the e2e tests.
 	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
 	cd $(DIR)/../; \
 	LOCAL_REGISTRY_HOST=$$(oc get route $(E2E_REGISTRY_NAME) -n $(E2E_REGISTRY_NAMESPACE) -o jsonpath='{.spec.host}') \
-	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="~@mirrored-registry" --k8s.cli=oc
+	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" --k8s.cli=oc
 
 export DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS := -count=1 -v
 .PHONY: test-experimental-e2e
