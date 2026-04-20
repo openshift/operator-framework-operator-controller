@@ -27,9 +27,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcu
 	var unique, nsName, ccName, opName string
 
 	BeforeEach(func(ctx SpecContext) {
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for Boxcutter runtime tests")
-		}
 		helpers.RequireFeatureGateEnabled(features.FeatureGateNewOLMBoxCutterRuntime)
 		helpers.RequireImageRegistry(ctx)
 
