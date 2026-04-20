@@ -14,16 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
-	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/extlogs"
 )
 
 // RequireOLMv1CapabilityOnOpenshift checks if the OpenShift cluster has
 // OLMv1 capability enabled. If not, it skips the test with a message.
 func RequireOLMv1CapabilityOnOpenshift() {
-	if !env.Get().IsOpenShift {
-		extlogs.Warn("Skipping feature capability check: not OpenShift")
-		return
-	}
 	ctx := context.TODO()
 	clientset := configv1Client()
 	cv, err := clientset.ConfigV1().ClusterVersions().Get(ctx, "version", metav1.GetOptions{})
