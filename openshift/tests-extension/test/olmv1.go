@@ -107,10 +107,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 
 	It("should install an openshift catalog cluster extension", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should install an openshift catalog cluster extension"), func(ctx SpecContext) {
-		if !env.Get().IsOpenShift {
-			Skip("Requires OCP Catalogs: not OpenShift")
-		}
-
 		By("ensuring no ClusterExtension and CRD for quay-operator")
 		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
 
@@ -152,10 +148,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 
 	It("should install a cluster extension",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should install a cluster extension"), func(ctx SpecContext) {
-			if !env.Get().IsOpenShift {
-				Skip("Requires OCP Catalogs: not OpenShift")
-			}
-
 			By("ensuring no ClusterExtension and CRD for the operator")
 			helpers.EnsureCleanupClusterExtension(context.Background(), opName, "")
 
@@ -169,10 +161,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 
 	It("should fail to install a non-existing cluster extension",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should fail to install a non-existing cluster extension"), func(ctx SpecContext) {
-			if !env.Get().IsOpenShift {
-				Skip("Requires OCP APIs: not OpenShift")
-			}
-
 			By("ensuring no ClusterExtension and CRD for non-existing operator")
 			helpers.EnsureCleanupClusterExtension(context.Background(), "does-not-exist", "") // No CRD expected for non-existing operator
 
