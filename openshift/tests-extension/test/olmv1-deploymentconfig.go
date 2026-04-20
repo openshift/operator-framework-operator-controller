@@ -41,9 +41,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnect
 
 	BeforeAll(func(ctx SpecContext) {
 		By("checking prerequisites")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
