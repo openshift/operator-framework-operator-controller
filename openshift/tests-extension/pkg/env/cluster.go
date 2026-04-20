@@ -19,7 +19,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +29,8 @@ import (
 )
 
 // TestEnv holds the test environment state, including the Kubernetes REST config,
-// controller-runtime client, and a flag indicating if the cluster is OpenShift.
+// controller-runtime client, and OpenShift version.
+// These tests are designed to run on OpenShift clusters only.
 type TestEnv struct {
 	// RestCfg stores the Kubernetes REST configuration used by clients
 	RestCfg *rest.Config
@@ -38,10 +38,7 @@ type TestEnv struct {
 	// Controller-runtime client for interacting with the cluster
 	K8sClient crclient.Client
 
-	// True if the cluster is detected as an OpenShift environment
-	IsOpenShift bool
-
-	// Set to the MAJOR.MINOR version of OpenShift, blank otherwise
+	// Set to the MAJOR.MINOR version of OpenShift
 	OpenShiftVersion string
 }
 
@@ -79,8 +76,6 @@ func Init() *TestEnv {
 //		})
 func initTestEnv() *TestEnv {
 	cfg := getRestConfig()
-	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(cfg)
-	isOcp := detectOpenShift(discoveryClient)
 
 	// Create the runtime scheme and register all necessary types
 	scheme := runtime.NewScheme()
@@ -91,29 +86,28 @@ func initTestEnv() *TestEnv {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1.AddToScheme(scheme))
-
-	if isOcp {
-		utilruntime.Must(buildv1.AddToScheme(scheme))
-		utilruntime.Must(configv1.AddToScheme(scheme))
-		utilruntime.Must(imagev1.AddToScheme(scheme))
-		utilruntime.Must(operatorv1.AddToScheme(scheme))
-	}
+	utilruntime.Must(buildv1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
+	utilruntime.Must(imagev1.AddToScheme(scheme))
+	utilruntime.Must(operatorv1.AddToScheme(scheme))
 
 	k8sClient, err := crclient.New(cfg, crclient.Options{Scheme: scheme})
 	if err != nil {
 		log.Fatalf("failed to create controller-runtime client: %v", err)
 	}
 
-	version := ""
-	if isOcp {
-		extlogs.Infof("[env] Cluster environment initialized (OpenShift: %t)\n", isOcp)
-		version = getOcpVersion(k8sClient)
+	version := getOcpVersion(k8sClient)
+	if version != "" {
+		extlogs.Infof("[env] Detected OpenShift version: %s\n", version)
+	} else {
+		extlogs.Warn("[env] Could not detect OpenShift version")
 	}
+
+	extlogs.Infof("[env] Cluster environment initialized successfully\n")
 
 	return &TestEnv{
 		RestCfg:          cfg,
 		K8sClient:        k8sClient,
-		IsOpenShift:      isOcp,
 		OpenShiftVersion: version,
 	}
 }
@@ -122,10 +116,12 @@ func getOcpVersion(c crclient.Client) string {
 	cv := &configv1.ClusterVersion{}
 	err := c.Get(context.Background(), crclient.ObjectKey{Name: "version"}, cv)
 	if err != nil {
+		extlogs.WarnContextf("failed to get ClusterVersion resource: %v", err)
 		return ""
 	}
 	v, err := bsemver.Parse(cv.Status.Desired.Version)
 	if err != nil {
+		extlogs.WarnContextf("failed to parse OpenShift version '%s': %v", cv.Status.Desired.Version, err)
 		return ""
 	}
 	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
@@ -151,23 +147,6 @@ func getRestConfig() *rest.Config {
 		log.Fatalf("Failed to load in-cluster config: %v", err)
 	}
 	return configureQPS(cfg)
-}
-
-// detectOpenShift checks if the cluster is an OpenShift cluster.
-// It does this by looking for the "config.openshift.io" API group,
-// which only exists in OpenShift environments.
-func detectOpenShift(d discovery.DiscoveryInterface) bool {
-	groups, err := d.ServerGroups()
-	if err != nil {
-		extlogs.WarnContextf("failed to list API groups: %v", err)
-		return false
-	}
-	for _, g := range groups.Groups {
-		if g.Name == "config.openshift.io" {
-			return true
-		}
-	}
-	return false
 }
 
 // configureQPS sets high QPS and burst values to avoid client-side throttling during tests.
