@@ -18,11 +18,6 @@ import (
 // This is necessary for tests that depend on the internal image registry service at
 // image-registry.openshift-image-registry.svc:5000
 func RequireImageRegistry(ctx context.Context) {
-	if !env.Get().IsOpenShift {
-		extlogs.Warn("Skipping image-registry check: not OpenShift")
-		return
-	}
-
 	clientset, err := kubernetes.NewForConfig(env.Get().RestCfg)
 	if err != nil {
 		extlogs.WarnContextf("Failed to create kubernetes client for image-registry check: %v", err)
