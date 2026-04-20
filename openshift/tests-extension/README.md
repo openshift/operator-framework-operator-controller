@@ -2,7 +2,7 @@
 ========================
 
 This repository contains the OLMv1 tests for OpenShift.
-These tests run against OpenShift clusters and are meant to be used in the OpenShift CI/CD pipeline.
+These tests are designed to run exclusively on OpenShift clusters and are used in the OpenShift CI/CD pipeline.
 They use the framework: https://github.com/openshift-eng/openshift-tests-extension
 
 ## How it works
@@ -117,8 +117,8 @@ Example ([source](https://github.com/openshift/release/blob/main/ci-operator/con
 
 ## How to Run the Tests Locally
 
-The tests can be run locally using the `olmv1-tests-ext` binary against an OpenShift cluster or a vanilla Kubernetes cluster.
-Features and checks which are OpenShift-specific will be skipped when running against a vanilla Kubernetes cluster.
+The tests can be run locally using the `olmv1-tests-ext` binary against an OpenShift cluster.
+These tests are specifically designed for OpenShift and require OpenShift-specific APIs and features.
 
 Use the environment variable `KUBECONFIG` to point to your cluster configuration file such as:
 
@@ -127,9 +127,9 @@ KUBECONFIG=path/to/kubeconfig ./bin/olmv1-tests-ext run-test -n <test-name>
 ```
 
 To run tests that include tech preview features, 
-you need a cluster with OLMv1 installed and those features enabled.
+you need an OpenShift cluster with OLMv1 installed and those features enabled.
 
-### Local Test using OLMv1 and OCP
+### Local Test using OLMv1 on OpenShift
 
 1. Use the `Cluster Bot` to create an OpenShift cluster with OLMv1 installed.
 
@@ -154,99 +154,6 @@ export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
 ```shell
 ./bin/olmv1-tests-ext run-suite olmv1/all
 ```
-
-### Local Test using OLMv1 and Kind
-
-**Prerequisites:**
-
-Install OLMv1 before running the tests. 
-You can use the `kind` tool to create a local Kubernetes cluster with OLMv1 installed.
-Furthermore, if you are using feature gates in your test you will need to
-ensure that those are enabled in your cluster.
-
-**Example:**
-
-export KUBECONFIG=$HOME/.kube/config
-
-```shell
-$ ./bin/olmv1-tests-ext run-suite olmv1/all
-  Running Suite:  - /Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension
-  ===============================================================================================================
-  Random Seed: 1753508546 - will randomize all specs
-
-  Will run 1 of 1 specs
-  ------------------------------
-  [sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs should verify required CRDs are installed and active
-  /Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension/test/olmv1.go:37
-  [INFO] [env] Using kubeconfig: /Users/camilam/.kube/config[WARN] Skipping feature capability check: not OpenShift  STEP: verifying CRD clusterextensions.olm.operatorframework.io @ 07/26/25 06:42:26.57
-    STEP: verifying CRD clustercatalogs.olm.operatorframework.io @ 07/26/25 06:42:26.575
-  • [0.026 seconds]
-  ------------------------------
-
-  Ran 1 of 1 Specs in 0.026 seconds
-  SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
-  Running Suite:  - /Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension
-  ===============================================================================================================
-  Random Seed: 1753508546 - will randomize all specs
-
-  Will run 1 of 1 specs
-  ------------------------------
-  [sig-olmv1] OLMv1 should pass a trivial sanity check
-  /Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension/test/olmv1.go:26
-  • [0.000 seconds]
-  ------------------------------
-
-  Ran 1 of 1 Specs in 0.000 seconds
-  SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
-[
-  {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 CRDs should verify required CRDs are installed and active",
-    "lifecycle": "blocking",
-    "duration": 26,
-    "startTime": "2025-07-26 05:42:26.553886 UTC",
-    "endTime": "2025-07-26 05:42:26.580057 UTC",
-    "result": "passed",
-    "output": "[INFO] [env] Using kubeconfig: /Users/camilam/.kube/config[WARN] Skipping feature capability check: not OpenShift  STEP: verifying CRD clusterextensions.olm.operatorframework.io @ 07/26/25 06:42:26.57\n  STEP: verifying CRD clustercatalogs.olm.operatorframework.io @ 07/26/25 06:42:26.575\n"
-  },
-  {
-    "name": "[sig-olmv1] OLMv1 should pass a trivial sanity check",
-    "lifecycle": "blocking",
-    "duration": 26,
-    "startTime": "2025-07-26 05:42:26.553852 UTC",
-    "endTime": "2025-07-26 05:42:26.580263 UTC",
-    "result": "passed",
-    "output": ""
-  }
-]
-```
-
-## Writing Tests
-
-You can write tests in the `openshift/tests-extension/tests/` directory. 
-Please follow these guidelines:
-
-1. Skip OpenShift-specific logic on vanilla Kubernetes
-
-If your test requires OpenShift-only APIs (e.g., clusterversions.config.openshift.io), 
-guard it using `env.Get().IsOpenShift` to ensure it skips gracefully when running 
-on vanilla Kubernetes clusters:
-
-```go
-    if !env.Get().IsOpenShift {
-        extlogs.Warn("Skipping test: not running on OpenShift")
-        Skip("This test requires OpenShift APIs")
-    }
-```
-
-Or, if used within helper functions:
-```go
-    if !env.Get().IsOpenShift {
-        extlogs.Warn("Skipping feature capability check: not OpenShift")
-        return
-    }
-```
-
-This ensures compatibility when running tests in non-OpenShift environments such as KinD.
 
 ## Development Workflow
 
