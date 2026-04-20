@@ -41,10 +41,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 
 	var unique, saName, crbName, ceName string
 	BeforeEach(func(ctx SpecContext) {
-		By("checking if OpenShift is available for tests")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
@@ -164,10 +160,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 
 	var unique, saName, crbName, ceName string
 	BeforeEach(func(ctx SpecContext) {
-		By("checking if OpenShift is available for tests")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
@@ -282,10 +274,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		By("checking if OpenShift is available for tests")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
@@ -499,10 +487,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 
 	var unique, saName, crbName, ceName string
 	BeforeEach(func(ctx SpecContext) {
-		By("checking if OpenShift is available for tests")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
@@ -630,10 +614,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 
 	var unique, saName, crbName, ceName string
 	BeforeEach(func(ctx SpecContext) {
-		By("checking if OpenShift is available for tests")
-		if !env.Get().IsOpenShift {
-			Skip("Requires OpenShift for the tests")
-		}
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
