@@ -2,6 +2,7 @@ package extensiontests
 
 import (
 	"context"
+	"time"
 
 	"github.com/openshift-eng/openshift-tests-extension/pkg/dbtime"
 	"github.com/openshift-eng/openshift-tests-extension/pkg/util/sets"
@@ -59,6 +60,10 @@ type ExtensionTestSpec struct {
 	// to the `ote-binary run-test "test name"` commmand and interpretting the result.
 	RunParallel func(ctx context.Context) *ExtensionTestResult `json:"-"`
 
+	// Timeout is the maximum duration for this test. If set, it overrides the default 90-minute
+	// timeout used by SpawnProcessToRunTest. This is typically populated from Suite.TestTimeout.
+	Timeout time.Duration `json:"-"`
+
 	// Hook functions
 	afterAll   []*OneTimeTask
 	beforeAll  []*OneTimeTask
@@ -74,8 +79,10 @@ type Resources struct {
 }
 
 type Isolation struct {
-	Mode     string   `json:"mode,omitempty"`
-	Conflict []string `json:"conflict,omitempty"`
+	Mode       string   `json:"mode,omitempty"`
+	Conflict   []string `json:"conflict,omitempty"`
+	Taint      []string `json:"taint,omitempty"`
+	Toleration []string `json:"toleration,omitempty"`
 }
 
 type EnvironmentSelector struct {
