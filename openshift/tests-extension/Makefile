@@ -181,6 +181,11 @@ build: #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
 	GO_COMPLIANCE_POLICY="exempt_all" go build -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
 
+.PHONY: build-local-dev
+build-local-dev: #HELP Build the extended tests binary with local dev commands (for local development only)
+	@mkdir -p $(TOOLS_BIN_DIR)
+	GO_COMPLIANCE_POLICY="exempt_all" go build -tags dev -ldflags "$(LDFLAGS)" -mod=vendor -o $(TOOLS_BIN_DIR)/olmv1-tests-ext ./cmd/...
+
 .PHONY: update-metadata
 update-metadata: #HELP Build and run 'update-metadata' to generate test metadata
 	$(TOOLS_BIN_DIR)/olmv1-tests-ext update --component openshift:payload:olmv1
@@ -245,3 +250,21 @@ verify-metadata: update-metadata
 .PHONY: verify-images-json #HELP Verify that 'images' command outputs valid JSON
 verify-images-json:
 	@./hack/verify-images-json.sh $(TOOLS_BIN_DIR)/olmv1-tests-ext
+
+#SECTION Local Testing (Human-Readable Output)
+
+.PHONY: test-local
+test-local: build-local-dev #HELP Run tests locally with clean, human-readable output (usage: make test-local SUITE=olmv1/all)
+	@if [ -z "$(SUITE)" ]; then \
+		echo "ERROR: Please specify SUITE. Example: make test-local SUITE=olmv1/all"; \
+		exit 1; \
+	fi
+	@$(TOOLS_BIN_DIR)/olmv1-tests-ext run-suite-dev "$(SUITE)"
+
+.PHONY: test-local-single
+test-local-single: build-local-dev #HELP Run a single test with clean output (usage: make test-local-single TEST="test name")
+	@if [ -z "$(TEST)" ]; then \
+		echo "ERROR: Please specify TEST. Example: make test-local-single TEST=\"[sig-olmv1] OLMv1 should pass\""; \
+		exit 1; \
+	fi
+	@$(TOOLS_BIN_DIR)/olmv1-tests-ext run-test-dev -n "$(TEST)"
