@@ -33,6 +33,10 @@ opts out with a skip label like `[Skipped:Disconnected]`.
 | Release jobs | [amd64.ocp.releases.ci.openshift.org](https://amd64.ocp.releases.ci.openshift.org/) | Click any build to see all validation jobs run against it |
 | Component Readiness | [Sippy](https://sippy.dptools.openshift.org/sippy-ng/component_readiness/main) | Test results feed here. Failures trigger a red alert and a Slack notification to the team |
 | OpenShift CI docs | [docs.ci.openshift.org](https://docs.ci.openshift.org/) | General documentation on how OpenShift CI works |
+| OTE Framework | [github.com/openshift-eng/openshift-tests-extension](https://github.com/openshift-eng/openshift-tests-extension) | OpenShift Tests Extension framework - wraps Ginkgo and exposes test commands |
+| OTE Enhancement | [OTE Enhancement Proposal](https://github.com/openshift/enhancements/blob/master/enhancements/testing/openshift-tests-extension.md) | Official design doc for the OpenShift Tests Extension framework |
+| Ginkgo v2 docs | [onsi.github.io/ginkgo](https://onsi.github.io/ginkgo/) | Official Ginkgo BDD testing framework documentation |
+| Ginkgo CLI reference | [Ginkgo CLI flags](https://onsi.github.io/ginkgo/#the-ginkgo-cli) | Complete reference for Ginkgo command-line flags and options |
 | Help with alerts | `#forum-ocp-testplatform` on Slack | Managed by the TRT team |
 | Help with OTE | `#wg-openshift-tests-extension` on Slack | Questions about the OpenShift Tests Extension framework |
 
@@ -106,54 +110,144 @@ Example ([source](https://github.com/openshift/release/blob/main/ci-operator/con
 
 ## How to Run the Tests Locally
 
-| Command                                         | Description                                                              |
-|-------------------------------------------------|--------------------------------------------------------------------------|
-| `make build`                                    | Builds the OLMv1 test binary.                                            |
-| `./bin/olmv1-tests-ext info`                    | Shows info about the test binary and registered test suites.             |
-| `./bin/olmv1-tests-ext list`                    | Lists all available test cases.                                          |
-| `./bin/olmv1-tests-ext run-suite olmv1/all`     | Runs the full OLMv1 test suite.                                          |
-| `./bin/olmv1-tests-ext run-test -n <test-name>` | Runs one specific test. Replace <test-name> with the test's full name.   |
+You must run OTE tests (`./bin/olmv1-tests-ext`) against an OCP Cluster with TechPreview Features enabled.
 
+### Setup: Get an OpenShift Cluster
 
-## How to Run the Tests Locally
-
-The tests can be run locally using the `olmv1-tests-ext` binary against an OpenShift cluster.
-These tests are specifically designed for OpenShift and require OpenShift-specific APIs and features.
-
-Use the environment variable `KUBECONFIG` to point to your cluster configuration file such as:
-
-```shell
-KUBECONFIG=path/to/kubeconfig ./bin/olmv1-tests-ext run-test -n <test-name>
-```
-
-To run tests that include tech preview features, 
-you need an OpenShift cluster with OLMv1 installed and those features enabled.
-
-### Local Test using OLMv1 on OpenShift
-
-1. Use the `Cluster Bot` to create an OpenShift cluster with OLMv1 installed.
-
-**Example:**
+Use Cluster Bot to create an OpenShift cluster with OLMv1 installed:
 
 ```shell
 launch 4.20 gcp,techpreview
 ```
 
-2. Set the `KUBECONFIG` environment variable to point to your OpenShift cluster configuration file.
-
-**Example:**
+Set `KUBECONFIG`:
 
 ```shell
 mv ~/Downloads/cluster-bot-2025-08-06-082741.kubeconfig ~/.kube/cluster-bot.kubeconfig
 export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
 ```
 
-3. Run the tests using the `olmv1-tests-ext` binary.
+### Two Ways to Run Tests
+
+#### 1. **Developer-Friendly Output** (For local development)
+
+Use the local dev commands (`run-suite-dev`, `run-test-dev`) that provide clean, human-readable output:
+
+**Implementation:** Local dev commands in `localdevoutput/` are excluded from production builds using Go build tags. Only included with `make build-local-dev`. See [localdevoutput/README.md](localdevoutput/README.md).
+
+| Command | Description |
+|---------|-------------|
+| `make build-local-dev` | Builds the test binary with local dev commands |
+| `make test-local SUITE=olmv1/all` | Runs a test suite with clean, color-coded output |
+| `make test-local-single TEST="test name"` | Runs a single test with clean output |
+| `make list-test-names` | Lists all available test names |
+
+**Example**
+
+```bash
+export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
+make build-local-dev
+make test-local SUITE=olmv1/all
+```
+
+**Output:** Clean, color-coded summary with live progress:
+```text
+[46/46] ▶ Running: [sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should have a working validating webhook
+  ✓ PASSED [194.1 seconds] (Total: ✓45 ✗0)
+
+
+════════════════════════════════════════════════════════
+  Final Summary
+════════════════════════════════════════════════════════
+✓ Passed:  45
+✗ Failed:  0
+⊘ Skipped: 1
+
+✓ ALL TESTS PASSED!
+```
+
+#### 2. **Raw OTE Framework Output** (For CI/CD integration)
+
+Run the binary directly for structured JSON reports:
+
+| Command | Description |
+|---------|-------------|
+| `./bin/olmv1-tests-ext info` | Shows info about the test binary and registered test suites |
+| `./bin/olmv1-tests-ext list` | Lists all available test cases |
+| `./bin/olmv1-tests-ext run-suite olmv1/all` | Runs the full OLMv1 test suite with JSON output |
+| `./bin/olmv1-tests-ext run-test -n <test-name>` | Runs one specific test with JSON output |
 
 **Example:**
-```shell
+
+```bash
+export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
+make build
 ./bin/olmv1-tests-ext run-suite olmv1/all
 ```
+
+**Output:** Structured JSON report (as used by Component Readiness and other integrated solutions):
+```text
+Running Suite:  - /Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension
+===============================================================================================================
+Random Seed: 1753508546 - will randomize all specs
+
+Will run 1 of 1 specs
+------------------------------
+[sig-olmv1] OLMv1 should pass a trivial sanity check
+/Users/camilam/go/src/github/operator-framework-operator-controller/openshift/tests-extension/test/olmv1.go:26
+• [0.000 seconds]
+------------------------------
+
+Ran 1 of 1 Specs in 0.000 seconds
+SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
+[
+  {
+    "name": "[sig-olmv1] OLMv1 should pass a trivial sanity check",
+    "lifecycle": "blocking",
+    "duration": 0,
+    "startTime": "2025-07-26 05:42:26.553852 UTC",
+    "endTime": "2025-07-26 05:42:26.580263 UTC",
+    "result": "passed",
+    "output": ""
+  }
+]
+```
+
+This is the same output format used by:
+- **Component Readiness** ([Sippy](https://sippy.dptools.openshift.org/sippy-ng/component_readiness/main))
+- **OpenShift CI/CD** pipeline
+- **Release validation jobs**
+- Any automated test processing tools
+
+**When to use which:**
+- Use **clean output** (`make test-local` or `make test-local-single`) for local development, debugging, and quick visual feedback
+- Use **raw output** (direct binary execution with `./bin/olmv1-tests-ext`) when you need JSON reports, CI/CD integration, or programmatic processing
+
+### Discovering Available Flags
+
+The OTE framework wraps Ginkgo and exposes its own set of commands and flags. To see what's available:
+
+```bash
+# See all available commands
+./bin/olmv1-tests-ext --help
+
+# See flags for running test suites
+./bin/olmv1-tests-ext run-suite --help
+
+# See flags for running individual tests
+./bin/olmv1-tests-ext run-test --help
+```
+
+**Available OTE-specific flags:**
+- `--component string` - Specify the component to enable (default "default")
+- `--max-concurrency int` - Maximum number of tests to run in parallel (default 10)
+- `--output string` - Output mode (default "json")
+- `--junit-path string` - Write results to JUnit XML (for `run-suite`)
+- `--names stringArray` - Specify test name, can be used multiple times (for `run-test`)
+
+**Note:** The OTE framework does not expose all Ginkgo CLI flags.
+It provides a simplified interface focused on running tests in OpenShift environments.
+For full Ginkgo flag reference, see the [Ginkgo CLI documentation](https://onsi.github.io/ginkgo/#the-ginkgo-cli).
 
 ## Development Workflow
 
@@ -283,14 +377,16 @@ that the metadata is up to date:
 
 ## Makefile Commands
 
-| Target                   | Description                                                                  |
-|--------------------------|------------------------------------------------------------------------------|
-| `make build`             | Builds the test binary.                                                      |
-| `make update-metadata`   | Updates the metadata JSON file.                                              |
-| `make build-update`      | Runs build + update-metadata + cleans codeLocations.                         |
-| `make verify`            | Runs formatting, vet, and linter.                                            |
-| `make list-test-names`   | Shows all test names in the binary.                                          |
-| `make clean-metadata`    | Removes machine-specific codeLocations from the JSON metadata. [More info](https://issues.redhat.com/browse/TRT-2186) |
+| Target                           | Description                                                                  |
+|----------------------------------|------------------------------------------------------------------------------|
+| `make build`                     | Builds the test binary.                                                      |
+| `make test-local SUITE=<suite>`  | Runs a test suite with clean, human-readable output for local development. |
+| `make test-local-single TEST="<name>"` | Runs a single test with clean, human-readable output. |
+| `make list-test-names`           | Shows all test names in the binary.                                          |
+| `make update-metadata`           | Updates the metadata JSON file.                                              |
+| `make build-update`              | Runs build + update-metadata + cleans codeLocations.                         |
+| `make verify`                    | Runs formatting, vet, and linter.                                            |
+| `make clean-metadata`            | Removes machine-specific codeLocations from the JSON metadata. [More info](https://issues.redhat.com/browse/TRT-2186) |
 
 **Note:** Metadata is stored in: `.openshift-tests-extension/openshift_payload_olmv1.json`
 
