@@ -14,12 +14,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
+	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
 	e "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
 	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/spf13/cobra"
 
+	localdevcmd "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/localdevoutput/cmd"
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/pkg/env"
 	_ "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test"
 	_ "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/specs"
@@ -300,33 +301,38 @@ func main() {
 	}
 
 	// Get all default commands from the extension framework
-	allCommands := cmd.DefaultExtensionCommands(registry)
+	allCommands := otecmd.DefaultExtensionCommands(registry)
 
-	// Add KUBECONFIG check to run-suite and run-test commands only.
+	// Add local dev commands for local development (only included when built with -tags dev)
+	allCommands = append(allCommands, localdevcmd.RegisterLocalDevCommands(registry)...)
+
+	// Add KUBECONFIG check to run-suite, run-test, and dev variants.
 	// Other commands (list, info, images, update, completion, help) don't need KUBECONFIG.
 	for _, command := range allCommands {
-		// Identify run-suite and run-test commands by their Use field
-		if command.Use == "run-suite NAME" || command.Use == "run-test [-n NAME...] [NAME]" {
-			// Save the original RunE function
-			originalRunE := command.RunE
+		switch command.Name() {
+		case "run-suite", "run-test", "run-suite-dev", "run-test-dev":
+			localCmd := command
+			originalRunE := localCmd.RunE
 
-			// Wrap it with KUBECONFIG check
-			command.RunE = func(cmd *cobra.Command, args []string) error {
-				// Check KUBECONFIG before running the test
+			localCmd.RunE = func(cmd *cobra.Command, args []string) error {
 				if err := exutil.CheckKubeconfigSet(); err != nil {
 					return err
 				}
-				// Call the original RunE function
-				return originalRunE(cmd, args)
+				if originalRunE != nil {
+					return originalRunE(cmd, args)
+				}
+				if localCmd.Run != nil {
+					localCmd.Run(cmd, args)
+					return nil
+				}
+				return fmt.Errorf("command %s has no Run or RunE function", localCmd.Name())
 			}
 		}
 	}
 
 	root.AddCommand(allCommands...)
 
-	if err := func() error {
-		return root.Execute()
-	}(); err != nil {
+	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
