@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strconv"
+	"sync"
 
 	"github.com/cucumber/godog"
 	"github.com/go-logr/logr"
@@ -32,10 +33,10 @@ type scenarioContext struct {
 	namespace            string
 	clusterExtensionName string
 	clusterObjectSetName string
-	clusterCatalogName   string
+	catalogs             map[string]string // user-chosen name -> ClusterCatalog resource name
+	catalogPackageNames  map[string]string // original package name -> parameterized name
 	addedResources       []resource
 	removedResources     []unstructured.Unstructured
-	backGroundCmds       []*exec.Cmd
 	metricsResponse      map[string]string
 	leaderPods           map[string]string // component name -> leader pod name
 
@@ -158,6 +159,9 @@ func CreateScenarioContext(ctx context.Context, sc *godog.Scenario) (context.Con
 		namespace:            fmt.Sprintf("ns-%s", sc.Id),
 		clusterExtensionName: fmt.Sprintf("ce-%s", sc.Id),
 		clusterObjectSetName: fmt.Sprintf("cos-%s", sc.Id),
+		catalogs:             make(map[string]string),
+		catalogPackageNames:  make(map[string]string),
+		metricsResponse:      make(map[string]string),
 		leaderPods:           make(map[string]string),
 	}
 	return context.WithValue(ctx, scenarioContextKey, scCtx), nil
@@ -177,11 +181,6 @@ func stderrOutput(err error) string {
 
 func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context.Context, error) {
 	sc := scenarioCtx(ctx)
-	for _, bgCmd := range sc.backGroundCmds {
-		if p := bgCmd.Process; p != nil {
-			_ = p.Kill()
-		}
-	}
 	if err != nil {
 		return ctx, err
 	}
@@ -193,9 +192,16 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 	if sc.clusterObjectSetName != "" {
 		forDeletion = append(forDeletion, resource{name: sc.clusterObjectSetName, kind: "clusterobjectset"})
 	}
+	for _, catalogName := range sc.catalogs {
+		forDeletion = append(forDeletion, resource{name: catalogName, kind: "clustercatalog"})
+	}
 	forDeletion = append(forDeletion, resource{name: sc.namespace, kind: "namespace"})
+
+	var wg sync.WaitGroup
 	for _, r := range forDeletion {
+		wg.Add(1)
 		go func(res resource) {
+			defer wg.Done()
 			args := []string{"delete", res.kind, res.name, "--ignore-not-found=true"}
 			if res.namespace != "" {
 				args = append(args, "-n", res.namespace)
@@ -205,5 +211,6 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 			}
 		}(r)
 	}
+	wg.Wait()
 	return ctx, nil
 }
