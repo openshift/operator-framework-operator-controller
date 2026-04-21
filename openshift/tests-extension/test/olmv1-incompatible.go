@@ -47,10 +47,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 	})
 	It("should block cluster upgrades if an incompatible operator is installed",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should block cluster upgrades if an incompatible operator is installed"), func(ctx SpecContext) {
-			if !env.Get().IsOpenShift {
-				Skip("Requires OCP APIs: not OpenShift")
-			}
-
 			By("waiting for InstalledOLMOperatorUpgradable to be true")
 			waitForOlmUpgradeStatus(ctx, operatorv1.ConditionTrue, "")
 
