@@ -13,6 +13,7 @@ require (
 	github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
 	github.com/operator-framework/operator-controller v1.8.1-0.20260319123036-8ccea5a0cf67
 	github.com/pborman/uuid v1.2.1
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/pretty v1.2.1
@@ -73,7 +74,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
