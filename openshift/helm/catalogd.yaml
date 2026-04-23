@@ -8,6 +8,7 @@ options:
     enabled: true
     deployment:
       image: ${CATALOGD_IMAGE}
+      replicas: 1
     podDisruptionBudget:
       enabled: false
   operatorController:
@@ -25,6 +26,15 @@ namespaces:
 # Deployment values for catalogd
 deployments:
   templateSpec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  control-plane: catalogd-controller-manager
     priorityClassName: system-cluster-critical
     securityContext:
       seLinuxOptions:
