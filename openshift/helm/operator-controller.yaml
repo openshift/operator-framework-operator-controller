@@ -8,6 +8,7 @@ options:
     enabled: true
     deployment:
       image: ${OPERATOR_CONTROLLER_IMAGE}
+      replicas: 1
     podDisruptionBudget:
       enabled: false
   catalogd:
@@ -26,6 +27,15 @@ namespaces:
 # Deployment values for operator-controller
 deployments:
   templateSpec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  control-plane: operator-controller-controller-manager
     priorityClassName: system-cluster-critical
     securityContext:
       seLinuxOptions:
