@@ -1345,6 +1345,14 @@ spec:
                     operator: In
                     values:
                       - linux
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    control-plane: operator-controller-controller-manager
+                topologyKey: kubernetes.io/hostname
+              weight: 100
       nodeSelector:
         kubernetes.io/os: linux
         node-role.kubernetes.io/control-plane: ""
