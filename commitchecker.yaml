@@ -1,0 +1,3 @@
+upstreamBranch: main
+upstreamOrg: operator-framework
+upstreamRepo: operator-controller
