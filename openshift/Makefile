@@ -34,25 +34,19 @@ verify-manifests: manifests
 E2E_REGISTRY_NAME=docker-registry
 E2E_REGISTRY_NAMESPACE=operator-controller-e2e
 export CLUSTER_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
-export REG_PKG_NAME := registry-operator
-export E2E_TEST_CATALOG_V1 := e2e/test-catalog:v1
-export E2E_TEST_CATALOG_V2 := e2e/test-catalog:v2
-export CATALOG_IMG := $(CLUSTER_REGISTRY_HOST)/$(E2E_TEST_CATALOG_V1)
 
-# Order matters here, the ".../registries.conf" entry must be last.
 export DOWNSTREAM_E2E_FLAGS := -count=1 -v
 export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile
 .PHONY: test-e2e
 test-e2e: ## Run the e2e tests.
-	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
+	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
 	cd $(DIR)/../; \
-	LOCAL_REGISTRY_HOST=$$(oc get route $(E2E_REGISTRY_NAME) -n $(E2E_REGISTRY_NAMESPACE) -o jsonpath='{.spec.host}') \
 	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" --k8s.cli=oc
 
 export DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS := -count=1 -v
 .PHONY: test-experimental-e2e
 test-experimental-e2e: ## Run the experimental e2e tests.
-	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME) $(E2E_REGISTRY_IMAGE)
+	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
 	cd $(DIR)/../; \
 	go test $(DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS) ./test/experimental-e2e/...;
 
