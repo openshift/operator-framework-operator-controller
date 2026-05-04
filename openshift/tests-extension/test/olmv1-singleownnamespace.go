@@ -13,7 +13,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -417,7 +416,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				DeferCleanup(func() {
 					By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
 					_ = k8sClient.Delete(context.Background(), ce, client.PropagationPolicy(metav1.DeletePropagationForeground))
-					helpers.EnsureCleanupClusterExtension(context.Background(), ceName, nsName)
+					helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 				})
 
 				By(fmt.Sprintf("waiting for the ClusterExtension %s to be installed for %s scenario", ceName, sc.label))
@@ -445,9 +444,11 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 					g.Expect(found).To(BeTrue(), "failed to find deployment with olm.targetNamespaces annotation")
 				}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 
-				// Ginkgo never invokes those deferred cleanups until we exit the whole spec, so the first scenario’s
-				// cluster resources survive long enough to collide with the second scenario.
-				By(fmt.Sprintf("cleaning up resources created for %s scenario to allow next scenario", sc.label))
+				// DeferCleanup handlers don’t run between loop iterations; they fire after the whole spec exits.
+				// Explicitly clean up cluster-scoped resources (CE, CRD) so EnsureCleanupClusterExtension can
+				// block until COS teardown completes before the next scenario starts. Unique names per scenario
+				// prevent any resource collision regardless.
+				By(fmt.Sprintf("cleaning up resources created for %s scenario before next scenario", sc.label))
 				deletePolicy := metav1.DeletePropagationForeground
 				Expect(k8sClient.Delete(ctx, ce, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterExtension %q", ceName)
 				helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
@@ -455,23 +456,15 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				Expect(k8sClient.Delete(ctx, crb, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterRoleBinding %q", crbName)
 				Expect(k8sClient.Delete(ctx, sa, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ServiceAccount %q", saName)
 
+				// Trigger namespace deletion and proceed without blocking. By this point
+				// EnsureCleanupClusterExtension has completed, meaning the ClusterObjectSet
+				// teardown has deleted all managed resources (Deployment, Service, etc.) and the
+				// CRD is gone. Each scenario uses unique namespace names and CRD groups, so the
+				// terminating namespace from scenario 1 cannot interfere with scenario 2.
 				if watchNSObj != nil {
-					Expect(k8sClient.Delete(ctx, watchNSObj, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete watch namespace %q", watchNamespace)
+					_ = k8sClient.Delete(ctx, watchNSObj, client.PropagationPolicy(deletePolicy))
 				}
-				Expect(k8sClient.Delete(ctx, installNS, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete install namespace %q", installNamespace)
-
-				By(fmt.Sprintf("waiting for namespace %s to be fully deleted before next scenario", installNamespace))
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, client.ObjectKey{Name: installNamespace}, &corev1.Namespace{})
-					return errors.IsNotFound(err)
-				}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue(), "expected namespace %s to be deleted", installNamespace)
-				if watchNSObj != nil {
-					By(fmt.Sprintf("waiting for namespace %s to be fully deleted before next scenario", watchNamespace))
-					Eventually(func() bool {
-						err := k8sClient.Get(ctx, client.ObjectKey{Name: watchNamespace}, &corev1.Namespace{})
-						return errors.IsNotFound(err)
-					}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(BeTrue(), "expected namespace %s to be deleted", watchNamespace)
-				}
+				_ = k8sClient.Delete(ctx, installNS, client.PropagationPolicy(deletePolicy))
 			}
 		})
 })
