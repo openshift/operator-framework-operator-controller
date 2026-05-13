@@ -16,9 +16,9 @@ mergedeep==1.3.4
 mkdocs==1.6.1
 mkdocs-material==9.7.6
 mkdocs-material-extensions==1.3.1
-packaging==26.1
+packaging==26.2
 paginate==0.5.7
-pathspec==1.1.0
+pathspec==1.1.1
 platformdirs==4.9.6
 Pygments==2.20.0
 pymdown-extensions==10.21.2
@@ -31,5 +31,5 @@ regex==2026.4.4
 requests==2.33.1
 six==1.17.0
 soupsieve==2.8.3
-urllib3==2.6.3
+urllib3==2.7.0
 watchdog==6.0.0
