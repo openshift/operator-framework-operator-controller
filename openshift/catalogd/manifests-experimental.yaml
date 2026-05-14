@@ -852,6 +852,7 @@ spec:
             - --metrics-bind-address=:7443
             - --external-address=catalogd-service.openshift-catalogd.svc
             - --feature-gates=APIV1MetasHandler=true
+            - --feature-gates=APIV1MetasHandler=false
             - --tls-cert=/var/certs/tls.crt
             - --tls-key=/var/certs/tls.key
             - --v=${LOG_VERBOSITY}
