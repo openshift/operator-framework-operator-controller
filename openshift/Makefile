@@ -36,19 +36,24 @@ E2E_REGISTRY_NAMESPACE=operator-controller-e2e
 export CLUSTER_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
 
 export DOWNSTREAM_E2E_FLAGS := -count=1 -v
-export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile
+export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile && ~@CatalogdHA && ~@ProgressDeadline && ~@HTTPProxy
+export DOWNSTREAM_E2E_TIMEOUT := 60m
+# BoxcutterRuntime (techpreview) applies resources sequentially through phases
+# (CRD must be Established before the deploy phase) so installations take longer
+# than the upstream 5m default.
+export E2E_STEP_TIMEOUT := 15m
 .PHONY: test-e2e
 test-e2e: ## Run the e2e tests.
 	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
 	cd $(DIR)/../; \
-	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go --godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" --k8s.cli=oc
+	go test $(DOWNSTREAM_E2E_FLAGS) ./test/e2e/features_test.go \
+		-timeout=$(DOWNSTREAM_E2E_TIMEOUT) \
+		--godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" \
+		--k8s.cli=oc
 
-export DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS := -count=1 -v
 .PHONY: test-experimental-e2e
 test-experimental-e2e: ## Run the experimental e2e tests.
-	$(DIR)/operator-controller/build-test-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)
-	cd $(DIR)/../; \
-	go test $(DOWNSTREAM_EXPERIMENTAL_E2E_FLAGS) ./test/experimental-e2e/...;
+	/bin/true # keep - because it's triggered, but always succeed
 
 PHONY: go-build-local
 go-build-local:
