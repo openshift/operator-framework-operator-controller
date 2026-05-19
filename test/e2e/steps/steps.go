@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -52,9 +51,21 @@ import (
 const (
 	olmDeploymentName      = "operator-controller-controller-manager"
 	catalogdDeploymentName = "catalogd-controller-manager"
-	timeout                = 5 * time.Minute
+	defaultTimeout         = 5 * time.Minute
 	tick                   = 1 * time.Second
 )
+
+// timeout is the per-step wait timeout. It defaults to defaultTimeout (5m) but
+// can be overridden via E2E_STEP_TIMEOUT to accommodate runtimes (e.g.
+// BoxcutterRuntime) that take longer to complete an installation.
+var timeout = func() time.Duration {
+	if s := os.Getenv("E2E_STEP_TIMEOUT"); s != "" {
+		if d, err := time.ParseDuration(s); err == nil {
+			return d
+		}
+	}
+	return defaultTimeout
+}()
 
 var (
 	olmNamespace        = "olmv1-system"
@@ -99,7 +110,7 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)bundle "([^"]+)" is installed in version "([^"]+)"$`, BundleInstalled)
 
 	sc.Step(`^(?i)ClusterExtension is applied(?:\s+.*)?$`, ResourceIsApplied)
-	sc.Step(`^(?i)ClusterExtension is updated to version "([^"]+)"$`, ClusterExtensionVersionUpdate)
+	sc.Step(`^(?i)ClusterExtension version is updated to "([^"]+)"$`, ClusterExtensionVersionUpdate)
 	sc.Step(`^(?i)ClusterExtension is updated(?:\s+.*)?$`, ResourceIsApplied)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" lifecycle is set to "([^"]+)"$`, ClusterObjectSetLifecycleUpdate)
 	sc.Step(`^(?i)ClusterExtension is available$`, ClusterExtensionIsAvailable)
@@ -337,6 +348,7 @@ func substituteScenarioVars(content string, sc *scenarioContext) string {
 		"NAME":           sc.clusterExtensionName,
 		"COS_NAME":       sc.clusterObjectSetName,
 		"SCENARIO_ID":    sc.id,
+		"OLM_NAMESPACE":  olmNamespace,
 	}
 	for orig, param := range sc.catalogPackageNames {
 		vars[fmt.Sprintf("PACKAGE:%s", orig)] = param
@@ -1394,36 +1406,24 @@ func httpGet(url string, token string) (*http.Response, error) {
 	return resp, nil
 }
 
-func randomAvailablePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
-}
-
 // SendMetricsRequest sets up port-forwarding to the controller's service pods and waits for the metrics endpoint
 // to return a successful response. Stores the response body per pod in the scenario context. Polls with timeout.
 func SendMetricsRequest(ctx context.Context, serviceAccount string, endpoint string, controllerName string) error {
 	sc := scenarioCtx(ctx)
-	serviceNs, err := k8sClient("get", "service", "-A", "-o", fmt.Sprintf(`jsonpath={.items[?(@.metadata.name=="%s-service")].metadata.namespace}`, controllerName))
+	svc, err := getMetricsService(controllerName)
 	if err != nil {
 		return err
 	}
-	v, err := k8sClient("get", "service", "-n", serviceNs, fmt.Sprintf("%s-service", controllerName), "-o", "json")
+	mPort, err := metricsPort(svc)
 	if err != nil {
 		return err
 	}
-	var service corev1.Service
-	if err := json.Unmarshal([]byte(v), &service); err != nil {
-		return err
-	}
-	podNameCmd := []string{"get", "pod", "-n", olmNamespace, "-o", "jsonpath={.items}"}
-	for k, v := range service.Spec.Selector {
+
+	podNameCmd := []string{"get", "pod", "-n", svc.Namespace, "-o", "jsonpath={.items}"}
+	for k, v := range svc.Spec.Selector {
 		podNameCmd = append(podNameCmd, fmt.Sprintf("--selector=%s=%s", k, v))
 	}
-	v, err = k8sClient(podNameCmd...)
+	v, err := k8sClient(podNameCmd...)
 	if err != nil {
 		return err
 	}
@@ -1436,51 +1436,39 @@ func SendMetricsRequest(ctx context.Context, serviceAccount string, endpoint str
 	if err != nil {
 		return err
 	}
-	var metricsPort int32
-	for _, p := range service.Spec.Ports {
-		if p.Name == "metrics" {
-			metricsPort = p.Port
-			break
-		}
-	}
+
 	sc.metricsResponse = make(map[string]string)
 	for _, p := range pods {
-		port, err := randomAvailablePort()
-		if err != nil {
-			return err
-		}
-		portForwardCmd := exec.Command(k8sCli, "port-forward", "-n", p.Namespace, fmt.Sprintf("pod/%s", p.Name), fmt.Sprintf("%d:%d", port, metricsPort)) //nolint:gosec // perfectly safe to start port-forwarder for provided controller name
-		logger.V(1).Info("starting port-forward", "command", strings.Join(portForwardCmd.Args, " "))
-		if err := portForwardCmd.Start(); err != nil {
-			logger.Error(err, fmt.Sprintf("failed to start port-forward for pod %s", p.Name))
-			return err
-		}
-		waitFor(ctx, func() bool {
-			resp, err := httpGet(fmt.Sprintf("https://localhost:%d%s", port, endpoint), token)
+		if err := func() error {
+			addr, cleanup, err := portForward(p.Namespace, fmt.Sprintf("pod/%s", p.Name), mPort)
 			if err != nil {
-				return false
+				return err
 			}
-			defer resp.Body.Close()
+			defer cleanup()
+			waitFor(ctx, func() bool {
+				resp, err := httpGet(fmt.Sprintf("https://%s%s", addr, endpoint), token)
+				if err != nil {
+					return false
+				}
+				defer resp.Body.Close()
 
-			if resp.StatusCode == http.StatusOK {
+				if resp.StatusCode == http.StatusOK {
+					b, err := io.ReadAll(resp.Body)
+					if err != nil {
+						return false
+					}
+					sc.metricsResponse[p.Name] = string(b)
+					return true
+				}
 				b, err := io.ReadAll(resp.Body)
 				if err != nil {
 					return false
 				}
-				sc.metricsResponse[p.Name] = string(b)
-				return true
-			}
-			b, err := io.ReadAll(resp.Body)
-			if err != nil {
+				logger.V(1).Info("failed to get metrics", "pod", p.Name, "response", string(b))
 				return false
-			}
-			logger.V(1).Info("failed to get metrics", "pod", p.Name, "response", string(b))
-			return false
-		})
-		if err := portForwardCmd.Process.Kill(); err != nil {
-			return err
-		}
-		if _, err := portForwardCmd.Process.Wait(); err != nil {
+			})
+			return nil
+		}(); err != nil {
 			return err
 		}
 	}
@@ -1833,7 +1821,7 @@ func MarkDeploymentReadiness(ctx context.Context, deploymentName, state string) 
 	default:
 		return fmt.Errorf("invalid state %s", state)
 	}
-	_, err = k8sClient("exec", podName, "-n", sc.namespace, "--", op, "/var/www/ready")
+	_, err = k8sClient("exec", podName, "-n", sc.namespace, "--", op, "/tmp/www/ready")
 	return err
 }
 
