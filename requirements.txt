@@ -6,7 +6,7 @@ click==8.3.3
 colorama==0.4.6
 cssselect==1.4.0
 ghp-import==2.1.0
-idna==3.13
+idna==3.15
 Jinja2==3.1.6
 lxml==6.1.0
 Markdown==3.10.2
@@ -21,7 +21,7 @@ paginate==0.5.7
 pathspec==1.1.1
 platformdirs==4.9.6
 Pygments==2.20.0
-pymdown-extensions==10.21.2
+pymdown-extensions==10.21.3
 pyquery==2.0.1
 python-dateutil==2.9.0.post0
 PyYAML==6.0.3
