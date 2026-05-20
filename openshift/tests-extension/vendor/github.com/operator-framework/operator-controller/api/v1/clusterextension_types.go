@@ -63,7 +63,7 @@ type ClusterExtensionSpec struct {
 	// +kubebuilder:validation:MaxLength:=63
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="namespace is immutable"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$\")",message="namespace must be a valid DNS1123 label"
-	// +kubebuilder:validation:Required
+	// +required
 	Namespace string `json:"namespace"`
 
 	// serviceAccount specifies a ServiceAccount used to perform all interactions with the cluster
@@ -72,7 +72,7 @@ type ClusterExtensionSpec struct {
 	// The ServiceAccount must exist in the namespace referenced in the spec.
 	// The serviceAccount field is required.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	ServiceAccount ServiceAccountReference `json:"serviceAccount"`
 
 	// source is required and selects the installation source of content for this ClusterExtension.
@@ -88,7 +88,7 @@ type ClusterExtensionSpec struct {
 	//   catalog:
 	//     packageName: example-package
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Source SourceConfig `json:"source"`
 
 	// install is optional and configures installation options for the ClusterExtension,
@@ -105,6 +105,7 @@ type ClusterExtensionSpec struct {
 	// a configuration schema the bundle is deemed to not be configurable. More information on how
 	// to configure bundles can be found in the OLM documentation associated with your current OLM version.
 	//
+	// <opcon:experimental>
 	// +optional
 	Config *ClusterExtensionConfig `json:"config,omitempty"`
 
@@ -137,7 +138,7 @@ type SourceConfig struct {
 	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum:="Catalog"
-	// +kubebuilder:validation:Required
+	// +required
 	SourceType string `json:"sourceType"`
 
 	// catalog configures how information is sourced from a catalog.
@@ -177,7 +178,7 @@ type ClusterExtensionConfig struct {
 	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum:="Inline"
-	// +kubebuilder:validation:Required
+	// +required
 	ConfigType ClusterExtensionConfigType `json:"configType"`
 
 	// inline contains JSON or YAML values specified directly in the ClusterExtension.
@@ -220,7 +221,7 @@ type CatalogFilter struct {
 	// +kubebuilder:validation:MaxLength:=253
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="packageName is immutable"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
-	// +kubebuilder:validation:Required
+	// +required
 	PackageName string `json:"packageName"`
 
 	// version is an optional semver constraint (a specific version or range of versions).
@@ -403,7 +404,7 @@ type ServiceAccountReference struct {
 	// +kubebuilder:validation:MaxLength:=253
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="name must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
-	// +kubebuilder:validation:Required
+	// +required
 	Name string `json:"name"`
 }
 
@@ -431,7 +432,7 @@ type CRDUpgradeSafetyPreflightConfig struct {
 	// When set to "Strict", the CRD Upgrade Safety pre-flight check runs during an upgrade operation.
 	//
 	// +kubebuilder:validation:Enum:="None";"Strict"
-	// +kubebuilder:validation:Required
+	// +required
 	Enforcement CRDUpgradeSafetyEnforcement `json:"enforcement"`
 }
 
@@ -455,21 +456,44 @@ type BundleMetadata struct {
 	// It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
 	// start and end with an alphanumeric character, and be no longer than 253 characters.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
 	Name string `json:"name"`
 
 	// version is required and references the version that this bundle represents.
 	// It follows the semantic versioning standard as defined in https://semver.org/.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^([0-9]+)(\\\\.[0-9]+)?(\\\\.[0-9]+)?(-([-0-9A-Za-z]+(\\\\.[-0-9A-Za-z]+)*))?(\\\\+([-0-9A-Za-z]+(-\\\\.[-0-9A-Za-z]+)*))?\")",message="version must be well-formed semver"
 	Version string `json:"version"`
+
+	// release is an optional field that identifies a specific release of this bundle's version.
+	// A release represents a re-publication of the same version, typically used to deliver
+	// packaging or metadata changes without changing the version number. When multiple
+	// releases exist for the same version, higher releases are preferred. An unset release
+	// is less preferred than all other release values.
+	//
+	// The value consists of dot-separated identifiers, where each identifier is either a
+	// numeric value (without leading zeros) or an alphanumeric string (e.g., "2", "1.el9",
+	// "3.alpha.1"). Releases are compared identifier by identifier: numeric identifiers are
+	// compared as integers, alphanumeric identifiers are compared lexically, and numeric
+	// identifiers always sort before alphanumeric identifiers.
+	//
+	// For bundles with explicit pkg.Release metadata, this field contains that release value.
+	// For registry+v1 bundles lacking an explicit release value, this field contains the release
+	// extracted from version's build metadata (e.g., '2' from '1.0.0+2').
+	// This field is omitted when the bundle's release value is unset.
+	//
+	// +optional
+	// <opcon:experimental>
+	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:XValidation:rule="self.matches(\"^$|^(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*$\")",message="release must be empty or consist of dot-separated identifiers (numeric without leading zeros, or alphanumeric)"
+	Release *string `json:"release,omitempty"`
 }
 
-// RevisionStatus defines the observed state of a ClusterExtensionRevision.
+// RevisionStatus defines the observed state of a ClusterObjectSet.
 type RevisionStatus struct {
-	// name of the ClusterExtensionRevision resource
+	// name of the ClusterObjectSet resource
 	Name string `json:"name"`
 	// conditions optionally expose Progressing and Available condition of the revision,
 	// in case when it is not yet marked as successfully installed (condition Succeeded is not set to True).
@@ -497,7 +521,7 @@ type ClusterExtensionStatus struct {
 	// When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.
 	// When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.
 	// <opcon:experimental:description>
-	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterExtensionRevisions in active roll out.
+	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterObjectSets in active roll out.
 	// </opcon:experimental:description>
 	//
 	// When the ClusterExtension is sourced from a catalog, it surfaces deprecation conditions based on catalog metadata.
@@ -517,7 +541,7 @@ type ClusterExtensionStatus struct {
 	// +optional
 	Install *ClusterExtensionInstallStatus `json:"install,omitempty"`
 
-	// activeRevisions holds a list of currently active (non-archived) ClusterExtensionRevisions,
+	// activeRevisions holds a list of currently active (non-archived) ClusterObjectSets,
 	// including both installed and rolling out revisions.
 	// +listType=map
 	// +listMapKey=name
@@ -533,10 +557,12 @@ type ClusterExtensionInstallStatus struct {
 	// A "bundle" is a versioned set of content that represents the resources that need to be applied
 	// to a cluster to install a package.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Bundle BundleMetadata `json:"bundle"`
 }
 
+// +genclient
+// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
@@ -575,7 +601,7 @@ type ClusterExtensionList struct {
 
 	// items is a required list of ClusterExtension objects.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Items []ClusterExtension `json:"items"`
 }
 
