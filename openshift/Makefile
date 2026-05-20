@@ -51,10 +51,6 @@ test-e2e: ## Run the e2e tests.
 		--godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" \
 		--k8s.cli=oc
 
-.PHONY: test-experimental-e2e
-test-experimental-e2e: ## Run the experimental e2e tests.
-	/bin/true # keep - because it's triggered, but always succeed
-
 PHONY: go-build-local
 go-build-local:
 	$(MAKE) -f Makefile go-build-local
