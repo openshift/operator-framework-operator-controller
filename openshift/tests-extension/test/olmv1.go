@@ -107,14 +107,17 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1
 	})
 
 	It("should install an openshift catalog cluster extension", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 operator installation should install an openshift catalog cluster extension"), func(ctx SpecContext) {
-		By("ensuring no ClusterExtension and CRD for quay-operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), "quay-operator", "quayregistries.quay.redhat.com")
+		catalog, pkg := helpers.FindInstallablePackage(ctx)
 
-		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension("quay-operator", "3.13.10", namespace, "")
+		By(fmt.Sprintf("ensuring no existing ClusterExtension for %q", pkg))
+		helpers.EnsureCleanupClusterExtension(context.Background(), pkg, "")
+
+		By(fmt.Sprintf("applying ClusterExtension for %q from catalog %q", pkg, catalog))
+		name, cleanup := helpers.CreateClusterExtension(pkg, "", namespace, "",
+			helpers.WithCatalogNameSelector(catalog))
 		DeferCleanup(cleanup)
 
-		By("waiting for the quay-operator ClusterExtension to be installed")
+		By(fmt.Sprintf("waiting for %q to be installed", pkg))
 		helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
 	})
 })
