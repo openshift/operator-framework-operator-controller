@@ -31,7 +31,7 @@ var _ = Describe("OLM-Catalog-Validation", func() {
 
 	sysCtx := &types.SystemContext{}
 	if authPath != "" {
-		fmt.Println("Using registry auth file:", authPath)
+		fmt.Fprintf(os.Stderr, "Using registry auth file\n")
 		sysCtx.AuthFilePath = authPath
 	}
 
