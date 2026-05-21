@@ -16,7 +16,7 @@ options:
   openshift:
     enabled: true
     catalogs:
-      version: v4.22
+      version: v5.0
 
 # The set of namespaces
 namespaces:

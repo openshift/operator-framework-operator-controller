@@ -11,7 +11,9 @@ require (
 	github.com/openshift/api v0.0.0-20260318185450-1f2fa3f09f4e
 	github.com/openshift/client-go v0.0.0-20260317180604-743f664b82d1
 	github.com/openshift/origin v1.5.0-alpha.3.0.20251010041851-79ff1dbbe815
+	github.com/operator-framework/api v0.43.0
 	github.com/operator-framework/operator-controller v1.8.1-0.20260319123036-8ccea5a0cf67
+	github.com/operator-framework/operator-registry v1.71.0
 	github.com/pborman/uuid v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.10.2
@@ -61,7 +63,7 @@ require (
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20251007162407-5df77e3f7d1d // indirect
+	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.4 // indirect
