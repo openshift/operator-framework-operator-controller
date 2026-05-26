@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,6 +84,7 @@ func initTestEnv() *TestEnv {
 	utilruntime.Must(appsv1.AddToScheme(scheme))
 	utilruntime.Must(rbacv1.AddToScheme(scheme))
 	utilruntime.Must(batchv1.AddToScheme(scheme))
+	utilruntime.Must(policyv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme))
 	utilruntime.Must(olmv1.AddToScheme(scheme))
