@@ -101,7 +101,7 @@ func dockerfile() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "Dockerfile", size: 888, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -121,7 +121,7 @@ func manifestsWebhookOperatorControllerManagerMetricsService_v1_serviceYaml() (*
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator-controller-manager-metrics-service_v1_service.yaml", size: 469, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator-controller-manager-metrics-service_v1_service.yaml", size: 469, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -141,7 +141,7 @@ func manifestsWebhookOperatorMetricsReader_rbacAuthorizationK8sIo_v1_clusterrole
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 191, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator-metrics-reader_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 191, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -161,7 +161,7 @@ func manifestsWebhookOperatorWebhooktestAdminRole_rbacAuthorizationK8sIo_v1_clus
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-admin-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-admin-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 440, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -181,7 +181,7 @@ func manifestsWebhookOperatorWebhooktestEditorRole_rbacAuthorizationK8sIo_v1_clu
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-editor-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 503, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-editor-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 503, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -201,7 +201,7 @@ func manifestsWebhookOperatorWebhooktestViewerRole_rbacAuthorizationK8sIo_v1_clu
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-viewer-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 460, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator-webhooktest-viewer-role_rbac.authorization.k8s.io_v1_clusterrole.yaml", size: 460, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -221,7 +221,7 @@ func manifestsWebhookOperatorClusterserviceversionYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook-operator.clusterserviceversion.yaml", size: 6743, mode: os.FileMode(420), modTime: time.Unix(1760582299, 0)}
+	info := bindataFileInfo{name: "manifests/webhook-operator.clusterserviceversion.yaml", size: 6743, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -241,7 +241,7 @@ func manifestsWebhookOperatorsCoreosIo_webhooktestsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "manifests/webhook.operators.coreos.io_webhooktests.yaml", size: 11986, mode: os.FileMode(420), modTime: time.Unix(1760519201, 0)}
+	info := bindataFileInfo{name: "manifests/webhook.operators.coreos.io_webhooktests.yaml", size: 11986, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -261,7 +261,7 @@ func metadataAnnotationsYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 742, mode: os.FileMode(420), modTime: time.Unix(1760581498, 0)}
+	info := bindataFileInfo{name: "metadata/annotations.yaml", size: 742, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -281,7 +281,7 @@ func testsScorecardConfigYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1760519124, 0)}
+	info := bindataFileInfo{name: "tests/scorecard/config.yaml", size: 1614, mode: os.FileMode(420), modTime: time.Unix(1777315519, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
