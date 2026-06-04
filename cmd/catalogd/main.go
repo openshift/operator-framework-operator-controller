@@ -401,7 +401,7 @@ func run(ctx context.Context) error {
 	}
 
 	gc := &garbagecollection.GarbageCollector{
-		CachePath:      unpackCacheBasePath,
+		CachePaths:     []string{unpackCacheBasePath, storeDir},
 		Logger:         ctrl.Log.WithName("garbage-collector"),
 		MetadataClient: metaClient,
 		Interval:       cfg.gcInterval,
