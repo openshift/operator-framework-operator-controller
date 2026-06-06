@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-4.23 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder
 
 ARG SOURCE_GIT_COMMIT
 ENV GIT_COMMIT=${SOURCE_GIT_COMMIT}
@@ -6,7 +6,7 @@ WORKDIR /build
 COPY . .
 RUN make go-build-local
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/5.0:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/catalogd /catalogd
 COPY openshift/catalogd/cp-manifests /cp-manifests
