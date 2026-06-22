@@ -20,7 +20,6 @@ type ClusterExtensionDescription struct {
 	Version                 string
 	InstallNamespace        string
 	WatchNamespace          string
-	SaName                  string
 	UpgradeConstraintPolicy string
 	LabelKey                string // default is olmv1-test
 	LabelValue              string // suggest to use case id
@@ -81,9 +80,6 @@ func (clusterextension *ClusterExtensionDescription) CreateWithoutCheck(oc *exut
 	}
 	if len(clusterextension.WatchNamespace) > 0 {
 		parameters = append(parameters, "WATCHNS="+clusterextension.WatchNamespace)
-	}
-	if len(clusterextension.SaName) > 0 {
-		parameters = append(parameters, "SANAME="+clusterextension.SaName)
 	}
 	if len(clusterextension.UpgradeConstraintPolicy) > 0 {
 		parameters = append(parameters, "POLICY="+clusterextension.UpgradeConstraintPolicy)
