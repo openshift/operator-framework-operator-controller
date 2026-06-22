@@ -31,7 +31,7 @@ import (
 	exutil "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util"
 )
 
-var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline", g.Label("NonHyperShiftHOST"), func() {
+var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline", g.Label("NonHyperShiftHOST", "ReleaseGate"), func() {
 	defer g.GinkgoRecover()
 
 	var oc = exutil.NewCLIWithoutNamespace("default")
@@ -56,8 +56,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime]
 			{Version: "1.0.2", ControllerImage: "wrong/image"},
 		})
 
-		g.By("creating a ClusterExtension with a 1-minute progress deadline for the failing bundle")
-		ce := fixture.newClusterExtension("test-ce-install-timeout-"+caseID, "1.0.2", "olm-sa", ptr.To(int32(1)))
+		g.By("creating a ClusterExtension with a 10-minute progress deadline for the failing bundle")
+		ce := fixture.newClusterExtension("test-ce-install-timeout-"+caseID, "1.0.2", "olm-sa", ptr.To(int32(10)))
 		o.Expect(env.Get().K8sClient.Create(ctx, ce)).To(o.Succeed(), "failed to create ClusterExtension")
 		g.DeferCleanup(deleteObject, ce)
 
@@ -65,7 +65,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime]
 		expectClusterObjectSetCondition(ctx, ce.Name+"-1", olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
 
 		g.By("verifying the ClusterExtension reports ProgressDeadlineExceeded")
-		expectClusterExtensionCondition(ctx, ce.Name, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded, "Revision has not rolled out for 1 minute(s).")
+		expectClusterExtensionCondition(ctx, ce.Name, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded, "Revision has not rolled out for 10 minute(s).")
 	})
 
 	g.It("PolarionID:88332-[OTP]A ClusterExtension is being upgraded and a persistent error prevents it from being fully rolled out", func(ctx g.SpecContext) {
@@ -412,7 +412,7 @@ func expectClusterObjectSetCondition(ctx context.Context, name, conditionType st
 		g.Expect(condition).NotTo(o.BeNil(), "%s condition not found", conditionType)
 		g.Expect(condition.Status).To(o.Equal(status), "%s status mismatch", conditionType)
 		g.Expect(condition.Reason).To(o.Equal(reason), "%s reason mismatch", conditionType)
-	}, 3*time.Minute)
+	}, 12*time.Minute)
 }
 
 func expectActiveRevisions(ctx context.Context, name string, expected ...string) {
@@ -473,7 +473,7 @@ data:
     echo true > /tmp/www/started
     echo true > /tmp/www/ready
     echo true > /tmp/www/live
-    exec httpd -f -h /tmp/www -p 8080
+    python3 -m http.server 8081 --bind :: --directory /tmp/www
 `
 
 const bundleCSV = `apiVersion: operators.coreos.com/v1alpha1
@@ -532,19 +532,19 @@ spec:
                 startupProbe:
                   httpGet:
                     path: /started
-                    port: http
+                    port: 8081
                   failureThreshold: 30
                   periodSeconds: 10
                 readinessProbe:
                   httpGet:
                     path: /ready
-                    port: http
+                    port: 8081
                   initialDelaySeconds: 5
                   periodSeconds: 10
                 livenessProbe:
                   httpGet:
                     path: /live
-                    port: http
+                    port: 8081
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 securityContext:
