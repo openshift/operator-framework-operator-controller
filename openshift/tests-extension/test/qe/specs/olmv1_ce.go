@@ -161,202 +161,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:68936-[OTP]cluster extension can not be installed with insufficient permission sa for operand", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68936-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand"), func() {
-		e2e.Logf("Testing ClusterExtension installation failure when ServiceAccount lacks sufficient permissions for operand resources. Originally case 75492, using 68936 for faster execution.")
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "68936"
-			ns                       = "ns-" + caseID
-			sa                       = caseID
-			labelValue               = caseID
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			// Select template based on Boxcutter runtime feature gate
-			saClusterRoleBindingOperandTemplate string
-		)
-
-		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
-		// Note: Both templates have the same content for this test (both lack finalizers permissions)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-clusterrole-boxcutter.yaml")
-		} else {
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-clusterrole.yaml")
-		}
-
-		saCrb := olmv1util.SaCLusterRolebindingDescription{
-			Name:      sa,
-			Namespace: ns,
-			RBACObjects: []olmv1util.ChildResource{
-				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-					fmt.Sprintf("%s-installer-clusterrole", sa)}},
-				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-			},
-			Kinds:    "okv68936s",
-			Template: saClusterRoleBindingOperandTemplate,
-		}
-		clustercatalog := olmv1util.ClusterCatalogDescription{
-			Name:       "clustercatalog-68936",
-			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68936",
-			LabelValue: labelValue,
-			Template:   clustercatalogTemplate,
-		}
-		ceInsufficient := olmv1util.ClusterExtensionDescription{
-			Name:             "insufficient-68936",
-			PackageName:      "nginx-ok-v68936",
-			Channel:          "alpha",
-			Version:          ">=0.0.1",
-			InstallNamespace: ns,
-			SaName:           sa,
-			LabelValue:       labelValue,
-			Template:         clusterextensionTemplate,
-		}
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("check Insufficient sa from operand")
-		defer ceInsufficient.Delete(oc)
-		_ = ceInsufficient.CreateWithoutCheck(oc)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
-			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
-			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
-		} else {
-			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight)
-			// Error checking order differs between runtimes:
-			// - Helm (Env1): checks blockOwnerDeletion first, then privilege escalation
-			// - Boxcutter (Env4): checks privilege escalation first, then blockOwnerDeletion
-			if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-				// Env4: Boxcutter encounters privilege escalation error before blockOwnerDeletion check
-				ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "is attempting to grant RBAC permissions not currently held", 10, 60, 0)
-			} else {
-				// Env1: Helm encounters blockOwnerDeletion error
-				ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "cannot set blockOwnerDeletion", 10, 60, 0)
-			}
-		}
-
-	})
-
-	g.It("PolarionID:68937-[OTP]cluster extension can not be installed with insufficient permission sa for operand rbac object", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:68937-[Skipped:Disconnected]cluster extension can not be installed with insufficient permission sa for operand rbac object"), func() {
-		e2e.Logf("Testing ClusterExtension installation failure when ServiceAccount lacks sufficient permissions for operand RBAC objects. Originally case 75492, using 68937 for faster execution.")
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "68937"
-			ns                       = "ns-" + caseID
-			sa                       = caseID
-			labelValue               = caseID
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			// Select template based on Boxcutter runtime feature gate
-			saClusterRoleBindingOperandTemplate string
-		)
-
-		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-rbac-boxcutter.yaml")
-		} else {
-			saClusterRoleBindingOperandTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-operand-rbac.yaml")
-		}
-
-		saCrb := olmv1util.SaCLusterRolebindingDescription{
-			Name:      sa,
-			Namespace: ns,
-			RBACObjects: []olmv1util.ChildResource{
-				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-					fmt.Sprintf("%s-installer-clusterrole", sa)}},
-				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-			},
-			Kinds:    "okv68937s",
-			Template: saClusterRoleBindingOperandTemplate,
-		}
-		clustercatalog := olmv1util.ClusterCatalogDescription{
-			Name:       "clustercatalog-68937",
-			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv68937",
-			LabelValue: labelValue,
-			Template:   clustercatalogTemplate,
-		}
-		ceInsufficient := olmv1util.ClusterExtensionDescription{
-			Name:             "insufficient-68937",
-			PackageName:      "nginx-ok-v68937",
-			Channel:          "alpha",
-			Version:          ">=0.0.1",
-			InstallNamespace: ns,
-			SaName:           sa,
-			LabelValue:       labelValue,
-			Template:         clusterextensionTemplate,
-		}
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("check Insufficient sa from operand rbac")
-		defer ceInsufficient.Delete(oc)
-		_ = ceInsufficient.CreateWithoutCheck(oc)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
-			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
-			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
-		} else {
-			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight): Both return K8s API RBAC error
-			// The specific error message is the same for both runtimes when encountering the same permission issue
-			ceInsufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "permissions not currently held", 10, 60, 0)
-		}
-
-	})
-
 	g.It("PolarionID:70723-[OTP][Skipped:Disconnected]olmv1 downgrade version", func() {
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "70723"
-			labelValue                   = caseID
-			ns                           = "ns-70723"
-			sa                           = "sa70723"
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "70723"
+			labelValue               = caseID
+			ns                       = "ns-70723"
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-70723",
 				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm70723",
 				LabelValue: labelValue,
@@ -368,7 +182,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				PackageName:      "nginx70723",
 				Channel:          "candidate-v2",
 				Version:          "2.2.1",
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -381,10 +194,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -404,606 +213,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		clusterextension.WaitClusterExtensionVersion(oc, "2.0.0")
 	})
 
-	g.It("PolarionID:75492-[OTP][Level0]cluster extension can not be installed with wrong sa or insufficient permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75492-[Skipped:Disconnected]cluster extension can not be installed with wrong sa or insufficient permission sa"), func() {
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "75492"
-			ns                       = "ns-" + caseID
-			sa                       = "sa" + caseID
-			labelValue               = caseID
-			catalogName              = "clustercatalog-" + caseID
-			ceInsufficientName       = "ce-insufficient-" + caseID
-			ceWrongSaName            = "ce-wrongsa-" + caseID
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			// Select template based on Boxcutter runtime feature gate
-			saClusterRoleBindingTemplate string
-		)
-
-		// Use Boxcutter template if BoxcutterRuntime is enabled, otherwise use Helm template
-		// Note: Both templates have the same content for this test (both lack finalizers permissions)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-bundle-boxcutter.yaml")
-		} else {
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-nginx-insufficient-bundle.yaml")
-		}
-
-		saCrb := olmv1util.SaCLusterRolebindingDescription{
-			Name:      sa,
-			Namespace: ns,
-			RBACObjects: []olmv1util.ChildResource{
-				{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-				{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-				{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-					fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-				{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-					fmt.Sprintf("%s-installer-clusterrole", sa)}},
-				{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-			},
-			Kinds:    "okv3277775492s",
-			Template: saClusterRoleBindingTemplate,
-		}
-		clustercatalog := olmv1util.ClusterCatalogDescription{
-			Name:       catalogName,
-			Imageref:   "quay.io/olmqe/nginx-ok-index:vokv3283",
-			LabelValue: labelValue,
-			Template:   clustercatalogTemplate,
-		}
-		ce75492Insufficient := olmv1util.ClusterExtensionDescription{
-			Name:             ceInsufficientName,
-			PackageName:      "nginx-ok-v3277775492",
-			Channel:          "alpha",
-			Version:          ">=0.0.1",
-			InstallNamespace: ns,
-			SaName:           sa,
-			LabelValue:       labelValue,
-			Template:         clusterextensionTemplate,
-		}
-		ce75492WrongSa := olmv1util.ClusterExtensionDescription{
-			Name:             ceWrongSaName,
-			PackageName:      "nginx-ok-v3277775492",
-			Channel:          "alpha",
-			Version:          ">=0.0.1",
-			InstallNamespace: ns,
-			SaName:           sa + "1",
-			LabelValue:       labelValue,
-			Template:         clusterextensionTemplate,
-		}
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("check Insufficient sa from bundle")
-		defer ce75492Insufficient.Delete(oc)
-		_ = ce75492Insufficient.CreateWithoutCheck(oc)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
-			// Env2 (Helm, preflight) or Env3 (Boxcutter, preflight): Both return same preflight error
-			ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "pre-authorization failed", 10, 60, 0)
-		} else {
-			// Env1 (Helm, no preflight) or Env4 (Boxcutter, no preflight)
-			// Error checking order differs between runtimes:
-			// - Helm (Env1): may encounter CRD creation errors first
-			// - Boxcutter (Env4): encounters privilege escalation errors first
-			if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-				// Env4: Boxcutter encounters privilege escalation error (missing namespace permissions)
-				ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "is attempting to grant RBAC permissions not currently held", 10, 60, 0)
-			} else {
-				// Env1: Helm may encounter CRD-related errors
-				ce75492Insufficient.CheckClusterExtensionCondition(oc, "Progressing", "message", "could not get information about the resource CustomResourceDefinition", 10, 60, 0)
-			}
-		}
-		g.By("check wrong sa")
-		defer ce75492WrongSa.Delete(oc)
-		_ = ce75492WrongSa.CreateWithoutCheck(oc)
-		// All environments now validate ServiceAccount existence at the start of the reconciliation
-		// pipeline (after finalizer handling, before revision state retrieval). This provides:
-		// - Consistent error messages across all feature gate combinations
-		// - Fail-fast behavior (no wasted reconciliation cycles)
-		// - User-facing error format: "operation cannot proceed due to the following validation error(s):
-		//   service account \"xxx\" not found in namespace \"yyy\""
-		//
-		// The validation uses ServiceAccountValidator which performs a direct CoreV1 API Get call.
-		ce75492WrongSa.CheckClusterExtensionCondition(oc, "Progressing", "message", "not found", 10, 60, 0)
-	})
-
-	g.It("PolarionID:75493-[OTP][Level0]cluster extension can be installed with enough permission sa", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:75493-[Skipped:Disconnected]cluster extension can be installed with enough permission sa"), func() {
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "75493"
-			ns                       = "ns-" + caseID
-			sa                       = "sa" + caseID
-			labelValue               = caseID
-			catalogName              = "clustercatalog-" + caseID
-			ceSufficientName         = "ce-sufficient" + caseID
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			// Select template based on runtime: Boxcutter needs clusterobjectsets/finalizers, Helm needs clusterextensions/finalizers
-			saTemplate string
-		)
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			saTemplate = filepath.Join(baseDir, "sa-nginx-limited-boxcutter.yaml")
-		} else {
-			saTemplate = filepath.Join(baseDir, "sa-nginx-limited.yaml")
-		}
-		var (
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				RBACObjects: []olmv1util.ChildResource{
-					{Kind: "RoleBinding", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role-binding", sa)}},
-					{Kind: "Role", Ns: ns, Names: []string{fmt.Sprintf("%s-installer-role", sa)}},
-					{Kind: "ClusterRoleBinding", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole-binding", sa),
-						fmt.Sprintf("%s-installer-clusterrole-binding", sa)}},
-					{Kind: "ClusterRole", Ns: "", Names: []string{fmt.Sprintf("%s-installer-rbac-clusterrole", sa),
-						fmt.Sprintf("%s-installer-clusterrole", sa)}},
-					{Kind: "ServiceAccount", Ns: ns, Names: []string{sa}},
-				},
-				Kinds:    "okv3277775493s",
-				Template: saTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
-				Name:       catalogName,
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv3283",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ce75493 = olmv1util.ClusterExtensionDescription{
-				Name:             ceSufficientName,
-				PackageName:      "nginx-ok-v3277775493",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
-		)
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("check if ce is installed with limited permission")
-		defer ce75493.Delete(oc)
-		ce75493.Create(oc)
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "customresourcedefinitions.apiextensions.k8s.io", "okv3277775493s.cache.example.com")).To(o.BeTrue())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "services", "nginx-ok-v3283-75493-controller-manager-metrics-service", "-n", ns)).To(o.BeTrue())
-		ce75493.Delete(oc)
-		o.Expect(olmv1util.Appearance(oc, exutil.Disappear, "customresourcedefinitions.apiextensions.k8s.io", "okv3277775493s.cache.example.com")).To(o.BeTrue())
-		o.Expect(olmv1util.Appearance(oc, exutil.Disappear, "services", "nginx-ok-v3283-75493-controller-manager-metrics-service", "-n", ns)).To(o.BeTrue())
-	})
-
-	g.It("PolarionID:81538-[OTP]preflight check on permission on allns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81538-[Skipped:Disconnected]preflight check on permission on allns mode"), func() {
-		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") {
-			g.Skip("NewOLMPreflightPermissionChecks feature gate is disabled. This test requires preflight permission validation to be enabled.")
-		}
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "81538"
-			ns                       = "ns-" + caseID
-			sa                       = "sa" + caseID
-			labelValue               = caseID
-			catalogName              = "clustercatalog-" + caseID
-			ceName                   = "ce-" + caseID
-			clusterroleName          = ceName + "-clusterrole"
-			roleName                 = ceName + "-role" + "-" + ns
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saTemplate               = filepath.Join(baseDir, "sa.yaml")
-			bindingTemplate          = filepath.Join(baseDir, "binding-prefligth.yaml")
-			clusterroleTemplate      = filepath.Join(baseDir, "prefligth-clusterrole.yaml")
-			clustercatalog           = olmv1util.ClusterCatalogDescription{
-				Name:       catalogName,
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv81538",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ce = olmv1util.ClusterExtensionDescription{
-				Name:             ceName,
-				PackageName:      "nginx-ok-v81538",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
-		)
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("create sa")
-		paremeters := []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", saTemplate, "-p",
-			"NAME=" + sa, "NAMESPACE=" + ns}
-		configFileSa, errApplySa := olmv1util.ApplyNamepsaceResourceFromTemplate(oc, ns, paremeters...)
-		o.Expect(errApplySa).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileSa).Execute() }()
-
-		g.By("create clusterrole with wrong rule")
-		paremeters = []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", clusterroleTemplate, "-p",
-			"NAME=" + clusterroleName}
-		configFileCLusterroe, errApplyCLusterrole := olmv1util.ApplyClusterResourceFromTemplate(oc, paremeters...)
-		o.Expect(errApplyCLusterrole).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileCLusterroe).Execute() }()
-
-		g.By("create binding")
-		paremeters = []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", bindingTemplate, "-p",
-			"SANAME=" + sa, "NAMESPACE=" + ns, "ROLENAME=" + roleName, "CLUSTERROLESANAME=" + clusterroleName}
-		configFileBinding, errApplyBinding := olmv1util.ApplyClusterResourceFromTemplate(oc, paremeters...)
-		o.Expect(errApplyBinding).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileBinding).Execute() }()
-
-		g.By("check missing rule")
-		defer ce.Delete(oc)
-		_ = ce.CreateWithoutCheck(oc)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"ns-81538" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81538-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		// Check finalizers permission based on Boxcutter runtime feature gate
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81538-1 for first revision)
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81538-1] Verbs:[update]`, 3, 150, 0)
-		} else {
-			// Env2: Helm with preflight - expects clusterextensions/finalizers
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81538] Verbs:[update]`, 3, 150, 0)
-		}
-
-		g.By("generate rbac per missing rule and delete ce")
-		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
-		output, errGet := olmv1util.GetNoEmpty(oc, "clusterextension", ce.Name, "-o", jsonpath)
-		o.Expect(errGet).NotTo(o.HaveOccurred())
-		e2e.Logf("====%v====", output)
-
-		start := "permissions to manage cluster extension:"
-		end1 := "authorization evaluation error:"
-		end2 := "for resolved bundle"
-		filtered := olmv1util.FilterPermissions(output, start, end1, end2)
-		e2e.Logf("===============================================================================")
-		e2e.Logf("%v", filtered)
-		e2e.Logf("===============================================================================")
-		rabcDir := e2e.TestContext.OutputDir
-		clusterroleFile := filepath.Join(rabcDir, fmt.Sprintf("%s.yaml", clusterroleName))
-		roleFile := filepath.Join(rabcDir, fmt.Sprintf("%s.yaml", roleName))
-		errGen := olmv1util.GenerateRBACFromMissingRules(filtered, ceName, rabcDir)
-		o.Expect(errGen).NotTo(o.HaveOccurred())
-
-		g.By("create clusterrole")
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", clusterroleFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("create role")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("check ce again afrer applying correct rules")
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 10, 600, 0)
-	})
-
-	g.It("PolarionID:81664-[OTP]preflight check on permission on own ns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81664-[Skipped:Disconnected]preflight check on permission on own ns mode"), func() {
-		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") ||
-			!olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
-			g.Skip("Required feature gates are disabled: NewOLMPreflightPermissionChecks and NewOLMOwnSingleNamespace must both be enabled for this test.")
-		}
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "81664"
-			ns                       = "ns-" + caseID
-			sa                       = "sa" + caseID
-			labelValue               = caseID
-			catalogName              = "clustercatalog-" + caseID
-			ceName                   = "ce-" + caseID
-			clusterroleName          = ceName + "-clusterrole"
-			roleName                 = ceName + "-role" + "-" + ns
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-OwnSingle.yaml")
-			saTemplate               = filepath.Join(baseDir, "sa.yaml")
-			bindingTemplate          = filepath.Join(baseDir, "binding-prefligth.yaml")
-			clustercatalog           = olmv1util.ClusterCatalogDescription{
-				Name:       catalogName,
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv81664",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ce = olmv1util.ClusterExtensionDescription{
-				Name:             ceName,
-				PackageName:      "nginx-ok-v81664",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				WatchNamespace:   ns,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
-		)
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("create sa")
-		paremeters := []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", saTemplate, "-p",
-			"NAME=" + sa, "NAMESPACE=" + ns}
-		configFileSa, errApplySa := olmv1util.ApplyNamepsaceResourceFromTemplate(oc, ns, paremeters...)
-		o.Expect(errApplySa).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileSa).Execute() }()
-
-		g.By("check missing rule")
-		defer ce.Delete(oc)
-		_ = ce.CreateWithoutCheck(oc)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"ns-81664" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81664-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		// Check finalizers permission based on Boxcutter runtime feature gate
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81664-1 for first revision)
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81664-1] Verbs:[update]`, 3, 150, 0)
-		} else {
-			// Env2: Helm with preflight - expects clusterextensions/finalizers
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81664] Verbs:[update]`, 3, 150, 0)
-		}
-
-		g.By("generate rbac per missing rule and delete ce")
-		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
-		output, errGet := olmv1util.GetNoEmpty(oc, "clusterextension", ce.Name, "-o", jsonpath)
-		o.Expect(errGet).NotTo(o.HaveOccurred())
-		ce.Delete(oc)
-		e2e.Logf("====%v====", output)
-
-		start := "permissions to manage cluster extension:"
-		end1 := "authorization evaluation error:"
-		end2 := "for resolved bundle"
-		filtered := olmv1util.FilterPermissions(output, start, end1, end2)
-		e2e.Logf("===============================================================================")
-		e2e.Logf("%v", filtered)
-		e2e.Logf("===============================================================================")
-		rabcDir := e2e.TestContext.OutputDir
-		clusterroleFile := filepath.Join(rabcDir, fmt.Sprintf("%s.yaml", clusterroleName))
-		roleFile := filepath.Join(rabcDir, fmt.Sprintf("%s.yaml", roleName))
-		errGen := olmv1util.GenerateRBACFromMissingRules(filtered, ceName, rabcDir)
-		o.Expect(errGen).NotTo(o.HaveOccurred())
-
-		g.By("create clusterrole")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", clusterroleFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", clusterroleFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("create role")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("create binding")
-		paremeters = []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", bindingTemplate, "-p",
-			"SANAME=" + sa, "NAMESPACE=" + ns, "ROLENAME=" + roleName, "CLUSTERROLESANAME=" + clusterroleName}
-		configFileBinding, errApplyBinding := olmv1util.ApplyClusterResourceFromTemplate(oc, paremeters...)
-		o.Expect(errApplyBinding).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileBinding).Execute() }()
-
-		g.By("check ce again afrer applying correct rules")
-		ce.Create(oc)
-	})
-
-	g.It("PolarionID:81696-[OTP]preflight check on permission on single ns mode", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:81696-[Skipped:Disconnected]preflight check on permission on single ns mode"), func() {
-		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMPreflightPermissionChecks") ||
-			!olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
-			g.Skip("Required feature gates are disabled: NewOLMPreflightPermissionChecks and NewOLMOwnSingleNamespace must both be enabled for this test.")
-		}
-		exutil.SkipForSNOCluster(oc)
-		olmv1util.ValidateAccessEnvironment(oc)
-		var (
-			caseID                   = "81696"
-			ns                       = "ns-" + caseID
-			nsWatch                  = "ns-" + caseID + "-watch"
-			sa                       = "sa" + caseID
-			labelValue               = caseID
-			catalogName              = "clustercatalog-" + caseID
-			ceName                   = "ce-" + caseID
-			clusterroleName          = ceName + "-clusterrole"
-			roleNsName               = ceName + "-role" + "-" + ns
-			roleNsWatchName          = ceName + "-role" + "-" + nsWatch
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-OwnSingle.yaml")
-			saTemplate               = filepath.Join(baseDir, "sa.yaml")
-			bindingTemplate          = filepath.Join(baseDir, "binding-prefligth_multirole.yaml")
-			clustercatalog           = olmv1util.ClusterCatalogDescription{
-				Name:       catalogName,
-				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv81696",
-				LabelValue: labelValue,
-				Template:   clustercatalogTemplate,
-			}
-			ce = olmv1util.ClusterExtensionDescription{
-				Name:             ceName,
-				PackageName:      "nginx-ok-v81696",
-				Channel:          "alpha",
-				Version:          ">=0.0.1",
-				InstallNamespace: ns,
-				WatchNamespace:   nsWatch,
-				SaName:           sa,
-				LabelValue:       labelValue,
-				Template:         clusterextensionTemplate,
-			}
-		)
-
-		g.By("Create namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns, "--ignore-not-found", "--force").Execute()
-		}()
-		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create watch namespace")
-		defer func() {
-			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", nsWatch, "--ignore-not-found", "--force").Execute()
-		}()
-		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", nsWatch).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsWatch)).To(o.BeTrue())
-
-		g.By("Create clustercatalog")
-		defer clustercatalog.Delete(oc)
-		clustercatalog.Create(oc)
-
-		g.By("create sa")
-		paremeters := []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", saTemplate, "-p",
-			"NAME=" + sa, "NAMESPACE=" + ns}
-		configFileSa, errApplySa := olmv1util.ApplyNamepsaceResourceFromTemplate(oc, ns, paremeters...)
-		o.Expect(errApplySa).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileSa).Execute() }()
-
-		g.By("check missing rule")
-		defer ce.Delete(oc)
-		_ = ce.CreateWithoutCheck(oc)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"" Verbs:[get] NonResourceURLs:[/metrics]`, 3, 150, 0)
-		ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-			`Namespace:"ns-81696" APIGroups:[] Resources:[services] ResourceNames:[nginx-ok-v81696-controller-manager-metrics-service] Verbs:[delete,get,patch,update]`, 3, 150, 0)
-		// Check finalizers permission based on Boxcutter runtime feature gate
-		if olmv1util.IsFeaturegateEnabled(oc, "NewOLMBoxCutterRuntime") {
-			// Env3: Boxcutter with preflight - expects clusterobjectsets/finalizers
-			// Note: In Boxcutter, the ResourceName is the ClusterObjectSet name (ce-81696-1 for first revision)
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterobjectsets/finalizers] ResourceNames:[ce-81696-1] Verbs:[update]`, 3, 150, 0)
-		} else {
-			// Env2: Helm with preflight - expects clusterextensions/finalizers
-			ce.CheckClusterExtensionCondition(oc, "Progressing", "message",
-				`Namespace:"" APIGroups:[olm.operatorframework.io] Resources:[clusterextensions/finalizers] ResourceNames:[ce-81696] Verbs:[update]`, 3, 150, 0)
-		}
-
-		g.By("generate rbac per missing rule and delete ce")
-		jsonpath := fmt.Sprintf(`jsonpath={.status.conditions[?(@.type=="%s")].%s}`, "Progressing", "message")
-		output, errGet := olmv1util.GetNoEmpty(oc, "clusterextension", ce.Name, "-o", jsonpath)
-		o.Expect(errGet).NotTo(o.HaveOccurred())
-		ce.Delete(oc)
-		e2e.Logf("====%v====", output)
-
-		start := "permissions to manage cluster extension:"
-		end1 := "authorization evaluation error:"
-		end2 := "for resolved bundle"
-		filtered := olmv1util.FilterPermissions(output, start, end1, end2)
-		e2e.Logf("===============================================================================")
-		e2e.Logf("%v", filtered)
-		e2e.Logf("===============================================================================")
-		rbacDir := e2e.TestContext.OutputDir
-		clusterroleFile := filepath.Join(rbacDir, fmt.Sprintf("%s.yaml", clusterroleName))
-		roleNsFile := filepath.Join(rbacDir, fmt.Sprintf("%s.yaml", roleNsName))
-		roleNsWatchFile := filepath.Join(rbacDir, fmt.Sprintf("%s.yaml", roleNsWatchName))
-
-		errGen := olmv1util.GenerateRBACFromMissingRules(filtered, ceName, rbacDir)
-		o.Expect(errGen).NotTo(o.HaveOccurred())
-
-		g.By("create clusterrole")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", clusterroleFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", clusterroleFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("create role for ns")
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleNsFile).Execute() }()
-		err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleNsFile).Execute()
-		o.Expect(err).NotTo(o.HaveOccurred())
-
-		g.By("create role for ns watch")
-		// Check if the watch namespace role file exists before trying to apply it
-		// The file may not exist if no permissions are needed for the watch namespace
-		if _, err := os.Stat(roleNsWatchFile); err == nil {
-			defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", roleNsWatchFile).Execute() }()
-			err = oc.AsAdmin().WithoutNamespace().Run("apply").Args("-f", roleNsWatchFile).Execute()
-			o.Expect(err).NotTo(o.HaveOccurred())
-		} else {
-			e2e.Logf("Watch namespace role file %s does not exist, skipping creation", roleNsWatchFile)
-		}
-
-		g.By("create binding")
-		paremeters = []string{"-n", "default", "--ignore-unknown-parameters=true", "-f", bindingTemplate, "-p",
-			"SANAME=" + sa, "NAMESPACE=" + ns, "ROLENAME=" + roleNsName, "CLUSTERROLESANAME=" + clusterroleName,
-			"WATCHNAMESPACE=" + nsWatch, "WATCHROLENAME=" + roleNsWatchName}
-		configFileBinding, errApplyBinding := olmv1util.ApplyClusterResourceFromTemplate(oc, paremeters...)
-		o.Expect(errApplyBinding).NotTo(o.HaveOccurred())
-		defer func() { _ = oc.AsAdmin().WithoutNamespace().Run("delete").Args("-f", configFileBinding).Execute() }()
-
-		g.By("check ce again afrer applying correct rules")
-		ce.Create(oc)
-	})
-
 	g.It("PolarionID:87224-[Skipped:Disconnected]Upgrade version support [Serial]", func() {
 		var (
-			caseID                       = "87224"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			ceName                       = "ce-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "87224"
+			ns                       = "ns-" + caseID
+			ceName                   = "ce-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-87224",
 				LabelValue: labelValue,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87224",
@@ -1015,7 +234,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				PackageName:      "nginx-ok-v87224",
 				Version:          "0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1042,9 +260,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -1092,20 +307,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "74618"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "74618"
+			ns                       = "ns-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-74618",
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv32777",
 				LabelValue: labelValue,
@@ -1117,7 +325,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1128,7 +335,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Version:                 ">=0.0.1",
 				InstallNamespace:        ns,
 				UpgradeConstraintPolicy: "SelfCertified",
-				SaName:                  sa,
 				LabelValue:              labelValue,
 				Template:                clusterextensionTemplate,
 			}
@@ -1138,7 +344,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1149,7 +354,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Version:                 ">=0.0.1",
 				InstallNamespace:        ns,
 				UpgradeConstraintPolicy: "SelfCertified",
-				SaName:                  sa,
 				LabelValue:              labelValue,
 				Template:                clusterextensionTemplate,
 			}
@@ -1159,7 +363,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1172,10 +375,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -1222,19 +421,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 	g.It("PolarionID:76843-[OTP][Skipped:Disconnected]support disc with icsp[Timeout:40m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76843-[Skipped:Disconnected]support disc with icsp[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
 		exutil.SkipForSNOCluster(oc)
 		var (
-			caseID                       = "76843"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceName                       = "ce-" + caseID
-			iscpName                     = "icsp-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			icspTemplate                 = filepath.Join(baseDir, "icsp-single-mirror.yaml")
-			icsp                         = olmv1util.IcspDescription{
+			caseID                   = "76843"
+			ns                       = "ns-" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceName                   = "ce-" + caseID
+			iscpName                 = "icsp-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			icspTemplate             = filepath.Join(baseDir, "icsp-single-mirror.yaml")
+			icsp                     = olmv1util.IcspDescription{
 				Name:     iscpName,
 				Mirror:   "quay.io/olmqe",
 				Source:   "qe76843.myregistry.io/olmqe",
@@ -1246,18 +443,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				LabelValue: labelValue,
 				Template:   clustercatalogTemplate,
 			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			ce76843 = olmv1util.ClusterExtensionDescription{
 				Name:             ceName,
 				PackageName:      "nginx-ok-v76843",
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1291,10 +482,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
 		g.By("check ce to be installed")
 		defer ce76843.Delete(oc)
 		ce76843.Create(oc)
@@ -1305,19 +492,17 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipOnProxyCluster(oc)
 		exutil.SkipForSNOCluster(oc)
 		var (
-			caseID                       = "76844"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceName                       = "ce-" + caseID
-			itdmsName                    = "itdms-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			itdmsTemplate                = filepath.Join(baseDir, "itdms-full-mirror.yaml")
-			itdms                        = olmv1util.ItdmsDescription{
+			caseID                   = "76844"
+			ns                       = "ns-" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceName                   = "ce-" + caseID
+			itdmsName                = "itdms-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			itdmsTemplate            = filepath.Join(baseDir, "itdms-full-mirror.yaml")
+			itdms                    = olmv1util.ItdmsDescription{
 				Name:            itdmsName,
 				MirrorSite:      "quay.io",
 				SourceSite:      "qe76844.myregistry.io",
@@ -1331,18 +516,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				LabelValue: labelValue,
 				Template:   clustercatalogTemplate,
 			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			ce76844 = olmv1util.ClusterExtensionDescription{
 				Name:             ceName,
 				PackageName:      "nginx-ok-v76844",
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1374,10 +553,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
 		g.By("check ce to be installed")
 		defer ce76844.Delete(oc)
 		ce76844.Create(oc)
@@ -1392,20 +567,18 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		architecture.SkipNonAmd64SingleArch(oc)
 		exutil.SkipForSNOCluster(oc)
 		var (
-			caseID                       = "78193"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			catalog1Name                 = "clustercatalog-" + caseID + "1"
-			ceName                       = "ce-" + caseID
-			cipName                      = "cip-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			cipTemplate                  = filepath.Join(baseDir, "cip.yaml")
-			cip                          = olmv1util.CipDescription{
+			caseID                   = "78193"
+			ns                       = "ns-" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			catalog1Name             = "clustercatalog-" + caseID + "1"
+			ceName                   = "ce-" + caseID
+			cipName                  = "cip-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			cipTemplate              = filepath.Join(baseDir, "cip.yaml")
+			cip                      = olmv1util.CipDescription{
 				Name:     cipName,
 				Repo1:    "quay.io/olmqe/nginx-ok-bundle-sigstore",
 				Repo2:    "quay.io/olmqe/nginx-ok-bundle-sigstore1",
@@ -1425,18 +598,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				LabelValue: labelValue,
 				Template:   clustercatalogTemplate,
 			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			ce = olmv1util.ClusterExtensionDescription{
 				Name:             ceName,
 				PackageName:      "nginx-ok-v78193",
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1461,10 +628,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clusterextension with olmsigkey signed successfully")
 		defer ce.Delete(oc)
@@ -1484,21 +647,19 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		}
 		exutil.SkipForSNOCluster(oc)
 		var (
-			caseID                       = "781932"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			imageRef                     = "quay.io/olmqe/nginx-ok-index-sigstore:vokv" + caseID
-			packageName                  = "nginx-ok-v" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceName                       = "ce-" + caseID
-			cipName                      = "cip-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			cipTemplate                  = filepath.Join(baseDir, "cip.yaml")
-			cip                          = olmv1util.CipDescription{
+			caseID                   = "781932"
+			ns                       = "ns-" + caseID
+			imageRef                 = "quay.io/olmqe/nginx-ok-index-sigstore:vokv" + caseID
+			packageName              = "nginx-ok-v" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceName                   = "ce-" + caseID
+			cipName                  = "cip-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			cipTemplate              = filepath.Join(baseDir, "cip.yaml")
+			cip                      = olmv1util.CipDescription{
 				Name:     cipName,
 				Repo1:    "quay.io/olmqe/nginx-ok-bundle-sigstore",
 				Repo2:    "quay.io/olmqe/nginx-ok-bundle-sigstore1",
@@ -1513,18 +674,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				LabelValue: labelValue,
 				Template:   clustercatalogTemplate,
 			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			ce = olmv1util.ClusterExtensionDescription{
 				Name:             ceName,
 				PackageName:      packageName,
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1550,10 +705,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
 		g.By("Create clusterextension with olmsigkey signed successfully")
 		defer ce.Delete(oc)
 		ce.Create(oc)
@@ -1564,26 +715,19 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		// This test validates installation from private container images and depends on cluster-wide pull secrets
 		var (
-			caseID                       = "76983"
-			ns                           = "ns-" + caseID
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			ceName                       = "ce-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			clustercatalog               = olmv1util.ClusterCatalogDescription{
+			caseID                   = "76983"
+			ns                       = "ns-" + caseID
+			labelValue               = caseID
+			catalogName              = "clustercatalog-" + caseID
+			ceName                   = "ce-" + caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index-private:vokv76983",
 				LabelValue: labelValue,
 				Template:   clustercatalogTemplate,
-			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
 			}
 			ce = olmv1util.ClusterExtensionDescription{
 				Name:             ceName,
@@ -1591,7 +735,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1623,10 +766,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("check ce to be installed")
 		defer ce.Delete(oc)
@@ -1742,18 +881,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 	g.It("PolarionID:83026-[OTP][Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:83026-[Skipped:Disconnected]clusterextension updates sometimes failed with the following error from the CRDUpgradeCheck resource unknown change and refusing to determine that change is safe"), func() {
 		baseDir := exutil.FixturePath("testdata", "olm")
 		clusterextensionTemplate := filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-		saAdminTemplate := filepath.Join(baseDir, "sa-admin.yaml")
 		g.By("1)install Argocd operator v0.4.0 in a random namespace")
-		sa := "argocd-83026"
 		oc.SetupProject()
-
-		saCrb := olmv1util.SaCLusterRolebindingDescription{
-			Name:      sa,
-			Namespace: oc.Namespace(),
-			Template:  saAdminTemplate,
-		}
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		ceArgocd := olmv1util.ClusterExtensionDescription{
 			Name:             "extension-argocd-83026",
@@ -1761,7 +890,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			Channel:          "alpha",
 			Version:          "v0.4.0",
 			InstallNamespace: oc.Namespace(),
-			SaName:           sa,
 			LabelKey:         "olm.operatorframework.io/metadata.name",
 			LabelValue:       "openshift-community-operators",
 			Template:         clusterextensionTemplate,
@@ -1783,20 +911,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:69196-[OTP][Level0][Skipped:Disconnected]Supports Version Ranges during clusterextension upgrade", func() {
 		var (
-			caseID                       = "69196"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-69196"
-			sa                           = "sa69196"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "69196"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			ns                       = "ns-69196"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-69196",
 				LabelValue: labelValue,
 				Imageref:   "quay.io/olmqe/olmtest-operator-index:nginxolm69196",
@@ -1808,7 +929,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				PackageName:      "nginx69196",
 				Channel:          "candidate-v1.0",
 				Version:          "1.0.1",
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -1821,10 +941,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -1890,15 +1006,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			clusterextensionTemplate                      = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionWithoutChannelTemplate        = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
 			clusterextensionWithoutChannelVersionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
-			saClusterRoleBindingTemplate                  = filepath.Join(baseDir, "sa-admin.yaml")
 			ns                                            = "ns-68821"
-			sa                                            = "sa68821"
-			saCrb                                         = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                                = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-68821",
 				LabelValue: labelValue,
 				Imageref:   "quay.io/olmqe/olmtest-operator-index:nginxolm68821",
@@ -1911,7 +1020,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Version:          ">=0.0.1",
 				LabelValue:       labelValue,
 				InstallNamespace: ns,
-				SaName:           sa,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -1923,10 +1031,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -1971,20 +1075,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:74108-[OTP][Skipped:Disconnected][Slow]olm v1 supports legacy upgrade edges", func() {
 		var (
-			caseID                       = "74108"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutVersion.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-74108"
-			sa                           = "sa74108"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "74108"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutVersion.yaml")
+			ns                       = "ns-74108"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-74108",
 				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74108",
 				LabelValue: labelValue,
@@ -1996,7 +1093,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				PackageName:      "nginx74108",
 				Channel:          "candidate-v0.0",
 				LabelValue:       labelValue,
-				SaName:           sa,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -2008,10 +1104,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("1) Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -2155,27 +1247,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:74923-[OTP][Skipped:Disconnected]no two ClusterExtensions can manage the same underlying object", func() {
 		var (
-			caseID                       = "74923"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns1                          = "ns-74923-1"
-			ns2                          = "ns-74923-2"
-			sa1                          = "sa74923-1"
-			sa2                          = "sa74923-2"
-			saCrb1                       = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa1,
-				Namespace: ns1,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			saCrb2 = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa2,
-				Namespace: ns2,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "74923"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannelVersion.yaml")
+			ns1                      = "ns-74923-1"
+			ns2                      = "ns-74923-2"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-74923-1",
 				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm74923",
 				LabelValue: labelValue,
@@ -2185,7 +1264,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-74923-1",
 				PackageName:      "nginx74923",
 				InstallNamespace: ns1,
-				SaName:           sa1,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -2193,7 +1271,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-74923-2",
 				PackageName:      "nginx74923",
 				InstallNamespace: ns2,
-				SaName:           sa2,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -2212,10 +1289,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns1)).To(o.BeTrue())
 
-		g.By("2.2 Create SA for clusterextension1")
-		defer saCrb1.Delete(oc)
-		saCrb1.Create(oc)
-
 		g.By("2.3 Create clusterextension1")
 		defer clusterextension1.Delete(oc)
 		clusterextension1.Create(oc)
@@ -2229,10 +1302,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err = oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns2).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns2)).To(o.BeTrue())
-
-		g.By("3.2 Create SA for clusterextension2")
-		defer saCrb2.Delete(oc)
-		saCrb2.Create(oc)
 
 		g.By("3.3 Create clusterextension2")
 		defer clusterextension2.Delete(oc)
@@ -2284,20 +1353,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:75501-[OTP][Skipped:Disconnected]the updates of various status fields is orthogonal", func() {
 		var (
-			caseID                       = "75501"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-75501"
-			sa                           = "sa75501"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "75501"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			ns                       = "ns-75501"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-75501",
 				Imageref:   "quay.io/openshifttest/nginxolm-operator-index:nginxolm75501",
 				LabelValue: labelValue,
@@ -2309,7 +1371,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				PackageName:      "nginx75501",
 				Channel:          "candidate-v2.1",
 				Version:          "2.1.0",
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
@@ -2322,10 +1383,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -2414,14 +1471,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			clusterextensionExpressionsTemplate      = filepath.Join(baseDir, "clusterextension-withselectorExpressions-WithoutChannelVersion.yaml")
 			clusterextensionLableExpressionsTemplate = filepath.Join(baseDir, "clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml")
 
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-76685"
-			sa                           = "sa76685"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
+			ns              = "ns-76685"
 			clustercatalog1 = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				LabelValue: "ocp-76685-1",
@@ -2447,7 +1497,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-76685",
 				InstallNamespace: ns,
 				PackageName:      "nginx76685",
-				SaName:           sa,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -2459,9 +1508,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog1.Delete(oc)
 		clustercatalog1.Create(oc)
@@ -2541,20 +1587,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:77972-[OTP][Skipped:Disconnected]olm v1 Supports MaxOCPVersion in properties file", func() {
 		var (
-			caseID                       = "77972"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-77972"
-			sa                           = "sa77972"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "77972"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			ns                       = "ns-77972"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				LabelValue: labelValue,
 				Name:       "clustercatalog-77972",
@@ -2566,7 +1605,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-77972",
 				InstallNamespace: ns,
 				PackageName:      "nginx77972",
-				SaName:           sa,
 				Version:          "0.0.1",
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
@@ -2580,9 +1618,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -2651,20 +1686,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:82249-[OTP][Skipped:Disconnected]Verify olmv1 support for float type maxOCPVersion in properties file", func() {
 		var (
-			caseID                       = "82249"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-82249"
-			sa                           = "sa82249"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "82249"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			ns                       = "ns-82249"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				Name:       "clustercatalog-82249",
 				LabelValue: labelValue,
@@ -2676,7 +1704,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-82249",
 				InstallNamespace: ns,
 				PackageName:      "nginx82249",
-				SaName:           sa,
 				Version:          "0.0.1",
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
@@ -2690,9 +1717,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -2774,15 +1798,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			clusterextensionOwnSingleTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml")
 			clusterextensionTemplate          = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
 
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-80117"
-			nsWatch                      = "ns-80117-watch"
-			sa                           = "sa80117"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
+			ns             = "ns-80117"
+			nsWatch        = "ns-80117-watch"
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				LabelValue: labelValue,
@@ -2795,7 +1812,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-80117",
 				InstallNamespace: ns,
 				PackageName:      "nginx80117",
-				SaName:           sa,
 				Version:          "1.0.1",
 				WatchNamespace:   nsWatch,
 				LabelValue:       labelValue,
@@ -2805,7 +1821,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-80117",
 				InstallNamespace: ns,
 				PackageName:      "nginx80117",
-				SaName:           sa,
 				Version:          "1.1.0",
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
@@ -2819,9 +1834,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -2917,12 +1929,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		g.By("8) check not support install two same clusterextensions")
 		ns2 := ns + "-2"
 		nsWatch2 := nsWatch + "-2"
-		sa2 := "sa80117-2"
-		saCrb2 := olmv1util.SaCLusterRolebindingDescription{
-			Name:      sa2,
-			Namespace: ns2,
-			Template:  saClusterRoleBindingTemplate,
-		}
 
 		defer func() {
 			_ = oc.WithoutNamespace().AsAdmin().Run("delete").Args("ns", ns2, "--ignore-not-found").Execute()
@@ -2937,13 +1943,10 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsWatch2)).To(o.BeTrue())
 
-		defer saCrb2.Delete(oc)
-		saCrb2.Create(oc)
 		clusterextension2 := olmv1util.ClusterExtensionDescription{
 			Name:             "clusterextension-80117-2",
 			InstallNamespace: ns2,
 			PackageName:      "nginx80117",
-			SaName:           sa2,
 			Version:          "2.0.0",
 			WatchNamespace:   nsWatch2,
 			LabelKey:         "olmv1-test",
@@ -2979,14 +1982,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			clusterextensionOwnSingleTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml")
 			clusterextensionTemplate          = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
 
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-80120"
-			sa                           = "sa80120"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
+			ns             = "ns-80120"
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				LabelValue: labelValue,
@@ -2999,7 +1995,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-80120",
 				InstallNamespace: ns,
 				PackageName:      "nginx80120",
-				SaName:           sa,
 				Version:          "1.0.1",
 				LabelKey:         "olmv1-test",
 				LabelValue:       labelValue,
@@ -3010,7 +2005,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Name:             "clusterextension-80120",
 				InstallNamespace: ns,
 				PackageName:      "nginx80120",
-				SaName:           sa,
 				Version:          "3.0.0",
 				LabelKey:         "olmv1-test",
 				LabelValue:       labelValue,
@@ -3025,9 +2019,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -3098,7 +2089,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			Name:             "clusterextension-80120",
 			InstallNamespace: ns,
 			PackageName:      "nginx80120",
-			SaName:           sa,
 			Version:          "1.0.1",
 			WatchNamespace:   ns + "flake",
 			LabelKey:         "olmv1-test",
@@ -3122,20 +2112,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	g.It("PolarionID:82136-[OTP][Skipped:Disconnected]olm v1 supports NetworkPolicy resources", func() {
 		var (
-			caseID                       = "82136"
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			ns                           = "ns-82136"
-			sa                           = "sa82136"
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                   = "82136"
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-WithoutChannel.yaml")
+			ns                       = "ns-82136"
+			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				LabelKey:   "olmv1-test",
 				LabelValue: labelValue,
 				Name:       "clustercatalog-82136",
@@ -3147,7 +2130,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				InstallNamespace: ns,
 				PackageName:      "nginx82136",
 				Version:          "1.0.1",
-				SaName:           sa,
 				LabelKey:         "olmv1-test",
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
@@ -3161,10 +2143,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("1) Create clustercatalog")
 		defer clustercatalog.Delete(oc)
@@ -3248,7 +2226,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		var (
 			caseID                   = "83979"
 			ns                       = "ns-" + caseID
-			saName                   = "sa-" + caseID
 			catalogName              = "clustercatalog-" + caseID
 			ceName                   = "ce-" + caseID
 			validatingName           = "validating-webhook-test-" + caseID
@@ -3258,7 +2235,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			baseDir                  = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog.yaml")
 			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension.yaml")
-			saTemplate               = filepath.Join(baseDir, "sa-admin.yaml")
 			webhookTemplate          = filepath.Join(baseDir, "cr-webhookTest.yaml")
 			clustercatalog           = olmv1util.ClusterCatalogDescription{
 				Name:     catalogName,
@@ -3271,13 +2247,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Channel:          "alpha",
 				Version:          "0.0.1",
 				InstallNamespace: ns,
-				SaName:           saName,
 				Template:         clusterextensionTemplate,
-			}
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      saName,
-				Namespace: ns,
-				Template:  saTemplate,
 			}
 		)
 
@@ -3288,10 +2258,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		err := oc.WithoutNamespace().AsAdmin().Run("create").Args("ns", ns).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
-
-		g.By("Create service account with admin permissions")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
 
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
