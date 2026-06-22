@@ -31,20 +31,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			caseID                         = "85510"
 			ns                             = "ns-" + caseID
 			nsTarget                       = "ns-" + caseID + "-target"
-			sa                             = "sa" + caseID
 			labelValue                     = caseID
 			catalogName                    = "clustercatalog-" + caseID
 			baseDir                        = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate         = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate       = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionConfigTemplate = filepath.Join(baseDir, "clusterextension-watchns-config.yaml")
-			saClusterRoleBindingTemplate   = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                          = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                 = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85510",
 				LabelValue: labelValue,
@@ -68,16 +61,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("=== ServiceAccount resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ServiceAccount", sa, "-n", ns, "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRole resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRole", sa+"-installer-admin-clusterrole", "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRoleBinding resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRoleBinding", sa+"-installer-admin-clusterrole-binding", "-o", "yaml").Execute()
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -92,7 +75,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			Template:         clusterextensionTemplate,
 		}
@@ -111,7 +93,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   "",
 			Template:         clusterextensionConfigTemplate,
@@ -131,7 +112,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   ns,
 			Template:         clusterextensionConfigTemplate,
@@ -151,7 +131,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   nsTarget,
 			Template:         clusterextensionConfigTemplate,
@@ -173,20 +152,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			caseID                         = "85543"
 			ns                             = "ns-" + caseID
 			nsTarget                       = "ns-" + caseID + "-target"
-			sa                             = "sa" + caseID
 			labelValue                     = caseID
 			catalogName                    = "clustercatalog-" + caseID
 			baseDir                        = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate         = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate       = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionConfigTemplate = filepath.Join(baseDir, "clusterextension-watchns-config.yaml")
-			saClusterRoleBindingTemplate   = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                          = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                 = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85543",
 				LabelValue: labelValue,
@@ -210,17 +182,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		// Print full RBAC resources for manual test documentation
-		e2e.Logf("=== ServiceAccount resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ServiceAccount", sa, "-n", ns, "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRole resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRole", sa+"-installer-admin-clusterrole", "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRoleBinding resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRoleBinding", sa+"-installer-admin-clusterrole-binding", "-o", "yaml").Execute()
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -236,7 +197,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			Template:         clusterextensionTemplate,
 		}
@@ -258,7 +218,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   "",
 			Template:         clusterextensionConfigTemplate,
@@ -282,7 +241,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   ns,
 			Template:         clusterextensionConfigTemplate,
@@ -304,7 +262,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   nsTarget,
 			Template:         clusterextensionConfigTemplate,
@@ -327,20 +284,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			caseID                         = "85546"
 			ns                             = "ns-" + caseID
 			nsTarget                       = "ns-" + caseID + "-target"
-			sa                             = "sa" + caseID
 			labelValue                     = caseID
 			catalogName                    = "clustercatalog-" + caseID
 			baseDir                        = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate         = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate       = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionConfigTemplate = filepath.Join(baseDir, "clusterextension-watchns-config.yaml")
-			saClusterRoleBindingTemplate   = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                          = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                 = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85546",
 				LabelValue: labelValue,
@@ -364,17 +314,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		// Print full RBAC resources for manual test documentation
-		e2e.Logf("=== ServiceAccount resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ServiceAccount", sa, "-n", ns, "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRole resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRole", sa+"-installer-admin-clusterrole", "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRoleBinding resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRoleBinding", sa+"-installer-admin-clusterrole-binding", "-o", "yaml").Execute()
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -392,7 +331,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			Template:         clusterextensionTemplate,
 		}
@@ -416,7 +354,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   "",
 			Template:         clusterextensionConfigTemplate,
@@ -440,7 +377,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   ns,
 			Template:         clusterextensionConfigTemplate,
@@ -462,7 +398,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   nsTarget,
 			Template:         clusterextensionConfigTemplate,
@@ -485,20 +420,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			caseID                         = "85547"
 			ns                             = "ns-" + caseID
 			nsTarget                       = "ns-" + caseID + "-target"
-			sa                             = "sa" + caseID
 			labelValue                     = caseID
 			catalogName                    = "clustercatalog-" + caseID
 			baseDir                        = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate         = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate       = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionConfigTemplate = filepath.Join(baseDir, "clusterextension-watchns-config.yaml")
-			saClusterRoleBindingTemplate   = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                          = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                 = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85547",
 				LabelValue: labelValue,
@@ -524,17 +452,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		// Print full RBAC resources for manual test documentation
-		e2e.Logf("=== ServiceAccount resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ServiceAccount", sa, "-n", ns, "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRole resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRole", sa+"-installer-admin-clusterrole", "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRoleBinding resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRoleBinding", sa+"-installer-admin-clusterrole-binding", "-o", "yaml").Execute()
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -555,7 +472,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			Template:         clusterextensionTemplate,
 		}
@@ -577,7 +493,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   "",
 			Template:         clusterextensionConfigTemplate,
@@ -603,7 +518,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   ns,
 			Template:         clusterextensionConfigTemplate,
@@ -626,7 +540,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   nsTarget,
 			Template:         clusterextensionConfigTemplate,
@@ -649,20 +562,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			caseID                         = "85549"
 			ns                             = "ns-" + caseID
 			nsTarget                       = "ns-" + caseID + "-target"
-			sa                             = "sa" + caseID
 			labelValue                     = caseID
 			catalogName                    = "clustercatalog-" + caseID
 			baseDir                        = exutil.FixturePath("testdata", "olm")
 			clustercatalogTemplate         = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
 			clusterextensionTemplate       = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 			clusterextensionConfigTemplate = filepath.Join(baseDir, "clusterextension-watchns-config.yaml")
-			saClusterRoleBindingTemplate   = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                          = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			clustercatalog                 = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85549",
 				LabelValue: labelValue,
@@ -688,17 +594,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		// Print full RBAC resources for manual test documentation
-		e2e.Logf("=== ServiceAccount resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ServiceAccount", sa, "-n", ns, "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRole resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRole", sa+"-installer-admin-clusterrole", "-o", "yaml").Execute()
-		e2e.Logf("=== ClusterRoleBinding resource ===")
-		_ = oc.AsAdmin().WithoutNamespace().Run("get").Args("ClusterRoleBinding", sa+"-installer-admin-clusterrole-binding", "-o", "yaml").Execute()
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -719,7 +614,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			Template:         clusterextensionTemplate,
 		}
@@ -744,7 +638,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   "",
 			Template:         clusterextensionConfigTemplate,
@@ -769,7 +662,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   ns,
 			Template:         clusterextensionConfigTemplate,
@@ -794,7 +686,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 			Channel:          "alpha",
 			Version:          ">=0.0.1",
 			InstallNamespace: ns,
-			SaName:           sa,
 			LabelValue:       labelValue,
 			WatchNamespace:   nsTarget,
 			Template:         clusterextensionConfigTemplate,
@@ -816,21 +707,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 
 	g.It("PolarionID:85650-[Skipped:Disconnected]API-level error validation for watchNamespace configuration", func() {
 		var (
-			caseID                       = "85650"
-			ns                           = "ns-" + caseID
-			nsTarget                     = "ns-" + caseID + "-target"
-			sa                           = "sa" + caseID
-			labelValue                   = caseID
-			catalogName                  = "clustercatalog-" + caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
-			saCrb                        = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
-			clustercatalog = olmv1util.ClusterCatalogDescription{
+			caseID                 = "85650"
+			ns                     = "ns-" + caseID
+			nsTarget               = "ns-" + caseID + "-target"
+			labelValue             = caseID
+			catalogName            = "clustercatalog-" + caseID
+			baseDir                = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clustercatalog         = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv85650",
 				LabelValue: labelValue,
@@ -854,10 +738,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension watchNamespace config
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", nsTarget)).To(o.BeTrue())
 
-		g.By("Create SA for clusterextension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-
 		g.By("Create clustercatalog")
 		defer clustercatalog.Delete(oc)
 		clustercatalog.Create(oc)
@@ -875,8 +755,6 @@ spec:
   channel: alpha
   version: ">=0.0.1"
   installNamespace: ` + ns + `
-  serviceAccount:
-    name: ` + sa + `
   selector:
     matchLabels:
       test: ` + labelValue + `
@@ -900,8 +778,6 @@ spec:
   channel: alpha
   version: ">=0.0.1"
   installNamespace: ` + ns + `
-  serviceAccount:
-    name: ` + sa + `
   selector:
     matchLabels:
       test: ` + labelValue + `
@@ -926,8 +802,6 @@ spec:
   channel: alpha
   version: ">=0.0.1"
   installNamespace: ` + ns + `
-  serviceAccount:
-    name: ` + sa + `
   selector:
     matchLabels:
       test: ` + labelValue + `
@@ -952,8 +826,6 @@ spec:
   channel: alpha
   version: ">=0.0.1"
   installNamespace: ` + ns + `
-  serviceAccount:
-    name: ` + sa + `
   selector:
     matchLabels:
       test: ` + labelValue + `
