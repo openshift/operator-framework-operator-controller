@@ -235,6 +235,16 @@ func CreateNamespace(namespace string) {
 	Expect(k8sClient.Create(ctx, ns)).To(Succeed(), "failed to create Namespace: %q", namespace)
 }
 
+// ExpectServiceAccountExists waits for a ServiceAccount to be available and visible to the client.
+func ExpectServiceAccountExists(ctx context.Context, name, namespace string) {
+	k8sClient := env.Get().K8sClient
+	sa := &corev1.ServiceAccount{}
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, sa)
+		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ServiceAccount %q/%q: %v", namespace, name, err))
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
+}
+
 func createImageStream(name, namespace string) {
 	ctx := context.Background()
 	k8sClient := env.Get().K8sClient
