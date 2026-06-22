@@ -9,8 +9,6 @@ objects:
     name: "${NAME}"
   spec:
     namespace: "${INSTALLNAMESPACE}"
-    serviceAccount:
-      name: "${SANAME}"
     config:
       configType: Inline
       inline:
@@ -32,7 +30,6 @@ parameters:
 - name: PACKAGE
 - name: CHANNEL
 - name: VERSION
-- name: SANAME
 - name: POLICY
   value: "CatalogProvided"
 - name: LABELVALUE
