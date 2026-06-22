@@ -66,9 +66,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnect
 		}
 	})
 
-	// installAndVerify is a helper that creates an install namespace, ServiceAccount,
-	// ClusterRoleBinding and ClusterExtension, waits for successful installation, and
-	// then calls verify against the resulting DeploymentList.  All resources are
+	// installAndVerify is a helper that creates an install namespace and
+	// ClusterExtension, waits for successful installation, and then calls
+	// verify against the resulting DeploymentList.  All resources are
 	// cleaned up via DeferCleanup.
 	installAndVerify := func(
 		ctx SpecContext,
@@ -86,21 +86,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnect
 			_ = k8sClient.Delete(context.Background(), ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
 		})
 
-		saName := fmt.Sprintf("dc-%s-sa-%s", namePrefix, suffix)
-		crbName := fmt.Sprintf("dc-%s-crb-%s", namePrefix, suffix)
 		ceName := fmt.Sprintf("dc-%s-ce-%s", namePrefix, suffix)
 
-		sa := helpers.NewServiceAccount(saName, installNamespace)
-		Expect(k8sClient.Create(ctx, sa)).To(Succeed())
-		helpers.ExpectServiceAccountExists(ctx, saName, installNamespace)
-		DeferCleanup(func() { _ = k8sClient.Delete(context.Background(), sa) })
-
-		crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, installNamespace)
-		Expect(k8sClient.Create(ctx, crb)).To(Succeed())
-		helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-		DeferCleanup(func() { _ = k8sClient.Delete(context.Background(), crb) })
-
-		ce := helpers.NewClusterExtensionObject(opName, "", ceName, saName, installNamespace,
+		ce := helpers.NewClusterExtensionObject(opName, "", ceName, installNamespace,
 			helpers.WithCatalogNameSelector(ccName))
 		ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 			ConfigType: olmv1.ClusterExtensionConfigTypeInline,
@@ -226,21 +214,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnect
 			_ = k8sClient.Delete(context.Background(), ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
 		})
 
-		saName := fmt.Sprintf("dc-%s-sa-%s", namePrefix, suffix)
-		crbName := fmt.Sprintf("dc-%s-crb-%s", namePrefix, suffix)
 		ceName := fmt.Sprintf("dc-%s-ce-%s", namePrefix, suffix)
 
-		sa := helpers.NewServiceAccount(saName, installNamespace)
-		Expect(k8sClient.Create(ctx, sa)).To(Succeed())
-		helpers.ExpectServiceAccountExists(ctx, saName, installNamespace)
-		DeferCleanup(func() { _ = k8sClient.Delete(context.Background(), sa) })
-
-		crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, installNamespace)
-		Expect(k8sClient.Create(ctx, crb)).To(Succeed())
-		helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-		DeferCleanup(func() { _ = k8sClient.Delete(context.Background(), crb) })
-
-		ce := helpers.NewClusterExtensionObject(opName, "", ceName, saName, installNamespace,
+		ce := helpers.NewClusterExtensionObject(opName, "", ceName, installNamespace,
 			helpers.WithCatalogNameSelector(ccName))
 		ce.Spec.Config = &olmv1.ClusterExtensionConfig{
 			ConfigType: olmv1.ClusterExtensionConfigTypeInline,
