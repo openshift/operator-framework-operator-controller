@@ -3,15 +3,12 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -56,7 +53,7 @@ func WithProgressDeadlineMinutes(minutes int32) ClusterExtensionOption {
 	}
 }
 
-// CreateClusterExtension creates a ServiceAccount, ClusterRoleBinding, and ClusterExtension using typed APIs.
+// CreateClusterExtension creates a ClusterExtension using typed APIs.
 // It returns the unique suffix and a cleanup function.
 func CreateClusterExtension(packageName, version, namespace, unique string, opts ...ClusterExtensionOption) (string, func()) {
 	ctx := context.TODO()
@@ -65,72 +62,25 @@ func CreateClusterExtension(packageName, version, namespace, unique string, opts
 		unique = rand.String(4)
 	}
 
-	saName := "install-test-sa-" + unique
-	crbName := "install-test-crb-" + unique
 	ceName := "install-test-ce-" + unique
 
-	// 1. Create ServiceAccount
-	sa := NewServiceAccount(saName, namespace)
-	Expect(k8sClient.Create(ctx, sa)).To(Succeed(),
-		"failed to create ServiceAccount")
-	By("ensuring ServiceAccount is available before proceeding")
-	ExpectServiceAccountExists(ctx, saName, namespace)
-
-	// 2. Create ClusterRoleBinding
-	crb := NewClusterRoleBinding(crbName, "cluster-admin", saName, namespace)
-	Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding")
-	By("ensuring ClusterRoleBinding is available before proceeding")
-	ExpectClusterRoleBindingExists(ctx, crbName)
-
 	// 3. Create ClusterExtension
-	ce := NewClusterExtensionObject(packageName, version, ceName, saName, namespace, opts...)
+	ce := NewClusterExtensionObject(packageName, version, ceName, namespace, opts...)
 	Expect(k8sClient.Create(ctx, ce)).To(Succeed(), "failed to create ClusterExtension")
 
 	// Cleanup closure
 	return ceName, func() {
-		By("deleting CluserExtension, ClusterRoleBinding and ServiceAccount")
+		By("deleting CluserExtension")
 		_ = k8sClient.Delete(ctx, ce)
-		_ = k8sClient.Delete(ctx, crb)
-		_ = k8sClient.Delete(ctx, sa)
 	}
 }
 
-// NewServiceAccount creates a new ServiceAccount.
-func NewServiceAccount(name, namespace string) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-}
-
-// NewClusterRoleBinding creates a new ClusterRoleBinding object that binds a ClusterRole to a ServiceAccount.
-func NewClusterRoleBinding(name, roleName, saName, namespace string) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     roleName,
-		},
-		Subjects: []rbacv1.Subject{{
-			Kind:      "ServiceAccount",
-			Name:      saName,
-			Namespace: namespace,
-		}},
-	}
-}
-
-// NewClusterExtensionObject creates a new ClusterExtension object with the specified package, version, name, and ServiceAccount.
-func NewClusterExtensionObject(pkg, version, ceName, saName, namespace string, opts ...ClusterExtensionOption) *olmv1.ClusterExtension {
+// NewClusterExtensionObject creates a new ClusterExtension object with the specified package, version, and name.
+func NewClusterExtensionObject(pkg, version, ceName, namespace string, opts ...ClusterExtensionOption) *olmv1.ClusterExtension {
 	ext := &olmv1.ClusterExtension{
 		ObjectMeta: metav1.ObjectMeta{Name: ceName},
 		Spec: olmv1.ClusterExtensionSpec{
 			Namespace: namespace,
-			ServiceAccount: olmv1.ServiceAccountReference{
-				Name: saName,
-			},
 			Source: olmv1.SourceConfig{
 				SourceType: olmv1.SourceTypeCatalog,
 				Catalog: &olmv1.CatalogFilter{
@@ -233,24 +183,4 @@ func EnsureCleanupClusterExtension(ctx context.Context, packageName, crdName str
 			fmt.Fprintf(GinkgoWriter, "Warning: Failed to get CRD %s during cleanup: %v\n", crdName, err)
 		}
 	}
-}
-
-// ExpectServiceAccountExists waits for a ServiceAccount to be available and visible to the client.
-func ExpectServiceAccountExists(ctx context.Context, name, namespace string) {
-	k8sClient := env.Get().K8sClient
-	sa := &corev1.ServiceAccount{}
-	Eventually(func(g Gomega) {
-		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, sa)
-		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ServiceAccount %q/%q: %v", namespace, name, err))
-	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
-}
-
-// ExpectClusterRoleBindingExists waits for a ClusterRoleBinding to be available and visible to the client.
-func ExpectClusterRoleBindingExists(ctx context.Context, name string) {
-	k8sClient := env.Get().K8sClient
-	crb := &rbacv1.ClusterRoleBinding{}
-	Eventually(func(g Gomega) {
-		err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, crb)
-		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ClusterRoleBinding %q: %v", name, err))
-	}).WithTimeout(2*time.Minute).WithPolling(DefaultPolling).Should(Succeed(), "ClusterRoleBinding %q did not become visible within timeout", name)
 }
