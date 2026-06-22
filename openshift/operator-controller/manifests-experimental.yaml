@@ -1235,7 +1235,6 @@ spec:
             - --leader-elect
             - --feature-gates=WebhookProviderOpenshiftServiceCA=true
             - --feature-gates=SingleOwnNamespaceInstallSupport=true
-            - --feature-gates=PreflightPermissions=true
             - --feature-gates=WebhookProviderCertManager=false
             - --feature-gates=BoxcutterRuntime=false
             - --tls-cert=/var/certs/tls.crt
