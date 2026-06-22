@@ -433,29 +433,8 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 
-	saName := fmt.Sprintf("%s-installer", webhookOperatorInstallNamespace)
-	sa := helpers.NewServiceAccount(saName, webhookOperatorInstallNamespace)
-	err = k8sClient.Create(ctx, sa)
-	Expect(err).ToNot(HaveOccurred())
-	helpers.ExpectServiceAccountExists(ctx, saName, webhookOperatorInstallNamespace)
-	// ServiceAccount will be deleted with the namespace, no separate cleanup needed
-
-	By("creating a ClusterRoleBinding to cluster-admin for the webhook operator")
-	operatorClusterRoleBindingName := fmt.Sprintf("%s-operator-crb", webhookOperatorInstallNamespace)
-	operatorClusterRoleBinding := helpers.NewClusterRoleBinding(operatorClusterRoleBindingName, "cluster-admin", saName, webhookOperatorInstallNamespace)
-	err = k8sClient.Create(ctx, operatorClusterRoleBinding)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create ClusterRoleBinding %s",
-		operatorClusterRoleBindingName))
-	helpers.ExpectClusterRoleBindingExists(ctx, operatorClusterRoleBindingName)
-	// Register cleanup for ClusterRoleBinding (cluster-scoped resource)
-	DeferCleanup(func(ctx context.Context) {
-		By(" NOW cleaning up ClusterRoleBinding (DeferCleanup executing) ")
-		By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", operatorClusterRoleBinding.Name))
-		_ = k8sClient.Delete(ctx, operatorClusterRoleBinding, client.PropagationPolicy(metav1.DeletePropagationBackground))
-	})
-
 	ceName := webhookOperatorInstallNamespace
-	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, saName, webhookOperatorInstallNamespace)
+	ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, webhookOperatorInstallNamespace)
 	ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"olm.operatorframework.io/metadata.name": catalogName,
