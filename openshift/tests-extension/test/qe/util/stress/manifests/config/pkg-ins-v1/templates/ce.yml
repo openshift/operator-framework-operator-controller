@@ -4,8 +4,6 @@ metadata:
   name: "ce-{{.Iteration}}"
 spec:
   namespace: "{{.prefixNamespace}}-{{.Iteration}}"
-  serviceAccount:
-    name: "ins-sa-{{.Iteration}}"
   source:
     sourceType: Catalog
     catalog:
