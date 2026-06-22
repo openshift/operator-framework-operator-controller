@@ -28,21 +28,19 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLM v1 for stress", func() {
 	// author: kuiwang@redhat.com
 	g.It("PolarionID:81509-[OTP][Skipped:Disconnected][OlmStress]olmv1 create mass operator to see if they all are installed successfully [Slow][Timeout:330m]", g.Label("StressTest"), g.Label("NonHyperShiftHOST"), func() {
 		var (
-			caseID                       = "81509"
-			prefixCatalog                = "catalog-" + caseID
-			prefixSa                     = "sa-" + caseID
-			prefixCe                     = "ce-" + caseID
-			prefixNs                     = "ns-" + caseID
-			prefixPackage                = "stress-olmv1-c"
-			prefixImage                  = "quay.io/olmqe/stress-index:vokv"
-			nsOc                         = "openshift-operator-controller"
-			nsCatalog                    = "openshift-catalogd"
-			catalogLabel                 = "control-plane=catalogd-controller-manager"
-			ocLabel                      = "control-plane=operator-controller-controller-manager"
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "81509"
+			prefixCatalog            = "catalog-" + caseID
+			prefixCe                 = "ce-" + caseID
+			prefixNs                 = "ns-" + caseID
+			prefixPackage            = "stress-olmv1-c"
+			prefixImage              = "quay.io/olmqe/stress-index:vokv"
+			nsOc                     = "openshift-operator-controller"
+			nsCatalog                = "openshift-catalogd"
+			catalogLabel             = "control-plane=catalogd-controller-manager"
+			ocLabel                  = "control-plane=operator-controller-controller-manager"
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension.yaml")
 		)
 
 		if !olmv1util.IsPodReady(oc, nsCatalog, catalogLabel) {
@@ -67,18 +65,12 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLM v1 for stress", func() {
 				Imageref: fmt.Sprintf("%s%d", prefixImage, i),
 				Template: clustercatalogTemplate,
 			}
-			saCrb := olmv1util.SaCLusterRolebindingDescription{
-				Name:      fmt.Sprintf("%s-%d", prefixSa, i),
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			ce := olmv1util.ClusterExtensionDescription{
 				Name:             fmt.Sprintf("%s-%d", prefixCe, i),
 				PackageName:      fmt.Sprintf("%s%d", prefixPackage, i),
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           fmt.Sprintf("%s-%d", prefixSa, i),
 				Template:         clusterextensionTemplate,
 			}
 			g.By(fmt.Sprintf("Create namespace for %d", i))
@@ -96,10 +88,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLM v1 for stress", func() {
 			err = clustercatalog.CreateWithoutCheck(oc)
 			o.Expect(err).NotTo(o.HaveOccurred())
 			clustercatalog.WaitCatalogStatus(oc, "true", "Serving", 0)
-
-			g.By(fmt.Sprintf("Create SA for clusterextension for %d", i))
-			defer saCrb.Delete(oc)
-			saCrb.Create(oc)
 
 			g.By(fmt.Sprintf("check ce to be installed for %d", i))
 			e2e.Logf("=========Create clusterextension %v=========", ce.Name)
