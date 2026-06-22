@@ -9,8 +9,6 @@ objects:
     name: "${NAME}"
   spec:
     namespace: "${INSTALLNAMESPACE}"
-    serviceAccount:
-      name: "${SANAME}"
     source:
       sourceType: "${SOURCETYPE}"
       catalog:
@@ -26,7 +24,6 @@ parameters:
 - name: NAME
 - name: INSTALLNAMESPACE
 - name: PACKAGE
-- name: SANAME
 - name: POLICY
   value: "CatalogProvided"
 - name: EXPRESSIONSVALUE1

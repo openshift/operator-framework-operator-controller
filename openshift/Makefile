@@ -36,7 +36,7 @@ E2E_REGISTRY_NAMESPACE=operator-controller-e2e
 export CLUSTER_REGISTRY_HOST := $(E2E_REGISTRY_NAME).$(E2E_REGISTRY_NAMESPACE).svc:5000
 
 export DOWNSTREAM_E2E_FLAGS := -count=1 -v
-export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile && ~@CatalogdHA && ~@ProgressDeadline && ~@HTTPProxy
+export DOWNSTREAM_GODOG_FLAGS := ~@mirrored-registry && ~@TLSProfile && ~@CatalogdHA && ~@ProgressDeadline && ~@HTTPProxy && ~@demo
 export DOWNSTREAM_E2E_TIMEOUT := 60m
 # BoxcutterRuntime (techpreview) applies resources sequentially through phases
 # (CRD must be Established before the deploy phase) so installations take longer
