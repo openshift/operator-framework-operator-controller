@@ -35,16 +35,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 	g.It("PolarionID:87536-deploymentConfig env vars are applied to operator deployment and available in pod", func() {
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "87536"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87536"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			inlineConfig = `{
@@ -64,11 +62,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"ANOTHER_VAR":      "another-value",
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87536",
@@ -81,7 +74,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -97,11 +89,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -149,16 +136,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 	g.It("PolarionID:87537-deploymentConfig env vars override existing bundle env vars with same name", func() {
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                       = "87537"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87537"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// ENV1: will override bundle's ENV1=bundle_value1
@@ -183,11 +168,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"ENV3": "config_value3", // Test Point 3: Add new env var
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87537",
@@ -200,7 +180,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -216,11 +195,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -267,20 +241,18 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87539-[Skipped:Disconnected]deploymentConfig envFrom sources are appended to operator deployment without duplicates", func() {
 		var (
-			caseID                       = "87539"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			cmBundle1                    = "test-cm-bundle-1"   // Predefined in bundle CSV
-			cmBundle2                    = "test-cm-bundle-2"   // Predefined in bundle CSV
-			cmConfigNew                  = "test-cm-config-new" // New CM from config
-			secretConfig                 = "test-secret-config" // New Secret from config
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87539"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			cmBundle1                = "test-cm-bundle-1"   // Predefined in bundle CSV
+			cmBundle2                = "test-cm-bundle-2"   // Predefined in bundle CSV
+			cmConfigNew              = "test-cm-config-new" // New CM from config
+			secretConfig             = "test-secret-config" // New Secret from config
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// test-cm-bundle-1: Duplicate with bundle - should NOT be added again (deduplication)
@@ -296,11 +268,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87539",
@@ -313,7 +280,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -366,11 +332,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			"--from-literal=CONFIG_SECRET_KEY=config_secret_value").Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Created Secret: %s", secretConfig)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -453,18 +414,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87541-[Skipped:Disconnected]deploymentConfig volumes are appended to operator deployment", func() {
 		var (
-			caseID                       = "87541"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			cmVolume                     = "test-cm-vol"     // ConfigMap for volume
-			secretVolume                 = "test-secret-vol" // Secret for volume
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87541"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			cmVolume                 = "test-cm-vol"     // ConfigMap for volume
+			secretVolume             = "test-secret-vol" // Secret for volume
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// Volume 1: Same name as bundle (bundle-emptydir-vol) but different type (ConfigMap vs emptyDir)
@@ -489,11 +448,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87541",
@@ -506,7 +460,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -544,11 +497,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			"--from-literal=secret-key=secret-value").Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Created Secret: %s", secretVolume)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -653,18 +601,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87542-[Skipped:Disconnected]deploymentConfig volumeMounts are appended to all operator containers", func() {
 		var (
-			caseID                       = "87542"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			cmVolume                     = "test-cm-vol"     // ConfigMap for volume
-			secretVolume                 = "test-secret-vol" // Secret for volume
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87542"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			cmVolume                 = "test-cm-vol"     // ConfigMap for volume
+			secretVolume             = "test-secret-vol" // Secret for volume
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// Volume 1: Same name as bundle (bundle-emptydir-vol) - matches volumeMount 1
@@ -701,11 +647,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87542",
@@ -718,7 +659,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -756,11 +696,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 			"--from-literal=secret-key=secret-value").Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		e2e.Logf("Created Secret: %s", secretVolume)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -874,16 +809,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87543-[Skipped:Disconnected]deploymentConfig tolerations are appended to operator deployment without duplicates", func() {
 		var (
-			caseID                       = "87543"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87543"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// bundle-key: Duplicate with bundle - should NOT be added again (deduplication)
@@ -914,11 +847,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87543",
@@ -931,7 +859,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -947,11 +874,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -1018,16 +940,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87544-[Skipped:Disconnected]deploymentConfig resources completely replace existing resource requirements", func() {
 		var (
-			caseID                       = "87544"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87544"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// Config resources COMPLETELY REPLACE bundle resources (no merge)
@@ -1049,11 +969,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87544",
@@ -1066,7 +981,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -1082,11 +996,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -1182,16 +1091,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87545-[Skipped:Disconnected]deploymentConfig nodeSelector completely replaces existing node selector", func() {
 		var (
-			caseID                       = "87545"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87545"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// Config nodeSelector COMPLETELY REPLACES bundle nodeSelector (no merge, no partial override)
@@ -1207,11 +1114,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87545",
@@ -1224,7 +1126,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -1240,11 +1141,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -1333,16 +1229,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87546-[Skipped:Disconnected]deploymentConfig nodeAffinity overrides existing nodeAffinity", func() {
 		var (
-			caseID                       = "87546"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87546"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// This test has TWO phases:
@@ -1377,11 +1271,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87546",
@@ -1394,7 +1283,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -1410,11 +1298,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -1611,16 +1494,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87547-[Skipped:Disconnected]deploymentConfig podAffinity overrides existing podAffinity", func() {
 		var (
-			caseID                       = "87547"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87547"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// CRITICAL: Only specify podAffinity, NOT nodeAffinity or podAntiAffinity
@@ -1655,11 +1536,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87546", // Reuse same bundle as 87546
@@ -1672,7 +1548,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -1688,11 +1563,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -1800,16 +1670,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87548-[Skipped:Disconnected]deploymentConfig podAntiAffinity overrides existing podAntiAffinity", func() {
 		var (
-			caseID                       = "87548"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87548"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// CRITICAL: This tests TWO behaviors:
@@ -1847,11 +1715,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87548",
@@ -1864,7 +1727,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -1880,11 +1742,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -2015,16 +1872,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87549-[Skipped:Disconnected]deploymentConfig annotations are merged with existing taking precedence", func() {
 		var (
-			caseID                       = "87549"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87549"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Define inline config as JSON string (for ${{}} template parsing)
 			// NOTE: Due to CSV API limitation, deployment-level and pod-level behave differently:
@@ -2046,11 +1901,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87549",
@@ -2063,7 +1913,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -2079,11 +1928,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -2195,16 +2039,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87550-[Skipped:Disconnected]deploymentConfig with resources and nodeSelector both work correctly", func() {
 		var (
-			caseID                       = "87550"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87550"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Configure resources and nodeSelector together
 			// Test Point 1: Resources applied to all containers in Deployment
@@ -2229,11 +2071,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
     }
   }`
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87550",
@@ -2246,7 +2083,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -2262,11 +2098,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -2387,16 +2218,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87551-[Skipped:Disconnected]deploymentConfig with env tolerations and resources all work correctly", func() {
 		var (
-			caseID                       = "87551"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87551"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Configure env, tolerations, and resources together
 			// Test Point 1: Env vars applied to containers and accessible in pod
@@ -2441,11 +2270,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"TEST_ENV2": "value2",
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87551",
@@ -2458,7 +2282,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -2474,11 +2297,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -2606,16 +2424,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87552-[Skipped:Disconnected]deploymentConfig works correctly when combined with watchNamespace configuration", func() {
 		var (
-			caseID                       = "87552"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87552"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Configure watchNamespace (SingleNamespace mode) and deploymentConfig together
 			// Test Point 1: WatchNamespace configuration verified (operator scoped to specific namespace)
@@ -2646,11 +2462,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"TEST_ENV_WATCH": "watchvalue",
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87552",
@@ -2663,7 +2474,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     inlineConfig,
@@ -2690,11 +2500,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", watchNs)).To(o.BeTrue())
 		e2e.Logf("Created watch namespace: %s (for config test only)", watchNs)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -2811,16 +2616,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87553-[Skipped:Disconnected]adding deploymentConfig multiple fields to existing ClusterExtension works correctly", func() {
 		var (
-			caseID                       = "87553"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87553"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
 
 			// Configuration to add (env + resources)
 			// Test Point 1: Adding config triggers reconcile
@@ -2850,11 +2653,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"ADDED_ENV": "added_value",
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87553",
@@ -2867,7 +2665,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				// NO InlineConfig initially - will be added later
@@ -2883,11 +2680,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -3072,16 +2864,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87554-[Skipped:Disconnected]modifying deploymentConfig multiple fields in existing ClusterExtension works correctly", func() {
 		var (
-			caseID                       = "87554"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87554"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Initial configuration (env + resources)
 			initialConfig = `{
@@ -3129,11 +2919,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				"MODIFIED_ENV": "modified_value",
 			}
 
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87554",
@@ -3146,7 +2931,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     initialConfig,
@@ -3162,11 +2946,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -3351,16 +3130,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87555-[Skipped:Disconnected]removing entire deploymentConfig from ClusterExtension reverts all settings to bundle defaults", func() {
 		var (
-			caseID                       = "87555"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87555"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Initial configuration with multiple fields
 			// This tests comprehensive removal of all custom configurations
@@ -3416,11 +3193,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		)
 
 		var (
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87555",
@@ -3433,7 +3205,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     initialConfig,
@@ -3449,11 +3220,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
@@ -3689,16 +3455,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 
 	g.It("PolarionID:87556-[Skipped:Disconnected]removing partial fields from deploymentConfig reverts those fields to bundle defaults while keeping others", func() {
 		var (
-			caseID                       = "87556"
-			ns                           = "test-ns-" + caseID
-			sa                           = "test-sa-" + caseID
-			catalogName                  = "test-catalog-" + caseID
-			extName                      = "test-ext-" + caseID
-			labelValue                   = caseID
-			baseDir                      = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate       = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate     = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
-			saClusterRoleBindingTemplate = filepath.Join(baseDir, "sa-admin.yaml")
+			caseID                   = "87556"
+			ns                       = "test-ns-" + caseID
+			catalogName              = "test-catalog-" + caseID
+			extName                  = "test-ext-" + caseID
+			labelValue               = caseID
+			baseDir                  = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
 
 			// Initial configuration with multiple fields (env + resources + tolerations)
 			// We'll later remove resources and tolerations while keeping env
@@ -3732,11 +3496,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		)
 
 		var (
-			saCrb = olmv1util.SaCLusterRolebindingDescription{
-				Name:      sa,
-				Namespace: ns,
-				Template:  saClusterRoleBindingTemplate,
-			}
 			clustercatalog = olmv1util.ClusterCatalogDescription{
 				Name:       catalogName,
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv87556",
@@ -3749,7 +3508,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 				Channel:          "alpha",
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
-				SaName:           sa,
 				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 				InlineConfig:     initialConfig,
@@ -3765,11 +3523,6 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfi
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(olmv1util.Appearance(oc, exutil.Appear, "ns", ns)).To(o.BeTrue())
 		e2e.Logf("Created namespace: %s", ns)
-
-		g.By("Create ServiceAccount and RBAC for ClusterExtension")
-		defer saCrb.Delete(oc)
-		saCrb.Create(oc)
-		e2e.Logf("Created ServiceAccount and RBAC: %s", sa)
 
 		g.By("Create ClusterCatalog with test operator")
 		defer clustercatalog.Delete(oc)
