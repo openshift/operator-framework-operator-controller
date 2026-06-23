@@ -47,6 +47,15 @@ func WithCatalogNameSelector(catalogName string) ClusterExtensionOption {
 	})
 }
 
+func WithProgressDeadlineMinutes(minutes int32) ClusterExtensionOption {
+	return func(ext *olmv1.ClusterExtension) {
+		if ext == nil {
+			return
+		}
+		ext.Spec.ProgressDeadlineMinutes = minutes
+	}
+}
+
 // CreateClusterExtension creates a ServiceAccount, ClusterRoleBinding, and ClusterExtension using typed APIs.
 // It returns the unique suffix and a cleanup function.
 func CreateClusterExtension(packageName, version, namespace, unique string, opts ...ClusterExtensionOption) (string, func()) {
