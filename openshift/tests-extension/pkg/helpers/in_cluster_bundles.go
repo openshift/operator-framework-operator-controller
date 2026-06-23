@@ -71,12 +71,15 @@ func NewCatalogAndClusterBundles(ctx SpecContext, replacements map[string]string
 			if key == "{{ TEST-BUNDLE }}" {
 				replacements[key] = opName
 			}
-			// Future: could add more auto-fill patterns here
 		}
+	}
+	// Default the bundle version if the caller did not provide it.
+	if _, ok := replacements["{{ BUNDLE-VERSION }}"]; !ok {
+		replacements["{{ BUNDLE-VERSION }}"] = "0.0.1"
 	}
 
 	By("creating a new Namespace")
-	createNamespace(nsName)
+	CreateNamespace(nsName)
 
 	// The builder (and deployer) service accounts are created by OpenShift itself which injects them in the NS.
 	By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
@@ -86,7 +89,7 @@ func NewCatalogAndClusterBundles(ctx SpecContext, replacements map[string]string
 	ExpectServiceAccountExists(ctx, "deployer", nsName)
 
 	By("applying image-puller RoleBinding")
-	createImagePullerRoleBinding(rbName, nsName)
+	CreateImagePullerRoleBinding(rbName, nsName)
 
 	By("creating the operator BuildConfig")
 	createBuildConfig(opName, nsName)
@@ -167,8 +170,6 @@ func createClusterCatalog(name, namespace string) {
 			},
 		},
 	}
-
-	Expect(k8sClient.Create(ctx, cc)).To(Succeed(), "failed to create ClusterCatalog")
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting ClusterCatalog %q", name))
 		err := k8sClient.Delete(context.Background(), cc)
@@ -176,10 +177,14 @@ func createClusterCatalog(name, namespace string) {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
+	Expect(k8sClient.Create(ctx, cc)).To(Succeed(), "failed to create ClusterCatalog")
+
 	waitForClusterCatalogServing(ctx, cc.Name)
 }
 
-func createImagePullerRoleBinding(name, namespace string) {
+// CreateImagePullerRoleBinding creates a RoleBinding granting system:image-puller to
+// the openshift-catalogd and openshift-operator-controller service account groups.
+func CreateImagePullerRoleBinding(name, namespace string) {
 	ctx := context.Background()
 	k8sClient := env.Get().K8sClient
 
@@ -206,14 +211,15 @@ func createImagePullerRoleBinding(name, namespace string) {
 			},
 		},
 	}
-	Expect(k8sClient.Create(ctx, rb)).To(Succeed(), "failed to create image-puller RoleBinding")
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting image-puller RoleBinding %q", name))
 		_ = k8sClient.Delete(ctx, rb)
 	})
+	Expect(k8sClient.Create(ctx, rb)).To(Succeed(), "failed to create image-puller RoleBinding")
 }
 
-func createNamespace(namespace string) {
+// CreateNamespace creates a namespace and registers a DeferCleanup to delete it.
+func CreateNamespace(namespace string) {
 	ctx := context.Background()
 	k8sClient := env.Get().K8sClient
 
@@ -222,12 +228,11 @@ func createNamespace(namespace string) {
 			Name: namespace,
 		},
 	}
-
-	Expect(k8sClient.Create(ctx, ns)).To(Succeed(), "failed to create Namespace: %q", namespace)
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting Namespace %q", namespace))
 		_ = k8sClient.Delete(context.Background(), ns)
 	})
+	Expect(k8sClient.Create(ctx, ns)).To(Succeed(), "failed to create Namespace: %q", namespace)
 }
 
 func createImageStream(name, namespace string) {
@@ -243,12 +248,11 @@ func createImageStream(name, namespace string) {
 			},
 		},
 	}
-
-	Expect(k8sClient.Create(ctx, is)).To(Succeed(), "failed to create ImageStream: %q", name)
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting ImageStream %q", name))
 		_ = k8sClient.Delete(context.Background(), is)
 	})
+	Expect(k8sClient.Create(ctx, is)).To(Succeed(), "failed to create ImageStream: %q", name)
 }
 
 func createBuildConfig(name, namespace string) {
@@ -293,12 +297,11 @@ func createBuildConfig(name, namespace string) {
 			},
 		},
 	}
-
-	Expect(k8sClient.Create(ctx, bc)).To(Succeed(), "failed to create BuildConfig: %q", name)
 	DeferCleanup(func() {
 		By(fmt.Sprintf("deleting BuildConfig %q", name))
 		_ = k8sClient.Delete(context.Background(), bc)
 	})
+	Expect(k8sClient.Create(ctx, bc)).To(Succeed(), "failed to create BuildConfig: %q", name)
 }
 
 func waitForBuildToFinish(ctx SpecContext, name, namespace string) {
@@ -365,30 +368,44 @@ func printExitError(err error) string {
 	return err.Error()
 }
 
-func createTempTarBall(replacements map[string]string, getAssetNames func() []string, getAsset func(string) ([]byte, error)) string {
+// BuildImage builds an OCI image in-cluster from the given files map.
+// It creates an ImageStream and BuildConfig in the given namespace, starts a build
+// from a temporary tar archive of the files, and waits for completion.
+func BuildImage(ctx SpecContext, namespace, name string, files map[string][]byte) {
+	createImageStream(name, namespace)
+	createBuildConfig(name, namespace)
+	tarFile := createTempTarBallFromFiles(files)
+	args := []string{
+		"create",
+		"--raw",
+		fmt.Sprintf(
+			"/apis/build.openshift.io/v1/namespaces/%s/buildconfigs/%s/instantiatebinary?name=%s&namespace=%s",
+			namespace, name, name, namespace,
+		),
+		"-f",
+		tarFile,
+	}
+	build := startBuild(args...)
+	waitForBuildToFinish(ctx, build.Name, namespace)
+}
+
+func createTempTarBallFromFiles(files map[string][]byte) string {
 	file, err := os.CreateTemp("", "bundle-*.tar")
 	Expect(err).To(Succeed())
 	filename := file.Name()
 
-	namesCatalog := getAssetNames()
-	twCatalog := tar.NewWriter(file)
-	for _, name := range namesCatalog {
-		data, err := getAsset(name)
-		Expect(err).To(Succeed())
-		for k, v := range replacements {
-			data = bytes.ReplaceAll(data, []byte(k), []byte(v))
-		}
+	tw := tar.NewWriter(file)
+	for name, data := range files {
 		hdr := &tar.Header{
 			Name: name,
 			Size: int64(len(data)),
 			Mode: 0o644,
 		}
-		err = twCatalog.WriteHeader(hdr)
-		Expect(err).To(Succeed())
-		_, err = twCatalog.Write(data)
+		Expect(tw.WriteHeader(hdr)).To(Succeed())
+		_, err = tw.Write(data)
 		Expect(err).To(Succeed())
 	}
-	Expect(twCatalog.Close()).To(Succeed(), "failed to close tar writer for file %q", filename)
+	Expect(tw.Close()).To(Succeed(), "failed to close tar writer for file %q", filename)
 	Expect(file.Close()).To(Succeed(), "failed to close tar file %q", filename)
 
 	DeferCleanup(func() {
@@ -396,4 +413,18 @@ func createTempTarBall(replacements map[string]string, getAssetNames func() []st
 		Expect(os.Remove(filename)).To(Succeed())
 	})
 	return filename
+}
+
+func createTempTarBall(replacements map[string]string, getAssetNames func() []string, getAsset func(string) ([]byte, error)) string {
+	names := getAssetNames()
+	files := make(map[string][]byte, len(names))
+	for _, name := range names {
+		data, err := getAsset(name)
+		Expect(err).To(Succeed())
+		for k, v := range replacements {
+			data = bytes.ReplaceAll(data, []byte(k), []byte(v))
+		}
+		files[name] = data
+	}
+	return createTempTarBallFromFiles(files)
 }
