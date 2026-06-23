@@ -21,7 +21,7 @@ metadata:
     createdAt: "2025-08-06T17:43:41Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: {{ TEST-BUNDLE }}.v0.0.1
+  name: {{ TEST-BUNDLE }}.v{{ BUNDLE-VERSION }}
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -158,4 +158,4 @@ spec:
   provider:
     name: Provider Name
     url: https://your.domain
-  version: 0.0.1
+  version: {{ BUNDLE-VERSION }}
