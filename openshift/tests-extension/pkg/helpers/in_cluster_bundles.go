@@ -80,10 +80,10 @@ func NewCatalogAndClusterBundles(ctx SpecContext, replacements map[string]string
 
 	// The builder (and deployer) service accounts are created by OpenShift itself which injects them in the NS.
 	By(fmt.Sprintf("waiting for builder serviceaccount in %s", nsName))
-	ExpectServiceAccountExists(ctx, "builder", nsName)
+	expectServiceAccountExists(ctx, "builder", nsName)
 
 	By(fmt.Sprintf("waiting for deployer serviceaccount in %s", nsName))
-	ExpectServiceAccountExists(ctx, "deployer", nsName)
+	expectServiceAccountExists(ctx, "deployer", nsName)
 
 	By("applying image-puller RoleBinding")
 	createImagePullerRoleBinding(rbName, nsName)
@@ -228,6 +228,16 @@ func createNamespace(namespace string) {
 		By(fmt.Sprintf("deleting Namespace %q", namespace))
 		_ = k8sClient.Delete(context.Background(), ns)
 	})
+}
+
+// expectServiceAccountExists waits for a ServiceAccount to be available and visible to the client.
+func expectServiceAccountExists(ctx context.Context, name, namespace string) {
+	k8sClient := env.Get().K8sClient
+	sa := &corev1.ServiceAccount{}
+	Eventually(func(g Gomega) {
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, sa)
+		g.Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get ServiceAccount %q/%q: %v", namespace, name, err))
+	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed(), "ServiceAccount %q/%q did not become visible within timeout", namespace, name)
 }
 
 func createImageStream(name, namespace string) {
