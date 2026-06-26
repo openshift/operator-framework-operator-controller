@@ -116,7 +116,7 @@ github.com/clipperhouse/uax29/v2/graphemes
 # github.com/containerd/cgroups/v3 v3.1.2
 ## explicit; go 1.22.0
 github.com/containerd/cgroups/v3/cgroup1/stats
-# github.com/containerd/containerd v1.7.32
+# github.com/containerd/containerd v1.7.33
 ## explicit; go 1.24.0
 github.com/containerd/containerd/archive
 github.com/containerd/containerd/archive/compression
@@ -798,14 +798,10 @@ github.com/spf13/pflag
 # github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6
 ## explicit; go 1.19
 github.com/stefanberger/go-pkcs11uri
-# github.com/stretchr/objx v0.5.3
-## explicit; go 1.20
-github.com/stretchr/objx
 # github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
-github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/ulikunitz/xz v0.5.15
 ## explicit; go 1.12
@@ -994,6 +990,9 @@ go.podman.io/storage/pkg/reexec
 go.podman.io/storage/pkg/regexp
 go.podman.io/storage/pkg/system
 go.podman.io/storage/pkg/unshare
+# go.uber.org/mock v0.6.0
+## explicit; go 1.23.0
+go.uber.org/mock/gomock
 # go.yaml.in/yaml/v2 v2.4.4
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
