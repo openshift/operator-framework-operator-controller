@@ -6,6 +6,7 @@ linters:
   # One can't use disable and disable-all. disable-all is preferred to avoid lint failing when golangci gets updated and linters are added.
   # at the same time but it is nice to explicitly state which linters we do not want.
   #disable:
+  #- arangolint       # Not useful.
   #- containedctx     # Context.Context within a struct (as opposed to a func parameter) is nasty for many reasons, but actually sometimes useful.
   #- cyclop           # Cyclo complexity already calculated by other linters.
   #- depguard         # We do not restrict imports.
@@ -18,12 +19,17 @@ linters:
   #- gochecknoglobals # We need globals.
   #- gochecknoinits   # We have a lot of those.
   #- gocognit         # Not that useful/false positives.
+  #- goconst          # I don't want to make "true" a constant.
+  #- godoclint        # Not useful.
   #- godox            # Not that useful/false positives.
   #- inamedparam      # Not that useful.
   #- ireturn          # Not that useful/false positives.
   #- mnd              # The annoy is strong.
+  #- noinlineerr      # Not useful.
   #- nonamedreturns   # Named return good return.
+  #- revive           # Not useful.
   #- testpackage      # Could be nice in the future.
+  #- unqueryvet       # Not useful.
   #- varnamelen       # Not that useful/false positives.
   #- wrapcheck        # Not that useful/false positives.
   default: none
@@ -44,19 +50,19 @@ linters:
     - errchkjson
     - errname
     - errorlint
+    - embeddedstructfieldcheck
     - exptostd
     - fatcontext
     - forbidigo
     - ginkgolinter
     - gocheckcompilerdirectives
     - gochecksumtype
-    - goconst
     - gocritic
     - gocyclo
     - godot
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - gosmopolitan
@@ -73,6 +79,7 @@ linters:
     - makezero
     - mirror
     - misspell
+    - modernize
     - musttag
     - nakedret
     - nestif

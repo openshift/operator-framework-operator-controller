@@ -1,7 +1,10 @@
 package types
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -117,14 +120,19 @@ type PhaseTeardownOption interface {
 	RevisionTeardownOption
 }
 
+// SiblingOwnerClassifierFunc is called when an object is controlled by an
+// unknown owner. Returns true if the owner belongs to the same deployment
+// and should be treated as a sibling revision instead of a collision.
+type SiblingOwnerClassifierFunc func(ownerRef metav1.OwnerReference) bool
+
 // ObjectReconcileOptions holds configuration options changing object reconciliation.
 type ObjectReconcileOptions struct {
-	CollisionProtection CollisionProtection
-	PreviousOwners      []client.Object
-	Owner               client.Object
-	OwnerStrategy       OwnerStrategy
-	Paused              bool
-	Probes              map[string]Prober
+	CollisionProtection    CollisionProtection
+	SiblingOwnerClassifier SiblingOwnerClassifierFunc
+	Owner                  client.Object
+	OwnerStrategy          OwnerStrategy
+	Paused                 bool
+	Probes                 map[string]Prober
 }
 
 // Default sets empty Option fields to their default value.
@@ -147,7 +155,7 @@ type ObjectReconcileOption interface {
 var (
 	_ ObjectReconcileOption = (WithCollisionProtection)("")
 	_ ObjectReconcileOption = (WithPaused{})
-	_ ObjectReconcileOption = (WithPreviousOwners{})
+	_ ObjectReconcileOption = (WithSiblingOwnerClassifier)(nil)
 	_ ObjectReconcileOption = (WithProbe("", nil))
 	_ ObjectTeardownOption  = (WithTeardownWriter(nil))
 )
@@ -211,23 +219,51 @@ func (p WithCollisionProtection) ApplyToRevisionReconcileOptions(opts *RevisionR
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }
 
-// WithPreviousOwners is a list of known objects allowed to take ownership from.
-// Objects from this list will not trigger collision detection and prevention.
-type WithPreviousOwners []client.Object
+// WithSiblingOwnerClassifier sets a callback to classify unknown controllers.
+// When the callback returns true, the unknown controller is treated as a
+// sibling revision of the same deployment instead of a collision.
+type WithSiblingOwnerClassifier SiblingOwnerClassifierFunc
 
 // ApplyToObjectReconcileOptions implements ObjectReconcileOption.
-func (p WithPreviousOwners) ApplyToObjectReconcileOptions(opts *ObjectReconcileOptions) {
-	opts.PreviousOwners = p
+func (p WithSiblingOwnerClassifier) ApplyToObjectReconcileOptions(opts *ObjectReconcileOptions) {
+	opts.SiblingOwnerClassifier = SiblingOwnerClassifierFunc(p)
 }
 
 // ApplyToPhaseReconcileOptions implements PhaseOption.
-func (p WithPreviousOwners) ApplyToPhaseReconcileOptions(opts *PhaseReconcileOptions) {
+func (p WithSiblingOwnerClassifier) ApplyToPhaseReconcileOptions(opts *PhaseReconcileOptions) {
 	opts.DefaultObjectOptions = append(opts.DefaultObjectOptions, p)
 }
 
 // ApplyToRevisionReconcileOptions implements RevisionReconcileOptions.
-func (p WithPreviousOwners) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
+func (p WithSiblingOwnerClassifier) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
+}
+
+// WithSiblingOwners returns a WithSiblingOwnerClassifier option that
+// compares against UIDs of all passed `siblings` objects.
+func WithSiblingOwners(siblings []client.Object) WithSiblingOwnerClassifier {
+	uids := make([]types.UID, 0, len(siblings))
+	for _, sibling := range siblings {
+		uids = append(uids, sibling.GetUID())
+	}
+
+	return func(actualOwnerRef metav1.OwnerReference) bool {
+		return slices.Contains(uids, actualOwnerRef.UID)
+	}
+}
+
+// WithSiblingOwnerRefs returns a WithSiblingOwnerClassifier option that
+// compares against UIDs of all passed owner references.
+func WithSiblingOwnerRefs(ownerRefs []metav1.OwnerReference) WithSiblingOwnerClassifier {
+	return func(actualOwnerRef metav1.OwnerReference) bool {
+		for _, ownerRef := range ownerRefs {
+			if actualOwnerRef.UID == ownerRef.UID {
+				return true
+			}
+		}
+
+		return false
+	}
 }
 
 // WithPaused skips reconciliation and just reports status information.
@@ -441,6 +477,7 @@ func WithOwner(obj client.Object, start OwnerStrategy) interface {
 type combinedOpts struct {
 	optionFn
 	teardownOptionFn
+
 	fn func(opts *ComparatorOptions)
 }
 

@@ -126,10 +126,11 @@ type objectBoundAccessManagerImpl[T RefType] struct {
 
 // AccessManagerKey is the key type on the ObjectBoundAccessManager's internal cache accessor map.
 type AccessManagerKey struct {
-	// UID ensures a re-created object also gets it's own cache.
-	UID types.UID
 	schema.GroupVersionKind
 	client.ObjectKey
+
+	// UID ensures a re-created object also gets it's own cache.
+	UID types.UID
 }
 
 type accessorEntry struct {
@@ -159,6 +160,7 @@ type cacheDone struct {
 type accessor struct {
 	TrackingCache
 	client.Writer
+
 	unfilteredReader client.Reader
 }
 

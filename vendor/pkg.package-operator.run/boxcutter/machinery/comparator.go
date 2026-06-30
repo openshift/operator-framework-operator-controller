@@ -258,7 +258,7 @@ func (d *Comparator) Compare(
 		// not a single managed field from "us" -> diverged for sure
 		for _, mf := range actualObject.GetManagedFields() {
 			fs := &fieldpath.Set{}
-			if err := fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
+			if err := fs.FromJSON(mf.FieldsV1.GetRawReader()); err != nil {
 				return res, fmt.Errorf("field set for actual: %w", err)
 			}
 
@@ -277,7 +277,7 @@ func (d *Comparator) Compare(
 	}
 
 	actualFieldSet := &fieldpath.Set{}
-	if err := actualFieldSet.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
+	if err := actualFieldSet.FromJSON(mf.FieldsV1.GetRawReader()); err != nil {
 		return res, fmt.Errorf("field set for actual: %w", err)
 	}
 
@@ -293,7 +293,7 @@ func (d *Comparator) Compare(
 		}
 
 		fs := &fieldpath.Set{}
-		if err := fs.FromJSON(bytes.NewReader(mf.FieldsV1.Raw)); err != nil {
+		if err := fs.FromJSON(mf.FieldsV1.GetRawReader()); err != nil {
 			return res, fmt.Errorf("field set for actual: %w", err)
 		}
 

@@ -236,6 +236,7 @@ func (r normalResult) String() string {
 // ObjectResultCollision is returned when conflicting with an existing object.
 type ObjectResultCollision struct {
 	normalResult
+
 	// conflictingOwner is provided when Refusing due to Collision.
 	conflictingOwner *metav1.OwnerReference
 }

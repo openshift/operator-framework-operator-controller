@@ -25,6 +25,10 @@ var NewRevision = types.NewRevision
 // with the given name, rev, phases and owner.
 var NewRevisionWithOwner = types.NewRevisionWithOwner
 
+// NewRevisionWithOwnerAndSiblings creates a new RevisionBuilder
+// with the given name, rev, phases, owner and sibling owners for revision handover.
+var NewRevisionWithOwnerAndSiblings = types.NewRevisionWithOwnerAndSiblings
+
 // Phase represents a collection of objects lifecycled together.
 type Phase = types.Phase
 
@@ -36,6 +40,10 @@ var NewPhase = types.NewPhase
 
 // NewPhaseWithOwner creates a new PhaseBuilder with the given name, objects and owner.
 var NewPhaseWithOwner = types.NewPhaseWithOwner
+
+// NewPhaseWithOwnerAndSiblings creates a new PhaseBuilder with the given name, objects, owner
+// and sibling owners for revision handover.
+var NewPhaseWithOwnerAndSiblings = types.NewPhaseWithOwnerAndSiblings
 
 // ObjectReconcileOption is the common interface for object reconciliation options.
 type ObjectReconcileOption = types.ObjectReconcileOption
@@ -55,9 +63,18 @@ type RevisionReconcileOption = types.RevisionReconcileOption
 // RevisionTeardownOption holds configuration options changing revision teardown.
 type RevisionTeardownOption = types.RevisionTeardownOption
 
-// WithPreviousOwners is a list of known objects allowed to take ownership from.
-// Objects from this list will not trigger collision detection and prevention.
-type WithPreviousOwners = types.WithPreviousOwners
+// WithSiblingOwnerClassifier sets a callback to classify unknown controllers.
+// When the callback returns true, the unknown controller is treated as a
+// sibling revision of the same deployment instead of a collision.
+type WithSiblingOwnerClassifier = types.WithSiblingOwnerClassifier
+
+// WithSiblingOwners returns a WithSiblingOwnerClassifier option that
+// compares against UIDs of all passed `siblings` objects.
+var WithSiblingOwners = types.WithSiblingOwners
+
+// WithSiblingOwnerRefs returns a WithSiblingOwnerClassifier option that
+// compares against UIDs of all passed owner references.
+var WithSiblingOwnerRefs = types.WithSiblingOwnerRefs
 
 const (
 	// CollisionProtectionPrevent prevents owner collisions entirely
@@ -137,6 +154,9 @@ type RevisionEngineOptions struct {
 
 	// Optional
 
+	// ManagedBy is the value to use for the app.kubernetes.io/managed-by label.
+	// If unset, defaults to "boxcutter".
+	ManagedBy string
 	// UnfilteredReader is a client.Reader which is not subject to filtering
 	// which may be applied to Reader if it is cached using object selectors.
 	// UnfilteredReader is used rarely in edge cases that do not persist, so it
@@ -163,7 +183,7 @@ func NewPhaseEngine(opts RevisionEngineOptions) (*machinery.PhaseEngine, error) 
 	oe := machinery.NewObjectEngine(
 		opts.Scheme, opts.Reader, opts.Writer,
 		comp, opts.FieldOwner, opts.SystemPrefix,
-		opts.UnfilteredReader,
+		opts.ManagedBy, opts.UnfilteredReader,
 	)
 
 	return machinery.NewPhaseEngine(oe, opts.PhaseValidator), nil
@@ -184,7 +204,7 @@ func NewRevisionEngine(opts RevisionEngineOptions) (*RevisionEngine, error) {
 	oe := machinery.NewObjectEngine(
 		opts.Scheme, opts.Reader, opts.Writer,
 		comp, opts.FieldOwner, opts.SystemPrefix,
-		opts.UnfilteredReader,
+		opts.ManagedBy, opts.UnfilteredReader,
 	)
 	pe := machinery.NewPhaseEngine(oe, pval)
 

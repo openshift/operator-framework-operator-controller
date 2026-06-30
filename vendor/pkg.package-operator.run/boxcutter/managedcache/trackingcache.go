@@ -53,6 +53,7 @@ type cacheSourcer interface {
 // - informing the cacheSourcer about new informers.
 type trackingCache struct {
 	cache.Cache
+
 	log          logr.Logger
 	restMapper   meta.RESTMapper
 	cacheSourcer cacheSourcer

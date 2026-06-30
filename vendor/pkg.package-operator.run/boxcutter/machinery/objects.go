@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +14,6 @@ import (
 	machinerytypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/csaupgrade"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -29,6 +29,7 @@ type ObjectEngine struct {
 
 	fieldOwner   string
 	systemPrefix string
+	managedBy    string
 
 	// unfilteredReader is a client.Reader which is not subject to filtering
 	// which may have been applied to cache. unfilteredReader MUST ONLY be used
@@ -48,9 +49,14 @@ func NewObjectEngine(
 
 	fieldOwner string,
 	systemPrefix string,
+	managedBy string,
 
 	unfilteredReader client.Reader, // may be nil
 ) *ObjectEngine {
+	if managedBy == "" {
+		managedBy = managedByLabelDefaultValue
+	}
+
 	return &ObjectEngine{
 		scheme:           scheme,
 		cache:            cache,
@@ -60,6 +66,7 @@ func NewObjectEngine(
 
 		fieldOwner:   fieldOwner,
 		systemPrefix: systemPrefix,
+		managedBy:    managedBy,
 	}
 }
 
@@ -86,9 +93,9 @@ type comparator interface {
 }
 
 const (
-	managedByLabel        string = "app.kubernetes.io/managed-by"
-	managedByLabelValue   string = "boxcutter"
-	boxcutterManagedLabel string = "boxcutter-managed"
+	managedByLabel             string = "app.kubernetes.io/managed-by"
+	managedByLabelDefaultValue string = "boxcutter"
+	boxcutterManagedLabel      string = "boxcutter-managed"
 )
 
 // Teardown ensures the given object is safely removed from the cluster.
@@ -163,6 +170,7 @@ func (e *ObjectEngine) Teardown(
 			patch := actualObject.DeepCopyObject().(Object)
 			options.OwnerStrategy.RemoveOwner(options.Owner, patch)
 
+			// TODO should we check if the patch differs from actualObject before firing the request?
 			return true, e.writer.Patch(ctx, patch, client.MergeFrom(actualObject))
 		}
 	}
@@ -174,8 +182,8 @@ func (e *ObjectEngine) Teardown(
 	}
 
 	err = writer.Delete(ctx, desiredObject, client.Preconditions{
-		UID:             ptr.To(actualObject.GetUID()),
-		ResourceVersion: ptr.To(actualObject.GetResourceVersion()),
+		UID:             new(actualObject.GetUID()),
+		ResourceVersion: new(actualObject.GetResourceVersion()),
 	})
 	if errors.IsNotFound(err) {
 		return true, nil
@@ -205,7 +213,7 @@ func (e *ObjectEngine) Reconcile(
 		labels = map[string]string{}
 	}
 
-	labels[managedByLabel] = managedByLabelValue
+	labels[managedByLabel] = e.managedBy
 	desiredObject.SetLabels(labels)
 
 	options.Default()
@@ -307,7 +315,8 @@ func (e *ObjectEngine) checkSituation(
 
 	if options.Owner != nil {
 		ctrlSit, actualOwner = e.detectOwner(
-			options.Owner, options.OwnerStrategy, actualObject, options.PreviousOwners)
+			options.Owner, options.OwnerStrategy,
+			actualObject, options.SiblingOwnerClassifier)
 
 		compareOpts = append(compareOpts, types.WithOwner(options.Owner, options.OwnerStrategy))
 	} else {
@@ -318,9 +327,6 @@ func (e *ObjectEngine) checkSituation(
 		}
 	}
 
-	// An object already exists on the cluster.
-	// Before doing anything else, we have to figure out
-	// who owns and controls the object.
 	compareRes, err = e.comparator.Compare(desiredObject, actualObject, compareOpts...)
 	if err != nil {
 		err = fmt.Errorf("diverge check: %w", err)
@@ -357,20 +363,63 @@ func (e *ObjectEngine) objectUpdateHandling(
 	}
 
 	switch ctrlSit {
-	case ctrlSituationIsController:
-		// Ensure revision linearity.
-		// Only skip reconciliation for a newer revision when we are
-		// already the controller or a previous owner is the controller.
-		// For unknown or absent controllers, collision protection must
-		// be evaluated first.
+	case ctrlSituationUnknownController:
+		if options.CollisionProtection != types.CollisionProtectionNone {
+			return newObjectResultConflict(
+				actualObject, compareRes,
+				actualOwner, options,
+			), nil
+		}
+
+		return e.objectAdoptionHandling(ctx, compareRes, revision, desiredObject, actualObject, options)
+
+	case ctrlSituationNoController:
+		// If the object has no controller, but there are system annotations or labels present,
+		// the object might have been just orphaned, if we re-adopt it now, it would get deleted
+		// by the kubernetes garbage collector.
+		if options.CollisionProtection == types.CollisionProtectionPrevent ||
+			e.isBoxcutterManaged(actualObject) {
+			return newObjectResultConflict(
+				actualObject, compareRes,
+				actualOwner, options,
+			), nil
+		}
+
+		return e.objectAdoptionHandling(ctx, compareRes, revision, desiredObject, actualObject, options)
+
+	case ctrlSituationSiblingIsController:
 		if actualObjectRevision > revision {
-			// Leave object alone.
-			// It's already owned by a later revision.
+			// A newer sibling revision already owns this object. Report progress.
 			return newObjectResultProgressed(
 				actualObject, compareRes, options,
 			), nil
 		}
 
+		if actualObjectRevision < revision {
+			// An older sibling revision currently owns this object. Adopt it.
+			return e.objectAdoptionHandling(ctx, compareRes, revision, desiredObject, actualObject, options)
+		}
+
+		// actualObjectRevision == revision
+		// This should not happen - the current owner has been classified as a sibling
+		// but the object's revision is the same as the desired revision we're reconciling here.
+		// Must be a user or data error. Surface as conflict.
+		log := logr.FromContextOrDiscard(ctx)
+		log.WithName("objectEngine").Info("update conflict without revision change",
+			"revision", revision,
+			"actualObjectRevision", actualObjectRevision,
+			"gvk", actualObject.GetObjectKind().GroupVersionKind().String(),
+			"namespace", actualObject.GetNamespace(),
+			"name", actualObject.GetName(),
+			"ownerName", actualOwner.Name,
+		)
+
+		return newObjectResultConflict(
+			actualObject, compareRes,
+			actualOwner, options,
+		), nil
+
+	case ctrlSituationIsController:
 		modified := compareRes.Comparison != nil &&
 			(!compareRes.Comparison.Modified.Empty() ||
 				!compareRes.Comparison.Removed.Empty())
@@ -436,50 +485,18 @@ func (e *ObjectEngine) objectUpdateHandling(
 			desiredObject, compareRes, options,
 		), nil
 
-		// Taking control checklist:
-		// - current controlling owner MUST be in PreviousOwners list
-		//   - OR object has _no_ controlling owner and CollisionProtection set to IfNoController or None
-		//   - OR object has another controlling owner and Collision Protection is set to None
-		//
-		// If any of the above points is not true, refuse.
-
-	case ctrlSituationUnknownController:
-		if options.CollisionProtection != types.CollisionProtectionNone {
-			return newObjectResultConflict(
-				actualObject, compareRes,
-				actualOwner, options,
-			), nil
-		}
-
-	case ctrlSituationNoController:
-		// If the object has no controller, but there are system annotations or labels present,
-		// the object might have been just orphaned, if we re-adopt it now, it would get deleted
-		// by the kubernetes garbage collector.
-		if options.CollisionProtection == types.CollisionProtectionPrevent ||
-			e.isBoxcutterManaged(actualObject) {
-			return newObjectResultConflict(
-				actualObject, compareRes,
-				actualOwner, options,
-			), nil
-		}
-
-	case ctrlSituationPreviousIsController:
-		// no extra operation
-		break
+	default:
+		panic(fmt.Sprintf("ObjectEngine.objectUpdateHandling encountered unknown ctrlSituation: %s", ctrlSit))
 	}
+}
 
-	// A previous revision is current controller.
-	// This means we want to take control, but
-	// retain older revisions ownerReferences,
-	// so they can still react to events.
-
-	// Ensure revision linearity
-	if actualObjectRevision > revision {
-		return newObjectResultProgressed(
-			actualObject, compareRes, options,
-		), nil
-	}
-
+func (e *ObjectEngine) objectAdoptionHandling(ctx context.Context,
+	compareRes CompareResult,
+	revision int64,
+	desiredObject Object,
+	actualObject Object,
+	options types.ObjectReconcileOptions,
+) (ObjectResult, error) {
 	// TODO:
 	// ObjectResult ModifiedFields does not contain ownerReference changes
 	// introduced here, this may lead to Updated Actions without modifications.
@@ -497,7 +514,7 @@ func (e *ObjectEngine) objectUpdateHandling(
 	}
 
 	// Write changes.
-	err = e.apply(
+	err := e.apply(
 		ctx, desiredObject, actualObject,
 		options,
 		client.ForceOwnership,
@@ -522,15 +539,10 @@ func (e *ObjectEngine) objectUpdateHandling(
 // It's only purpose is to prevent boxcutter immediately re-adopting objects when
 // resources get orphaned by the GC.
 func (e *ObjectEngine) isBoxcutterManaged(obj client.Object) bool {
-	labels := obj.GetLabels()
 	annotations := obj.GetAnnotations()
-
 	_, hasRevisionAnnotation := annotations[e.revisionAnnotation()]
-	if labels[managedByLabel] == managedByLabelValue && hasRevisionAnnotation {
-		return true
-	}
 
-	return false
+	return hasRevisionAnnotation
 }
 
 func (e *ObjectEngine) create(
@@ -592,10 +604,10 @@ type ctrlSituation string
 const (
 	// Owner is already controller.
 	ctrlSituationIsController ctrlSituation = "IsController"
-	// Previous revision/previous owner is controller.
-	ctrlSituationPreviousIsController ctrlSituation = "PreviousIsController"
+	// Sibling revision of the same deployment is controller,
+	// as classified by the SiblingOwnerClassifier callback.
+	ctrlSituationSiblingIsController ctrlSituation = "SiblingIsController"
 	// Someone else is controller of this object.
-	// This includes the "next" revision, as it's not in "previousOwners".
 	ctrlSituationUnknownController ctrlSituation = "UnknownController"
 	// No controller found.
 	ctrlSituationNoController ctrlSituation = "NoController"
@@ -605,7 +617,7 @@ func (e *ObjectEngine) detectOwner(
 	owner client.Object,
 	ownerStrategy objectEngineOwnerStrategy,
 	actualObject Object,
-	previousOwners []client.Object,
+	siblingOwnerClassifier types.SiblingOwnerClassifierFunc,
 ) (ctrlSituation, *metav1.OwnerReference) {
 	// e.ownerStrategy may either work on .metadata.ownerReferences or
 	// on an annotation to allow cross-namespace and cross-cluster refs.
@@ -614,22 +626,15 @@ func (e *ObjectEngine) detectOwner(
 		return ctrlSituationNoController, nil
 	}
 
-	// Are we already controller?
-	if ownerStrategy.IsController(owner, actualObject) {
+	switch {
+	case ownerStrategy.IsController(owner, actualObject):
+		// We already are controller.
 		return ctrlSituationIsController, &ownerRef
+	case siblingOwnerClassifier != nil && siblingOwnerClassifier(ownerRef):
+		return ctrlSituationSiblingIsController, &ownerRef
+	default:
+		return ctrlSituationUnknownController, &ownerRef
 	}
-
-	// Check if previous owner is controller.
-	for _, previousOwner := range previousOwners {
-		if ownerStrategy.IsController(previousOwner, actualObject) {
-			return ctrlSituationPreviousIsController, &ownerRef
-		}
-	}
-
-	// Anyone else controller?
-	// This statement can only resolve to true if annotations
-	// are used for owner reference tracking.
-	return ctrlSituationUnknownController, &ownerRef
 }
 
 // Stores the revision number in a well-known annotation on the given object.
@@ -696,10 +701,7 @@ func (e *ObjectEngine) removeBoxcutterManagedLabelsAndAnnotations(
 	obj.SetAnnotations(annotations)
 
 	labels := updated.GetLabels()
-	if l, ok := labels[managedByLabel]; ok && l == managedByLabelValue {
-		delete(labels, managedByLabel)
-	}
-
+	delete(labels, managedByLabel)
 	delete(labels, boxcutterManagedLabel)
 
 	updated.SetLabels(labels)

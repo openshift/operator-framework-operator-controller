@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -98,7 +97,7 @@ func (s *OwnerStrategyNative) RemoveOwner(owner, obj metav1.Object) {
 func (s *OwnerStrategyNative) ReleaseController(obj metav1.Object) {
 	ownerRefs := obj.GetOwnerReferences()
 	for i := range ownerRefs {
-		ownerRefs[i].Controller = ptr.To(false)
+		ownerRefs[i].Controller = new(false)
 	}
 
 	obj.SetOwnerReferences(ownerRefs)

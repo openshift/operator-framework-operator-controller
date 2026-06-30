@@ -74,6 +74,24 @@ func NewPhaseWithOwner(
 	return p.WithReconcileOptions(oo).WithTeardownOptions(oo)
 }
 
+// NewPhaseWithOwnerAndSiblings creates a new PhaseBuilder with the given name, objects, owner
+// and sibling owners for revision handover.
+func NewPhaseWithOwnerAndSiblings(
+	name string, objects []client.Object,
+	owner client.Object, ownerStrat OwnerStrategy,
+	siblings []client.Object,
+) PhaseBuilder {
+	oo := WithOwner(owner, ownerStrat)
+	p := &phase{
+		Name:    name,
+		Objects: objects,
+	}
+
+	return p.
+		WithReconcileOptions(oo, WithSiblingOwners(siblings)).
+		WithTeardownOptions(oo)
+}
+
 // phase represents a named collection of objects.
 type phase struct {
 	// Name of the Phase.
@@ -172,6 +190,27 @@ func NewRevisionWithOwner(
 	}
 
 	return r.WithReconcileOptions(oo).WithTeardownOptions(oo)
+}
+
+// NewRevisionWithOwnerAndSiblings creates a new RevisionBuilder
+// with the given name, rev, phases, owner and sibling owners for revision handover.
+func NewRevisionWithOwnerAndSiblings(
+	name string,
+	revNumber int64,
+	phases []Phase,
+	owner client.Object, ownerStrat OwnerStrategy,
+	siblings []client.Object,
+) RevisionBuilder {
+	oo := WithOwner(owner, ownerStrat)
+	r := &revision{
+		Name:     name,
+		Revision: revNumber,
+		Phases:   phases,
+	}
+
+	return r.
+		WithReconcileOptions(oo, WithSiblingOwners(siblings)).
+		WithTeardownOptions(oo)
 }
 
 // revision represents the version of a content collection consisting of phases.
