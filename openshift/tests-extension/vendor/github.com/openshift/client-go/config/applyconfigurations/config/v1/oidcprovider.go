@@ -21,7 +21,11 @@ type OIDCProviderApplyConfiguration struct {
 	//
 	// Validation rules are joined via an AND operation.
 	ClaimValidationRules []TokenClaimValidationRuleApplyConfiguration `json:"claimValidationRules,omitempty"`
-	UserValidationRules  []TokenUserValidationRuleApplyConfiguration  `json:"userValidationRules,omitempty"`
+	// userValidationRules is an optional field that configures the set of rules used to validate the cluster user identity that was constructed via mapping token claims to user identity attributes.
+	// Rules are CEL expressions that must evaluate to 'true' for authentication to succeed.
+	// If any rule in the chain of rules evaluates to 'false', authentication will fail.
+	// When specified, at least one rule must be specified and no more than 64 rules may be specified.
+	UserValidationRules []TokenUserValidationRuleApplyConfiguration `json:"userValidationRules,omitempty"`
 }
 
 // OIDCProviderApplyConfiguration constructs a declarative configuration of the OIDCProvider type for use with
