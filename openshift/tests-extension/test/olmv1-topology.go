@@ -42,7 +42,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 topology-based deploy
 	// SingleReplica (SNO) and External topologies keep the chart default of
 	// replicas=1 with no PDB.
 	It("should configure replicas and PodDisruptionBudgets to match the cluster control plane topology", func(ctx SpecContext) {
-		Skip("TODO OCPBUGS-94187: OLMv1 test extension does not yet support the arguments required to run this test")
 		k8sClient := env.Get().K8sClient
 
 		infra := &configv1.Infrastructure{}
