@@ -1658,10 +1658,12 @@
     }
   },
   {
-    "name": "[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline PolarionID:88331-[OTP]A ClusterExtension is created and a persistent error prevents it from being fully rolled out",
+    "name": "[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline PolarionID:88331-[OTP][Slow]A ClusterExtension is created and a persistent error prevents it from being fully rolled out",
+    "originalName": "[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline PolarionID:88331-[OTP]A ClusterExtension is created and a persistent error prevents it from being fully rolled out",
     "labels": {
       "Extended": {},
-      "NonHyperShiftHOST": {}
+      "NonHyperShiftHOST": {},
+      "original-name:[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline PolarionID:88331-[OTP]A ClusterExtension is created and a persistent error prevents it from being fully rolled out": {}
     },
     "resources": {
       "isolation": {}

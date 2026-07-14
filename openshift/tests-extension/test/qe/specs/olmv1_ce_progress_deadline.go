@@ -32,8 +32,6 @@ import (
 )
 
 var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline", g.Label("NonHyperShiftHOST"), func() {
-	defer g.GinkgoRecover()
-
 	var oc = exutil.NewCLIWithoutNamespace("default")
 
 	g.BeforeEach(func(ctx g.SpecContext) {
@@ -50,23 +48,28 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime]
 		}
 	})
 
-	g.It("PolarionID:88331-[OTP]A ClusterExtension is created and a persistent error prevents it from being fully rolled out", func(ctx g.SpecContext) {
-		const caseID = "88331"
-		fixture := newRolloutFailureFixture(ctx, oc, caseID, []rolloutFailureBundle{
-			{Version: "1.0.2", ControllerImage: "wrong/image"},
+	g.It("PolarionID:88331-[OTP][Slow]A ClusterExtension is created and a persistent error prevents it from being fully rolled out",
+		g.Label("original-name:[sig-olmv1][Jira:OLM][OCPFeatureGate:NewOLMBoxCutterRuntime] clusterextension progress deadline PolarionID:88331-[OTP]A ClusterExtension is created and a persistent error prevents it from being fully rolled out"),
+		func(ctx g.SpecContext) {
+			const caseID = "88331"
+			const progressDeadlineMinutes = int32(10)
+			waitForProgressDeadline := time.Duration(progressDeadlineMinutes+5) * time.Minute
+
+			fixture := newRolloutFailureFixture(ctx, oc, caseID, []rolloutFailureBundle{
+				{Version: "1.0.2", ControllerImage: "wrong/image"},
+			})
+
+			g.By("creating a ClusterExtension with the minimum progress deadline for the failing bundle")
+			ce := fixture.newClusterExtension("test-ce-install-timeout-"+caseID, "1.0.2", "olm-sa", ptr.To(progressDeadlineMinutes))
+			o.Expect(env.Get().K8sClient.Create(ctx, ce)).To(o.Succeed(), "failed to create ClusterExtension")
+			g.DeferCleanup(deleteObject, ce)
+
+			g.By("waiting for the first ClusterObjectSet to report ProgressDeadlineExceeded")
+			expectClusterObjectSetCondition(ctx, ce.Name+"-1", olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded, waitForProgressDeadline)
+
+			g.By("verifying the ClusterExtension reports ProgressDeadlineExceeded")
+			expectClusterExtensionCondition(ctx, ce.Name, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded, fmt.Sprintf("Revision has not rolled out for %d minute(s).", progressDeadlineMinutes), waitForProgressDeadline)
 		})
-
-		g.By("creating a ClusterExtension with a 1-minute progress deadline for the failing bundle")
-		ce := fixture.newClusterExtension("test-ce-install-timeout-"+caseID, "1.0.2", "olm-sa", ptr.To(int32(1)))
-		o.Expect(env.Get().K8sClient.Create(ctx, ce)).To(o.Succeed(), "failed to create ClusterExtension")
-		g.DeferCleanup(deleteObject, ce)
-
-		g.By("waiting for the first ClusterObjectSet to report ProgressDeadlineExceeded")
-		expectClusterObjectSetCondition(ctx, ce.Name+"-1", olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
-
-		g.By("verifying the ClusterExtension reports ProgressDeadlineExceeded")
-		expectClusterExtensionCondition(ctx, ce.Name, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded, "Revision has not rolled out for 1 minute(s).")
-	})
 
 	g.It("PolarionID:88332-[OTP]A ClusterExtension is being upgraded and a persistent error prevents it from being fully rolled out", func(ctx g.SpecContext) {
 		const caseID = "88332"
@@ -260,8 +263,8 @@ func buildImage(ctx g.SpecContext, oc *exutil.CLI, namespace, name string, files
 		o.Expect(os.Remove(archive)).To(o.Succeed(), "failed to delete build archive %s", archive)
 	})
 
-	output, err := oc.AsAdmin().WithoutNamespace().Run("start-build").Args(name, "-n", namespace, "--from-archive="+archive, "--wait").Output()
-	o.Expect(err).NotTo(o.HaveOccurred(), "failed to build image %s: %s", name, output)
+	_, err := oc.AsAdmin().WithoutNamespace().Run("start-build").Args(name, "-n", namespace, "--from-archive="+archive, "--wait").Output()
+	o.Expect(err).NotTo(o.HaveOccurred(), "failed to build image %s", name)
 }
 
 func createBuildArchive(files map[string][]byte) string {
@@ -384,7 +387,7 @@ func expectClusterCatalogServing(ctx context.Context, name string) {
 	}, 5*time.Minute)
 }
 
-func expectClusterExtensionCondition(ctx context.Context, name, conditionType string, status metav1.ConditionStatus, reason, messageSubstring string) {
+func expectClusterExtensionCondition(ctx context.Context, name, conditionType string, status metav1.ConditionStatus, reason, messageSubstring string, timeout ...time.Duration) {
 	eventually(func(g o.Gomega) {
 		ce := &olmv1.ClusterExtension{}
 		err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: name}, ce)
@@ -399,10 +402,10 @@ func expectClusterExtensionCondition(ctx context.Context, name, conditionType st
 		if messageSubstring != "" {
 			g.Expect(condition.Message).To(o.ContainSubstring(messageSubstring), "%s message mismatch", conditionType)
 		}
-	}, 3*time.Minute)
+	}, timeoutOrDefault(timeout))
 }
 
-func expectClusterObjectSetCondition(ctx context.Context, name, conditionType string, status metav1.ConditionStatus, reason string) {
+func expectClusterObjectSetCondition(ctx context.Context, name, conditionType string, status metav1.ConditionStatus, reason string, timeout ...time.Duration) {
 	eventually(func(g o.Gomega) {
 		cos := &olmv1.ClusterObjectSet{}
 		err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: name}, cos)
@@ -412,7 +415,7 @@ func expectClusterObjectSetCondition(ctx context.Context, name, conditionType st
 		g.Expect(condition).NotTo(o.BeNil(), "%s condition not found", conditionType)
 		g.Expect(condition.Status).To(o.Equal(status), "%s status mismatch", conditionType)
 		g.Expect(condition.Reason).To(o.Equal(reason), "%s reason mismatch", conditionType)
-	}, 3*time.Minute)
+	}, timeoutOrDefault(timeout))
 }
 
 func expectActiveRevisions(ctx context.Context, name string, expected ...string) {
@@ -431,6 +434,13 @@ func expectActiveRevisions(ctx context.Context, name string, expected ...string)
 
 func eventually(callback func(o.Gomega), timeout time.Duration) {
 	o.Eventually(callback).WithTimeout(timeout).WithPolling(helpers.DefaultPolling).Should(o.Succeed())
+}
+
+func timeoutOrDefault(timeout []time.Duration) time.Duration {
+	if len(timeout) == 0 {
+		return 3 * time.Minute
+	}
+	return timeout[0]
 }
 
 func deleteObject(obj client.Object) {
