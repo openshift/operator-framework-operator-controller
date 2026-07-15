@@ -14,7 +14,6 @@ options:
       - PreflightPermissions
       disabled:
       - WebhookProviderCertManager
-      - HelmChartSupport
       - BoxcutterRuntime
 # List of enabled experimental features for catalogd
 # Use with {{- if has "FeatureGate" .Value.catalogd.features.enabled }}
