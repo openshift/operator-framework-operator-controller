@@ -547,18 +547,21 @@ func PatchResource(oc *CLI, asAdmin bool, withoutNamespace bool, parameters ...s
 	o.Expect(err).NotTo(o.HaveOccurred())
 }
 
-// GetNextMinorVersion calculates the next minor version string from the current cluster version
+// GetNextMinorVersion calculates the next minor version string from the current cluster version.
 // Parameters:
 //   - oc: CLI client for interacting with the OpenShift cluster
 //
 // Returns:
-//   - string: next minor version in "MAJOR.MINOR" format (e.g., "4.23")
+//   - string: next minor version in "MAJOR.MINOR" format (e.g., "5.1")
 //   - error: error if version retrieval or calculation fails, nil on success
 //
 // Example:
 //
 //	nextVersion, err := GetNextMinorVersion(oc)
-//	// For cluster version "4.22.0-xxx", returns: "4.23", nil
+//	// For cluster version "5.0.0-xxx", returns: "5.1", nil
+//
+// Special case: OCP 4.23 and 5.0 are co-released equivalents; the only upgrade target
+// from either is 5.1. A cluster at 4.23 therefore returns "5.1", not "4.24".
 func GetNextMinorVersion(oc *CLI) (string, error) {
 	if oc == nil {
 		return "", fmt.Errorf("CLI client cannot be nil")
@@ -587,9 +590,10 @@ func GetNextMinorVersion(oc *CLI) (string, error) {
 		return "", fmt.Errorf("failed to parse minor version from %s: %w", parts[1], err)
 	}
 
-	// Calculate next minor version
-	nextMinor := minor + 1
-	nextVersion := fmt.Sprintf("%d.%d", major, nextMinor)
+	// OCP 4.23 and 5.0 are co-released equivalents; the only upgrade target from either is 5.1.
+	if major == 4 && minor == 23 {
+		return "5.1", nil
+	}
 
-	return nextVersion, nil
+	return fmt.Sprintf("%d.%d", major, minor+1), nil
 }
