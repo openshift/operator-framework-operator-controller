@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -61,6 +62,61 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 			By("waiting for ClusterOperator Upgradeable to be false")
 			waitForClusterOperatorUpgradable(ctx, ceName)
 		})
+})
+
+// nextMinorVersion returns the next OCP minor version after the current cluster version.
+// OCP 4.23 and 5.0 are co-released equivalents whose only upgrade target is 5.1, so
+// a cluster at 4.23 returns "5.1" rather than the naive "4.24".
+func nextMinorVersion() string {
+	v := env.Get().OpenShiftVersion // "MAJOR.MINOR", e.g. "5.0"
+	var major, minor int
+	if _, err := fmt.Sscanf(v, "%d.%d", &major, &minor); err != nil {
+		Fail(fmt.Sprintf("failed to parse OpenShift version %q: %v", v, err))
+	}
+	if major == 4 && minor == 23 {
+		return "5.1"
+	}
+	return fmt.Sprintf("%d.%d", major, minor+1)
+}
+
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation", func() {
+	var unique, nsName, ccName, opName string
+	BeforeEach(func(ctx SpecContext) {
+		replacements := map[string]string{
+			"{{ TEST-BUNDLE }}": "", // Auto-filled
+			"{{ NAMESPACE }}":   "", // Auto-filled
+			"{{ VERSION }}":     nextMinorVersion(),
+
+			// Using the shell image provided by origin as the controller image.
+			// The image is mirrored into disconnected environments for testing.
+			"{{ TEST-CONTROLLER }}": image.ShellImage(),
+		}
+		unique, nsName, ccName, opName = helpers.NewCatalogAndClusterBundles(ctx, replacements,
+			catalogdata.AssetNames, catalogdata.Asset,
+			operatordata.AssetNames, operatordata.Asset,
+		)
+	})
+
+	AfterEach(func(ctx SpecContext) {
+		if CurrentSpecReport().Failed() {
+			By("dumping for debugging")
+			helpers.DescribeAllClusterCatalogs(context.Background())
+			helpers.DescribeAllClusterExtensions(context.Background(), nsName)
+		}
+	})
+
+	It("should not block cluster upgrades if the operator's maxOCPVersion exceeds the current cluster version", func(ctx SpecContext) {
+		By("waiting for InstalledOLMOperatorUpgradable to be true")
+		waitForOlmUpgradeStatus(ctx, operatorv1.ConditionTrue, "")
+
+		By("creating the ClusterExtension")
+		ceName, ceCleanup := helpers.CreateClusterExtension(opName, "", nsName, unique, helpers.WithCatalogNameSelector(ccName))
+		DeferCleanup(ceCleanup)
+		helpers.ExpectClusterExtensionToBeInstalled(ctx, ceName)
+
+		By("verifying InstalledOLMOperatorUpgradable remains true after installing the operator")
+		waitForOlmUpgradeStatus(ctx, operatorv1.ConditionTrue, "")
+	})
 })
 
 func waitForOlmUpgradeStatus(ctx SpecContext, status operatorv1.ConditionStatus, name string) {
