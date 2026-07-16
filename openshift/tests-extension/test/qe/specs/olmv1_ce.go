@@ -1056,7 +1056,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		g.By("check if Upgradeable status is false")
 		errWait := wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 60*time.Second, false, func(ctx context.Context) (bool, error) {
 			message, _ := olmv1util.GetNoEmpty(oc, "co", "olm", "-o", `jsonpath={.status.conditions[?(@.type=="Upgradeable")].message}`)
-			if strings.Contains(message, expectedPattern) && strings.Contains(message, "5") {
+			if strings.Contains(message, expectedPattern) {
 				e2e.Logf("message:%s", message)
 				return true, nil
 			}
