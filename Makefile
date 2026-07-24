@@ -145,10 +145,6 @@ lint-custom: custom-linter-build #EXHELP Call custom linter for the project
 lint-api-diff: $(GOLANGCI_LINT) #HELP Validate API changes using kube-api-linter with diff-aware analysis
 	hack/api-lint-diff/run.sh
 
-.PHONY: k8s-pin
-k8s-pin: #EXHELP Pin k8s staging modules based on k8s.io/kubernetes version (in go.mod or from K8S_IO_K8S_VERSION env var) and run go mod tidy.
-	K8S_IO_K8S_VERSION='$(K8S_IO_K8S_VERSION)' go run hack/tools/k8smaintainer/main.go
-
 .PHONY: tidy #HELP Run go mod tidy.
 tidy:
 	go mod tidy
@@ -210,7 +206,7 @@ generate: $(CONTROLLER_GEN) generate-mocks #EXHELP Generate code containing Deep
 	done
 
 .PHONY: verify
-verify: k8s-pin kind-verify-versions fmt generate manifests update-tls-profiles crd-ref-docs update-registryv1-bundle-schema verify-bingo #HELP Verify all generated code is up-to-date. Runs k8s-pin instead of just tidy.
+verify: tidy kind-verify-versions fmt generate manifests update-tls-profiles crd-ref-docs update-registryv1-bundle-schema verify-bingo #HELP Verify all generated code is up-to-date.
 	git diff --exit-code
 
 .PHONY: verify-bingo
@@ -404,7 +400,6 @@ else
 endif
 
 .PHONY: e2e-run-%
-e2e-run-%: E2E_TIMEOUT ?= 20m
 e2e-run-%: GODOG_ARGS ?=
 e2e-run-%: prometheus-%
 ifeq ($(strip $(GODOG_ARGS)),)
@@ -414,11 +409,11 @@ ifeq ($(strip $(GODOG_ARGS)),)
 	set +e; \
 	KUBECONFIG=$(E2E_KUBECONFIG) \
 	PROMETHEUS_URL=http://localhost:$$E2E_PROMETHEUS_PORT \
-	go test -count=1 -v ./test/e2e/features_test.go -timeout $(E2E_TIMEOUT) -args --godog.tags="~@Serial" --godog.concurrency=100; \
+	go test -count=1 -v ./test/e2e/features_test.go -timeout $(or $(E2E_TIMEOUT),20m) -args --godog.tags="~@Serial && ~@demo" --godog.concurrency=100; \
 	parallelExit=$$?; \
 	KUBECONFIG=$(E2E_KUBECONFIG) \
 	PROMETHEUS_URL=http://localhost:$$E2E_PROMETHEUS_PORT \
-	go test -count=1 -v ./test/e2e/features_test.go -timeout $(E2E_TIMEOUT) -args --godog.tags="@Serial" --godog.concurrency=1; \
+	go test -count=1 -v ./test/e2e/features_test.go -timeout $(or $(E2E_TIMEOUT),20m) -args --godog.tags="@Serial && ~@demo" --godog.concurrency=1; \
 	serialExit=$$?; \
 	if [[ $$parallelExit -ne 0 ]] || [[ $$serialExit -ne 0 ]]; then \
 		echo "e2e tests failed: parallel=$$parallelExit serial=$$serialExit"; \
@@ -429,7 +424,7 @@ else
 	if [[ -z "$$E2E_PROMETHEUS_PORT" ]]; then echo "error: failed to extract prometheus hostPort from $(KIND_CONFIG)" >&2; exit 1; fi; \
 	KUBECONFIG=$(E2E_KUBECONFIG) \
 	PROMETHEUS_URL=http://localhost:$$E2E_PROMETHEUS_PORT \
-	go test -count=1 -v ./test/e2e/features_test.go -timeout=$(E2E_TIMEOUT) -args $(GODOG_ARGS)
+	go test -count=1 -v ./test/e2e/features_test.go -timeout=$(or $(E2E_TIMEOUT),20m) -args $(GODOG_ARGS)
 endif
 
 .PHONY: e2e-coverage-%
@@ -697,13 +692,33 @@ deploy-docs: venv
 	. $(VENV)/activate; \
 	mkdocs gh-deploy --force --strict
 
-# The demo script requires to install asciinema with: brew install asciinema to run on mac os envs.
-# Please ensure that all demos are named with the demo name and the suffix -demo-script.sh
-.PHONY: update-demos #EXHELP Validate demo recordings.
-update-demos:
-	@for script in hack/demo/*-demo-script.sh; do \
-	  nm=$$(basename $$script -script.sh); \
-	  ./hack/demo/generate-asciidemo.sh -n $$nm $$(basename $$script); \
+DEMO_OUTPUT_DIR ?= $(ROOT_DIR)/docs/demos
+
+.PHONY: update-demos
+update-demos: SOURCE_MANIFEST := $(EXPERIMENTAL_E2E_MANIFEST)
+update-demos: export MANIFEST := $(EXPERIMENTAL_RELEASE_MANIFEST)
+update-demos: export DEFAULT_CATALOG := $(CATALOGS_MANIFEST)
+update-demos: export INSTALL_DEFAULT_CATALOGS := true
+update-demos: export CATALOG_WAIT_TIMEOUT := 5m
+update-demos: wait-operator-controller-experimental-e2e demo-e2e demo-svg experimental-e2e-teardown #EXHELP Record demo scenarios as asciicast and SVG files.
+
+.PHONY: demo-e2e
+demo-e2e:
+	@command -v curl >/dev/null 2>&1 || { echo "Error: curl not found in PATH."; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "Error: jq not found in PATH."; exit 1; }
+	@mkdir -p $(DEMO_OUTPUT_DIR)
+	KUBECONFIG=$(KUBECONFIG_DIR)/operator-controller-experimental-e2e.kubeconfig \
+	DEMO_OUTPUT_DIR=$(DEMO_OUTPUT_DIR) go test -count=1 -v ./test/e2e/features_test.go -timeout 30m \
+	  -args --godog.tags="@demo" --godog.concurrency=1
+
+.PHONY: demo-svg
+demo-svg: #EXHELP Convert asciicast recordings to SVG.
+	@command -v docker >/dev/null 2>&1 || { echo "Error: docker not found in PATH."; exit 1; }
+	@for cast in $(DEMO_OUTPUT_DIR)/*.cast; do \
+	  svg=$${cast%.cast}.svg; \
+	  echo "Converting $$(basename $$cast) -> $$(basename $$svg)"; \
+	  docker run --rm -v $(DEMO_OUTPUT_DIR):/data node:alpine \
+	    npx --yes svg-term-cli --in /data/$$(basename $$cast) --out /data/$$(basename $$svg) --window; \
 	done
 
 include Makefile.venv

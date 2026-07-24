@@ -57,6 +57,9 @@ type scenarioContext struct {
 	deploymentRestores   []deploymentRestore
 	extensionObjects     []client.Object
 	proxy                *recordingProxy
+	catalogAddr          string
+	catalogCleanup       func()
+	lastApplyStderr      string
 }
 
 // GatherClusterExtensionObjects collects all resources related to the ClusterExtension container in
@@ -87,11 +90,8 @@ var (
 	devMode      = false
 	featureGates = map[featuregate.Feature]bool{
 		features.WebhookProviderCertManager:        true,
-		features.PreflightPermissions:              false,
 		features.SingleOwnNamespaceInstallSupport:  false,
-		features.SyntheticPermissions:              false,
 		features.WebhookProviderOpenshiftServiceCA: false,
-		features.HelmChartSupport:                  false,
 		features.BoxcutterRuntime:                  false,
 		features.DeploymentConfig:                  false,
 		catalogdHAFeature:                          false,
@@ -107,6 +107,7 @@ func init() {
 func RegisterHooks(sc *godog.ScenarioContext) {
 	sc.Before(CheckFeatureTags)
 	sc.Before(CreateScenarioContext)
+	RegisterAsciiCastHooks(sc)
 
 	sc.After(ScenarioCleanup)
 }
@@ -116,7 +117,7 @@ func RegisterHooks(sc *godog.ScenarioContext) {
 // The catalogd return value may be nil when OLM is not yet installed (upgrade scenarios
 // install it in a Background step).
 func detectOLMDeployments() (*appsv1.Deployment, *appsv1.Deployment, error) {
-	raw, err := k8sClient("get", "deployments", "-A", "-l", "app.kubernetes.io/part-of=olm", "-o", "jsonpath={.items}")
+	raw, err := k8sClient(context.Background(), "get", "deployments", "-A", "-l", "app.kubernetes.io/part-of=olm", "-o", "jsonpath={.items}")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -150,7 +151,7 @@ func BeforeSuite() {
 	// Enable HA scenarios when the cluster has at least 2 nodes.  This runs
 	// unconditionally so that upgrade scenarios (which install OLM in a Background
 	// step and return early below) still get the gate set correctly.
-	if out, err := k8sClient("get", "nodes", "--no-headers", "-o", "name"); err == nil &&
+	if out, err := k8sClient(context.Background(), "get", "nodes", "--no-headers", "-o", "name"); err == nil &&
 		len(strings.Fields(strings.TrimSpace(out))) >= 2 {
 		featureGates[catalogdHAFeature] = true
 	}
@@ -243,6 +244,10 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 	if sc.proxy != nil {
 		sc.proxy.stop()
 	}
+	// Stop catalog port-forward if one was started.
+	if sc.catalogCleanup != nil {
+		sc.catalogCleanup()
+	}
 
 	// Restore any deployments that were modified during the scenario.  Runs
 	// unconditionally (even on failure) to prevent a misconfigured deployment
@@ -253,7 +258,7 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 		if dr.patchedArgs {
 			if err2 := patchDeploymentArgs(dr.namespace, dr.name, dr.originalArgs); err2 != nil {
 				logger.Info("Error restoring deployment args", "name", dr.name, "error", err2)
-			} else if _, err2 := k8sClient("rollout", "status", "-n", dr.namespace,
+			} else if _, err2 := k8sClient(ctx, "rollout", "status", "-n", dr.namespace,
 				fmt.Sprintf("deployment/%s", dr.name), "--timeout=2m"); err2 != nil {
 				logger.Info("Timeout waiting for deployment rollout after restore", "name", dr.name)
 			}
@@ -268,9 +273,6 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 	}
 
 	forDeletion := sc.addedResources
-	if sc.clusterObjectSetName != "" && featureGates[features.BoxcutterRuntime] {
-		forDeletion = append(forDeletion, resource{name: sc.clusterObjectSetName, kind: "clusterobjectset"})
-	}
 	for _, catalogName := range sc.catalogs {
 		forDeletion = append(forDeletion, resource{name: catalogName, kind: "clustercatalog"})
 	}
@@ -284,7 +286,7 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 			if r.namespace != "" {
 				args = append(args, "-n", r.namespace)
 			}
-			if _, err := k8sClient(args...); err != nil {
+			if _, err := k8sClient(ctx, args...); err != nil {
 				logger.Info("Error deleting resource", "name", r.name, "namespace", r.namespace, "stderr", stderrOutput(err))
 			}
 			return nil

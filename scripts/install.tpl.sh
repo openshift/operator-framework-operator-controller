@@ -45,6 +45,7 @@ fi
 default_catalogs_manifest=$DEFAULT_CATALOG
 cert_mgr_version=$CERT_MGR_VERSION
 install_default_catalogs=$INSTALL_DEFAULT_CATALOGS
+catalog_wait_timeout=${CATALOG_WAIT_TIMEOUT:-60s}
 
 if [[ -z "$cert_mgr_version" ]]; then
     echo "Error: Missing CERT_MGR_VERSION variable"
@@ -116,6 +117,11 @@ if [ -f "${olmv1_manifest}" ]; then
     olmv1_manifest=file://localhost$(realpath ${olmv1_manifest})
 fi
 
+# Clean up old RBAC resources from previous releases. The ClusterRoleBinding was
+# renamed and the custom ClusterRole replaced with cluster-admin.
+kubectl delete clusterrolebinding operator-controller-manager-rolebinding operator-controller-manager-admin-rolebinding --ignore-not-found
+kubectl delete clusterrole operator-controller-manager-role --ignore-not-found
+
 curl -L -s "${olmv1_manifest}" | sed "s/olmv1-system/${olmv1_namespace}/g" | kubectl apply -f -
 # Wait for the rollout, and then wait for the deployment to be Available
 kubectl_wait_rollout "${olmv1_namespace}" "deployment/catalogd-controller-manager" "60s"
@@ -124,5 +130,5 @@ kubectl_wait "${olmv1_namespace}" "deployment/operator-controller-controller-man
 
 if [[ "${install_default_catalogs}" != "false" ]]; then
     kubectl apply -f "${default_catalogs_manifest}"
-    kubectl wait --for=condition=Serving "clustercatalog/operatorhubio" --timeout="60s"
+    kubectl wait --for=condition=Serving "clustercatalog/operatorhubio" --timeout="${catalog_wait_timeout}"
 fi
