@@ -17,10 +17,7 @@ options:
         - BoxcutterRuntime
         - BundleReleaseSupport
         - DeploymentConfig
-        - HelmChartSupport
-        - PreflightPermissions
         - SingleOwnNamespaceInstallSupport
-        - SyntheticPermissions
         - WebhookProviderOpenshiftServiceCA
     podDisruptionBudget:
       enabled: true

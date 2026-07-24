@@ -38,7 +38,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 		crdSuffix   string
 	)
 
-	var unique, saName, crbName, ceName string
+	var unique, ceName string
 	BeforeEach(func(ctx SpecContext) {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
@@ -46,8 +46,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
-		saName = fmt.Sprintf("install-%s-sa-%s", testPrefix, unique)
-		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
 		crdSuffix = unique
@@ -97,30 +95,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 	It("should install a cluster extension successfully",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for singleNamespace watch mode with quay-operator should install a cluster extension successfully"),
 		func(ctx SpecContext) {
-			By("creating ServiceAccount")
-			sa := helpers.NewServiceAccount(saName, namespace)
-			Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
-			By("ensuring ServiceAccount is available before proceeding")
-			helpers.ExpectServiceAccountExists(ctx, saName, namespace)
-			By("registering cleanup for ServiceAccount")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-				_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
-			By("creating ClusterRoleBinding")
-			crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, namespace)
-			Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
-			By("ensuring ClusterRoleBinding is available before proceeding")
-			helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-			By("registering cleanup for ClusterRoleBinding")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", crb.Name))
-				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
 			By("creating ClusterExtension with the watch-namespace configured")
-			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, namespace)
 			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"olm.operatorframework.io/metadata.name": catalogName,
@@ -157,15 +133,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 		crdSuffix   string
 	)
 
-	var unique, saName, crbName, ceName string
+	var unique, ceName string
 	BeforeEach(func(ctx SpecContext) {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
-		saName = fmt.Sprintf("install-%s-sa-%s", testPrefix, unique)
-		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
 		crdSuffix = unique
@@ -215,30 +189,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 	It("should install a cluster extension successfully",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with quay-operator should install a cluster extension successfully"),
 		func(ctx SpecContext) {
-			By("creating ServiceAccount")
-			sa := helpers.NewServiceAccount(saName, namespace)
-			Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
-			By("ensuring ServiceAccount is available before proceeding")
-			helpers.ExpectServiceAccountExists(ctx, saName, namespace)
-			By("registering cleanup for ServiceAccount")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-				_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
-			By("creating ClusterRoleBinding")
-			crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, namespace)
-			Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
-			By("ensuring ClusterRoleBinding is available before proceeding")
-			helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-			By("registering cleanup for ClusterRoleBinding")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", crb.Name))
-				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
 			By("creating ClusterExtension with the watch-namespace configured")
-			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, namespace)
 			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"olm.operatorframework.io/metadata.name": catalogName,
@@ -378,29 +330,9 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 					})
 				}
 
-				saName := fmt.Sprintf("install-webhook-bothns-%s-sa-%s", sc.id, suffix)
-				By(fmt.Sprintf("creating ServiceAccount %s for %s scenario", saName, sc.label))
-				sa := helpers.NewServiceAccount(saName, installNamespace)
-				Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
-				helpers.ExpectServiceAccountExists(ctx, saName, installNamespace)
-				DeferCleanup(func() {
-					By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-					_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
-				})
-
-				crbName := fmt.Sprintf("install-webhook-bothns-%s-crb-%s", sc.id, suffix)
-				By(fmt.Sprintf("creating ClusterRoleBinding %s for %s scenario", crbName, sc.label))
-				crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, installNamespace)
-				Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
-				helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-				DeferCleanup(func() {
-					By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", crb.Name))
-					_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
-				})
-
 				ceName := fmt.Sprintf("install-webhook-bothns-%s-ce-%s", sc.id, suffix)
 				By(fmt.Sprintf("creating ClusterExtension %s for %s scenario", ceName, sc.label))
-				ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, installNamespace)
+				ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, installNamespace)
 				ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"olm.operatorframework.io/metadata.name": catalogName,
@@ -453,9 +385,6 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 				Expect(k8sClient.Delete(ctx, ce, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterExtension %q", ceName)
 				helpers.EnsureCleanupClusterExtension(context.Background(), packageName, crdName)
 
-				Expect(k8sClient.Delete(ctx, crb, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ClusterRoleBinding %q", crbName)
-				Expect(k8sClient.Delete(ctx, sa, client.PropagationPolicy(deletePolicy))).To(Succeed(), "failed to delete ServiceAccount %q", saName)
-
 				// Trigger namespace deletion and proceed without blocking. By this point
 				// EnsureCleanupClusterExtension has completed, meaning the ClusterObjectSet
 				// teardown has deleted all managed resources (Deployment, Service, etc.) and the
@@ -478,15 +407,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 		crdSuffix   string
 	)
 
-	var unique, saName, crbName, ceName string
+	var unique, ceName string
 	BeforeEach(func(ctx SpecContext) {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
-		saName = fmt.Sprintf("install-%s-sa-%s", testPrefix, unique)
-		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
 		// Build in-cluster bundle and catalog using webhook testdata (supports AllNamespaces mode only)
@@ -533,30 +460,8 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] O
 	It("should fail to install a cluster extension successfully",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully"),
 		func(ctx SpecContext) {
-			By("creating ServiceAccount")
-			sa := helpers.NewServiceAccount(saName, namespace)
-			Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
-			By("ensuring ServiceAccount is available before proceeding")
-			helpers.ExpectServiceAccountExists(ctx, saName, namespace)
-			By("registering cleanup for ServiceAccount")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-				_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
-			By("creating ClusterRoleBinding")
-			crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, namespace)
-			Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
-			By("ensuring ClusterRoleBinding is available before proceeding")
-			helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-			By("registering cleanup for ClusterRoleBinding")
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", crb.Name))
-				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
 			By("creating ClusterExtension with the watch-namespace configured using webhook operator that only supports AllNamespaces mode")
-			ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject("webhook-operator", "0.0.5", ceName, namespace)
 			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"olm.operatorframework.io/metadata.name": catalogName,
@@ -605,15 +510,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 		crdSuffix   string
 	)
 
-	var unique, saName, crbName, ceName string
+	var unique, ceName string
 	BeforeEach(func(ctx SpecContext) {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
 		helpers.RequireImageRegistry(ctx)
 		k8sClient = env.Get().K8sClient
 		unique = rand.String(4)
 		namespace = fmt.Sprintf("olmv1-%s-ns-%s", testPrefix, unique)
-		saName = fmt.Sprintf("install-%s-sa-%s", testPrefix, unique)
-		crbName = fmt.Sprintf("install-%s-crb-%s", testPrefix, unique)
 		ceName = fmt.Sprintf("install-%s-ce-%s", testPrefix, unique)
 
 		// Generate unique CRD suffix for parallel execution
@@ -669,30 +572,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 ope
 	It("should fail to install the ClusterExtension when watch namespace is invalid",
 		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Skipped:Disconnected][Serial] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid"),
 		func(ctx SpecContext) {
-			By("creating ServiceAccount")
-			sa := helpers.NewServiceAccount(saName, namespace)
-			Expect(k8sClient.Create(ctx, sa)).To(Succeed(), "failed to create ServiceAccount %q", saName)
-			By("ensuring ServiceAccount is available before proceeding")
-			helpers.ExpectServiceAccountExists(ctx, saName, namespace)
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ServiceAccount %s in namespace %s", sa.Name, sa.Namespace))
-				_ = k8sClient.Delete(context.Background(), sa, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
-			By("creating ClusterRoleBinding")
-			crb := helpers.NewClusterRoleBinding(crbName, "cluster-admin", saName, namespace)
-			Expect(k8sClient.Create(ctx, crb)).To(Succeed(), "failed to create ClusterRoleBinding %q", crbName)
-			By("ensuring ClusterRoleBinding is available before proceeding")
-			helpers.ExpectClusterRoleBindingExists(ctx, crbName)
-			DeferCleanup(func() {
-				By(fmt.Sprintf("cleanup: deleting ClusterRoleBinding %s", crb.Name))
-				_ = k8sClient.Delete(context.Background(), crb, client.PropagationPolicy(metav1.DeletePropagationForeground))
-			})
-
 			invalidWatchNamespace := fmt.Sprintf("%s-", namespace)
 
 			By("creating ClusterExtension with an invalid watch namespace configured")
-			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, saName, namespace)
+			ce := helpers.NewClusterExtensionObject(packageName, "0.0.5", ceName, namespace)
 			ce.Spec.Source.Catalog.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"olm.operatorframework.io/metadata.name": catalogName,
