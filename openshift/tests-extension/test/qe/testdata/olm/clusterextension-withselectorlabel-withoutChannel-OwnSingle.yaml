@@ -9,8 +9,6 @@ objects:
     name: "${NAME}"
   spec:
     namespace: "${INSTALLNAMESPACE}"
-    serviceAccount:
-      name: "${SANAME}"
     config:
       configType: Inline
       inline:
@@ -30,7 +28,6 @@ parameters:
 - name: WATCHNS
 - name: PACKAGE
 - name: VERSION
-- name: SANAME
 - name: POLICY
   value: "CatalogProvided"
 - name: SOURCETYPE
