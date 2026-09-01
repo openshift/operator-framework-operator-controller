@@ -455,6 +455,14 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		// Wait for OLMv1 finalizer cleanup to remove the webhook configurations before
+		// the namespace DeferCleanup runs. The webhook operator registers failurePolicy:Fail
+		// admission webhooks; if they outlive their backing service, the namespace controller
+		// cannot delete resources inside the terminating namespace, causing a 300s deadlock.
+		// This is deterministic on OVN because pod route teardown is immediate.
+		By("waiting for webhook configurations to be removed by OLMv1 cleanup")
+		ensureCleanupWebhookConfigurations(ctx, k8sClient, "vwebhooktest", "mwebhooktest")
 	})
 
 	By("waiting for the webhook operator to be installed")
