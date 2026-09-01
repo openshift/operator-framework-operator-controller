@@ -379,6 +379,32 @@ func ensureCleanupWebhookConfigurations(ctx context.Context, k8sClient client.Cl
 	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 }
 
+func waitForWebhookConfigurationsDeleted(ctx context.Context, k8sClient client.Client, validatingPrefix, mutatingPrefix string) {
+	Eventually(func(g Gomega) {
+		whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
+		err := k8sClient.List(ctx, whList)
+		g.Expect(err).ToNot(HaveOccurred(), "failed to list ValidatingWebhookConfigurations")
+		staleValidatingWebhooks := []string{}
+		for _, wh := range whList.Items {
+			if validatingPrefix != "" && strings.HasPrefix(wh.Name, validatingPrefix) {
+				staleValidatingWebhooks = append(staleValidatingWebhooks, wh.Name)
+			}
+		}
+		g.Expect(staleValidatingWebhooks).To(BeEmpty(), "validating webhook configurations still exist: %v", staleValidatingWebhooks)
+
+		mwhList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+		err = k8sClient.List(ctx, mwhList)
+		g.Expect(err).ToNot(HaveOccurred(), "failed to list MutatingWebhookConfigurations")
+		staleMutatingWebhooks := []string{}
+		for _, mwh := range mwhList.Items {
+			if mutatingPrefix != "" && strings.HasPrefix(mwh.Name, mutatingPrefix) {
+				staleMutatingWebhooks = append(staleMutatingWebhooks, mwh.Name)
+			}
+		}
+		g.Expect(staleMutatingWebhooks).To(BeEmpty(), "mutating webhook configurations still exist: %v", staleMutatingWebhooks)
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+}
+
 var webhookTestV1 = schema.GroupVersionResource{
 	Group:    "webhook.operators.coreos.io",
 	Version:  "v1",
@@ -455,6 +481,14 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		// Wait for OLMv1 finalizer cleanup to remove the webhook configurations before
+		// the namespace DeferCleanup runs. The webhook operator registers failurePolicy:Fail
+		// admission webhooks; if they outlive their backing service, the namespace controller
+		// cannot delete resources inside the terminating namespace, causing a 300s deadlock.
+		// This is deterministic on OVN because pod route teardown is immediate.
+		By("waiting for webhook configurations to be removed by OLMv1 cleanup")
+		waitForWebhookConfigurationsDeleted(ctx, k8sClient, "vwebhooktest", "mwebhooktest")
 	})
 
 	By("waiting for the webhook operator to be installed")
