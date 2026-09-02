@@ -397,7 +397,7 @@ func buildCurlJob(prefix, namespace, url, serviceAccountName string) *batchv1.Jo
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
 						Name:    "api-tester",
-						Image:   "registry.redhat.io/rhel8/httpd-24:latest",
+						Image:   image.ShellImage(),
 						Command: []string{"/bin/bash", "-c", commandString},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
