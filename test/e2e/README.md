@@ -244,6 +244,32 @@ The `Makefile` automatically separates scenarios when run without additional `GO
 
 ## Running Tests
 
+### Automatic PSA checks
+
+When `PSA_CHECK_BIN` points to the `cluster-debug-tools` `kubectl-dev_tool`
+binary, the shared scenario cleanup hook runs `psa-check` for every scenario
+before its namespace is deleted. No feature-file changes are required for new
+scenarios. The check evaluates the scenario namespace against the `restricted`
+profile and uses the same `KUBECONFIG` as the E2E test.
+
+Build the checker separately, then run the suite with checks enabled:
+
+```bash
+PSA_CHECK_BIN=$HOME/bin/kubectl-dev_tool \
+PSA_CHECK_REQUIRED=true \
+ARTIFACT_PATH=/tmp/operator-controller-artifacts \
+make test-e2e
+```
+
+`PSA_CHECK_REQUIRED=true` makes an unavailable checker fail the scenario. A
+configured checker always makes reported violations fail the scenario. Without
+the required setting, an unavailable checker is logged and skipped, which keeps
+local E2E runs usable on machines without the plugin.
+When `ARTIFACT_PATH` is set, each scenario writes its JSON result under
+`psa/<feature>/<scenario-id>/psa.json`; stderr is written beside it when
+present. The check also runs for scenarios that already failed, while the
+existing cleanup behavior continues to preserve failed-scenario resources.
+
 ### Run All Tests
 
 ```bash
