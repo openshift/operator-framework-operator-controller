@@ -54,6 +54,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	crmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -68,6 +69,7 @@ import (
 	"github.com/operator-framework/operator-controller/internal/operator-controller/controllers"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/features"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/finalizers"
+	operatormetrics "github.com/operator-framework/operator-controller/internal/operator-controller/metrics"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/resolve"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/preflights/crdupgradesafety"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/render"
@@ -356,6 +358,9 @@ func run() error {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		return err
+	}
+	if err := crmetrics.Registry.Register(operatormetrics.NewClusterExtensionCollector(mgr.GetCache())); err != nil {
+		return fmt.Errorf("registering ClusterExtension metrics: %w", err)
 	}
 
 	cpwCatalogd, err := httputil.NewCertPoolWatcher(cfg.catalogdCasDir, ctrl.Log.WithName("catalogd-ca-pool"))
