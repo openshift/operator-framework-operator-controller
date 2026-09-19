@@ -30,6 +30,7 @@ var BundleValidator = render.BundleValidator{
 	validators.CheckConversionWebhooksReferenceOwnedCRDs,
 	validators.CheckWebhookRules,
 	validators.CheckObjectSupport,
+	validators.CheckAPIServiceDeploymentReferentialIntegrity,
 }
 
 // ResourceGenerators a slice of ResourceGenerators required to generate plain resource manifests for
@@ -38,6 +39,7 @@ var ResourceGenerators = []render.ResourceGenerator{
 	// NOTE: if you update this list, Test_ResourceGeneratorsHasAllGenerators will fail until
 	// you bring the same changes over to that test. This helps ensure all validation rules are executed
 	// while giving us the flexibility to test each generator individually
+	generators.BundleInstallNamespaceGenerator,
 	generators.BundleCSVServiceAccountGenerator,
 	generators.BundleCSVPermissionsGenerator,
 	generators.BundleCSVClusterPermissionsGenerator,
@@ -47,5 +49,6 @@ var ResourceGenerators = []render.ResourceGenerator{
 	generators.BundleValidatingWebhookResourceGenerator,
 	generators.BundleMutatingWebhookResourceGenerator,
 	generators.BundleDeploymentServiceResourceGenerator,
+	generators.BundleCSVAPIServiceGenerator,
 	generators.CertProviderResourceGenerator,
 }
