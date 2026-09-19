@@ -19,6 +19,7 @@ package v1
 import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var ClusterExtensionKind = "ClusterExtension"
@@ -49,8 +50,7 @@ const (
 // ClusterExtensionSpec defines the desired state of ClusterExtension
 type ClusterExtensionSpec struct {
 	// namespace specifies a Kubernetes namespace.
-	// This is the namespace where the provided ServiceAccount must exist.
-	// It also designates the default namespace where namespace-scoped resources for the extension are applied to the cluster.
+	// It designates the default namespace where namespace-scoped resources for the extension are applied to the cluster.
 	// Some extensions may contain namespace-scoped resources to be applied in other namespaces.
 	// This namespace must exist.
 	//
@@ -63,17 +63,18 @@ type ClusterExtensionSpec struct {
 	// +kubebuilder:validation:MaxLength:=63
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="namespace is immutable"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$\")",message="namespace must be a valid DNS1123 label"
-	// +kubebuilder:validation:Required
+	// +required
 	Namespace string `json:"namespace"`
 
-	// serviceAccount specifies a ServiceAccount used to perform all interactions with the cluster
-	// that are required to manage the extension.
-	// The ServiceAccount must be configured with the necessary permissions to perform these interactions.
-	// The ServiceAccount must exist in the namespace referenced in the spec.
-	// The serviceAccount field is required.
+	// serviceAccount is a deprecated field and is completely ignored.
+	// OLMv1 is a single-tenant system where users with ClusterExtension write access are
+	// effectively delegated cluster-admin trust. The operator-controller runs with
+	// cluster-admin privileges and uses its own service account for all cluster interactions.
 	//
-	// +kubebuilder:validation:Required
-	ServiceAccount ServiceAccountReference `json:"serviceAccount"`
+	// Deprecated: serviceAccount is no longer used and will be removed in a future release.
+	//
+	// +optional
+	ServiceAccount ServiceAccountReference `json:"serviceAccount,omitzero"`
 
 	// source is required and selects the installation source of content for this ClusterExtension.
 	// Set the sourceType field to perform the selection.
@@ -88,7 +89,7 @@ type ClusterExtensionSpec struct {
 	//   catalog:
 	//     packageName: example-package
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Source SourceConfig `json:"source"`
 
 	// install is optional and configures installation options for the ClusterExtension,
@@ -105,6 +106,7 @@ type ClusterExtensionSpec struct {
 	// a configuration schema the bundle is deemed to not be configurable. More information on how
 	// to configure bundles can be found in the OLM documentation associated with your current OLM version.
 	//
+	// <opcon:experimental>
 	// +optional
 	Config *ClusterExtensionConfig `json:"config,omitempty"`
 
@@ -137,7 +139,7 @@ type SourceConfig struct {
 	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum:="Catalog"
-	// +kubebuilder:validation:Required
+	// +required
 	SourceType string `json:"sourceType"`
 
 	// catalog configures how information is sourced from a catalog.
@@ -148,7 +150,6 @@ type SourceConfig struct {
 }
 
 // ClusterExtensionInstallConfig is a union which selects the clusterExtension installation config.
-// ClusterExtensionInstallConfig requires the namespace and serviceAccount which should be used for the installation of packages.
 //
 // +kubebuilder:validation:XValidation:rule="has(self.preflight)",message="at least one of [preflight] are required when install is specified"
 // +union
@@ -177,7 +178,7 @@ type ClusterExtensionConfig struct {
 	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum:="Inline"
-	// +kubebuilder:validation:Required
+	// +required
 	ConfigType ClusterExtensionConfigType `json:"configType"`
 
 	// inline contains JSON or YAML values specified directly in the ClusterExtension.
@@ -220,7 +221,7 @@ type CatalogFilter struct {
 	// +kubebuilder:validation:MaxLength:=253
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="packageName is immutable"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
-	// +kubebuilder:validation:Required
+	// +required
 	PackageName string `json:"packageName"`
 
 	// version is an optional semver constraint (a specific version or range of versions).
@@ -376,12 +377,15 @@ type CatalogFilter struct {
 	UpgradeConstraintPolicy UpgradeConstraintPolicy `json:"upgradeConstraintPolicy,omitempty"`
 }
 
-// ServiceAccountReference identifies the serviceAccount used fo install a ClusterExtension.
+// ServiceAccountReference is a deprecated type and is completely ignored.
+//
+// Deprecated: ServiceAccountReference is no longer used and will be removed in a future release.
+//
+// +kubebuilder:validation:MinProperties=1
 type ServiceAccountReference struct {
-	// name is a required, immutable reference to the name of the ServiceAccount used for installation
-	// and management of the content for the package specified in the packageName field.
+	// name is a deprecated field and is completely ignored.
 	//
-	// This ServiceAccount must exist in the installNamespace.
+	// Deprecated: name is no longer used and will be removed in a future release.
 	//
 	// The name field follows the DNS subdomain standard as defined in [RFC 1123].
 	// It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
@@ -400,11 +404,12 @@ type ServiceAccountReference struct {
 	//
 	// [RFC 1123]: https://tools.ietf.org/html/rfc1123
 	//
+	// +kubebuilder:validation:MinLength:=1
 	// +kubebuilder:validation:MaxLength:=253
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="name is immutable once set but may be cleared"
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="name must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
+	// +optional
+	Name string `json:"name,omitempty"`
 }
 
 // PreflightConfig holds the configuration for the preflight checks.  If used, at least one preflight check must be non-nil.
@@ -431,7 +436,7 @@ type CRDUpgradeSafetyPreflightConfig struct {
 	// When set to "Strict", the CRD Upgrade Safety pre-flight check runs during an upgrade operation.
 	//
 	// +kubebuilder:validation:Enum:="None";"Strict"
-	// +kubebuilder:validation:Required
+	// +required
 	Enforcement CRDUpgradeSafetyEnforcement `json:"enforcement"`
 }
 
@@ -455,21 +460,44 @@ type BundleMetadata struct {
 	// It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.),
 	// start and end with an alphanumeric character, and be no longer than 253 characters.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$\")",message="packageName must be a valid DNS1123 subdomain. It must contain only lowercase alphanumeric characters, hyphens (-) or periods (.), start and end with an alphanumeric character, and be no longer than 253 characters"
 	Name string `json:"name"`
 
 	// version is required and references the version that this bundle represents.
 	// It follows the semantic versioning standard as defined in https://semver.org/.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:XValidation:rule="self.matches(\"^([0-9]+)(\\\\.[0-9]+)?(\\\\.[0-9]+)?(-([-0-9A-Za-z]+(\\\\.[-0-9A-Za-z]+)*))?(\\\\+([-0-9A-Za-z]+(-\\\\.[-0-9A-Za-z]+)*))?\")",message="version must be well-formed semver"
 	Version string `json:"version"`
+
+	// release is an optional field that identifies a specific release of this bundle's version.
+	// A release represents a re-publication of the same version, typically used to deliver
+	// packaging or metadata changes without changing the version number. When multiple
+	// releases exist for the same version, higher releases are preferred. An unset release
+	// is less preferred than all other release values.
+	//
+	// The value consists of dot-separated identifiers, where each identifier is either a
+	// numeric value (without leading zeros) or an alphanumeric string (e.g., "2", "1.el9",
+	// "3.alpha.1"). Releases are compared identifier by identifier: numeric identifiers are
+	// compared as integers, alphanumeric identifiers are compared lexically, and numeric
+	// identifiers always sort before alphanumeric identifiers.
+	//
+	// For bundles with explicit pkg.Release metadata, this field contains that release value.
+	// For registry+v1 bundles lacking an explicit release value, this field contains the release
+	// extracted from version's build metadata (e.g., '2' from '1.0.0+2').
+	// This field is omitted when the bundle's release value is unset.
+	//
+	// +optional
+	// <opcon:experimental>
+	// +kubebuilder:validation:MaxLength=20
+	// +kubebuilder:validation:XValidation:rule="self.matches(\"^$|^(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*$\")",message="release must be empty or consist of dot-separated identifiers (numeric without leading zeros, or alphanumeric)"
+	Release *string `json:"release,omitempty"`
 }
 
-// RevisionStatus defines the observed state of a ClusterExtensionRevision.
+// RevisionStatus defines the observed state of a ClusterObjectSet.
 type RevisionStatus struct {
-	// name of the ClusterExtensionRevision resource
+	// name of the ClusterObjectSet resource
 	Name string `json:"name"`
 	// conditions optionally expose Progressing and Available condition of the revision,
 	// in case when it is not yet marked as successfully installed (condition Succeeded is not set to True).
@@ -497,7 +525,7 @@ type ClusterExtensionStatus struct {
 	// When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.
 	// When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.
 	// <opcon:experimental:description>
-	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterExtensionRevisions in active roll out.
+	// When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterObjectSets in active roll out.
 	// </opcon:experimental:description>
 	//
 	// When the ClusterExtension is sourced from a catalog, it surfaces deprecation conditions based on catalog metadata.
@@ -517,7 +545,7 @@ type ClusterExtensionStatus struct {
 	// +optional
 	Install *ClusterExtensionInstallStatus `json:"install,omitempty"`
 
-	// activeRevisions holds a list of currently active (non-archived) ClusterExtensionRevisions,
+	// activeRevisions holds a list of currently active (non-archived) ClusterObjectSets,
 	// including both installed and rolling out revisions.
 	// +listType=map
 	// +listMapKey=name
@@ -533,10 +561,12 @@ type ClusterExtensionInstallStatus struct {
 	// A "bundle" is a versioned set of content that represents the resources that need to be applied
 	// to a cluster to install a package.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Bundle BundleMetadata `json:"bundle"`
 }
 
+// +genclient
+// +genclient:nonNamespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
@@ -575,10 +605,13 @@ type ClusterExtensionList struct {
 
 	// items is a required list of ClusterExtension objects.
 	//
-	// +kubebuilder:validation:Required
+	// +required
 	Items []ClusterExtension `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterExtension{}, &ClusterExtensionList{})
+	SchemeBuilder.Register(func(s *runtime.Scheme) error {
+		s.AddKnownTypes(GroupVersion, &ClusterExtension{}, &ClusterExtensionList{})
+		return nil
+	})
 }
