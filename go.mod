@@ -23,9 +23,9 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7
-	golang.org/x/mod v0.25.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/tools v0.33.0
+	golang.org/x/mod v0.26.0
+	golang.org/x/sync v0.16.0
+	golang.org/x/tools v0.35.0
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.17.3
 	k8s.io/api v0.32.3
@@ -221,12 +221,12 @@ require (
 	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
-	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
@@ -309,3 +309,5 @@ replace k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.32.3
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.32.3
 
 replace google.golang.org/grpc => github.com/openshift-sustaining/grpc-go v1.75.1-sec.1
+
+replace golang.org/x/net => github.com/openshift-sustaining/net v0.43.0-sec.3
