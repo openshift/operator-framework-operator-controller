@@ -61,6 +61,7 @@ import (
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	clusterobjctrl "github.com/operator-framework/operator-controller/internal/object-controller/controllers"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/action"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/catalogmetadata/cache"
@@ -502,11 +503,12 @@ func run() error {
 
 	certProvider := getCertificateProvider()
 	regv1ManifestProvider := &applier.RegistryV1ManifestProvider{
-		BundleRenderer:              registryv1.Renderer,
-		CertificateProvider:         certProvider,
-		IsWebhookSupportEnabled:     certProvider != nil,
-		IsSingleOwnNamespaceEnabled: features.OperatorControllerFeatureGate.Enabled(features.SingleOwnNamespaceInstallSupport),
-		IsDeploymentConfigEnabled:   features.OperatorControllerFeatureGate.Enabled(features.DeploymentConfig),
+		BundleRenderer:               registryv1.Renderer,
+		CertificateProvider:          certProvider,
+		IsWebhookSupportEnabled:      certProvider != nil,
+		IsSingleOwnNamespaceEnabled:  features.OperatorControllerFeatureGate.Enabled(features.SingleOwnNamespaceInstallSupport),
+		IsDeploymentConfigEnabled:    features.OperatorControllerFeatureGate.Enabled(features.DeploymentConfig),
+		IsNamespaceManagementEnabled: features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime),
 	}
 	var cerCfg reconcilerConfigurator
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
@@ -659,6 +661,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		controllers.RetrieveRevisionStates(revisionStatesGetter),
 		controllers.ResolveBundle(c.resolver, c.mgr.GetClient()),
 		controllers.UnpackBundle(c.imagePuller, c.imageCache),
+		controllers.ValidateInstallNamespace(coreClient),
 		controllers.ApplyBundleWithBoxcutter(appl.Apply),
 	}
 
@@ -670,7 +673,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 	// Wrap the discovery client with caching to reduce memory usage from repeated OpenAPI schema fetches
 	discoveryClient := memory.NewMemCacheClient(baseDiscoveryClient)
 
-	revisionEngineFactory, err := controllers.NewDefaultRevisionEngineFactory(
+	revisionEngineFactory, err := clusterobjctrl.NewDefaultRevisionEngineFactory(
 		c.mgr.GetScheme(),
 		c.trackingCache,
 		discoveryClient,
@@ -687,7 +690,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		apiReader:       c.mgr.GetAPIReader(),
 		systemNamespace: cfg.systemNamespace,
 	}
-	if err = (&controllers.ClusterObjectSetReconciler{
+	if err = (&clusterobjctrl.ClusterObjectSetReconciler{
 		Client:                cosClient,
 		RevisionEngineFactory: revisionEngineFactory,
 		TrackingCache:         c.trackingCache,
