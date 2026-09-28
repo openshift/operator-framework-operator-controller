@@ -109,10 +109,24 @@ func (s *LocalDirV1) Store(ctx context.Context, catalog string, fsys fs.FS) erro
 	}
 
 	catalogDir := s.catalogDir(catalog)
-	return errors.Join(
+	err = errors.Join(
 		os.RemoveAll(catalogDir),
 		os.Rename(tmpCatalogDir, catalogDir),
 	)
+	if err != nil {
+		return err
+	}
+
+	// catalog.jsonl and index.json are fsync'd when written; syncing catalogDir and RootDir
+	// persists directory metadata for the RemoveAll/Rename swap (file fsync alone does not).
+	if err := syncDir(catalogDir); err != nil {
+		return fmt.Errorf("error syncing catalog directory: %w", err)
+	}
+	if err := syncDir(s.RootDir); err != nil {
+		return fmt.Errorf("error syncing storage root directory: %w", err)
+	}
+
+	return nil
 }
 
 // removeOrphanedTempDirs removes temporary staging directories that were created by a
@@ -197,7 +211,7 @@ func storeCatalogData(catalogDir string, metas <-chan *declcfg.Meta) error {
 			return err
 		}
 	}
-	return nil
+	return f.Sync()
 }
 
 func storeIndexData(catalogDir string, metas <-chan *declcfg.Meta) error {
@@ -211,7 +225,19 @@ func storeIndexData(catalogDir string, metas <-chan *declcfg.Meta) error {
 
 	enc := json.NewEncoder(f)
 	enc.SetEscapeHTML(false)
-	return enc.Encode(idx)
+	if err := enc.Encode(idx); err != nil {
+		return err
+	}
+	return f.Sync()
+}
+
+func syncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
 }
 
 func (s *LocalDirV1) BaseURL(catalog string) string {
