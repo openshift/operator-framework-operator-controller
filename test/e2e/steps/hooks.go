@@ -268,6 +268,13 @@ func ScenarioCleanup(ctx context.Context, _ *godog.Scenario, err error) (context
 		}
 	}
 
+	if psaErr := runPSACheck(ctx, sc); psaErr != nil {
+		if err != nil {
+			return ctx, errors.Join(err, psaErr)
+		}
+		return ctx, psaErr
+	}
+
 	if err != nil {
 		return ctx, err
 	}
