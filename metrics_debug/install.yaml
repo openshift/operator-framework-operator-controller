@@ -1,0 +1,843 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ack-system
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-acm-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-acm-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-acmpca-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-acmpca-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-apigateway-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-apigateway-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-apigatewayv2-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-apigatewayv2-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-applicationautoscaling-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-applicationautoscaling-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-athena-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-athena-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-autoscaling-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-autoscaling-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-backup-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-backup-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-bedrock-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-bedrock-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-bedrockagent-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-bedrockagent-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-bedrockagentcorecontrol-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-bedrockagentcorecontrol-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-cloudfront-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-cloudfront-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-cloudtrail-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-cloudtrail-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-cloudwatch-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-cloudwatch-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-cloudwatchlogs-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-cloudwatchlogs-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-codeartifact-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-codeartifact-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-cognitoidentityprovider-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-cognitoidentityprovider-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-dms-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-dms-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-documentdb-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-documentdb-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-dsql-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-dsql-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-dynamodb-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-dynamodb-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ec2-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ec2-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ecr-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ecr-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ecrpublic-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ecrpublic-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ecs-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ecs-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-efs-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-efs-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-eks-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-eks-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-elasticache-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-elasticache-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-elbv2-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-elbv2-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-emr-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-emr-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-emrcontainers-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-emrcontainers-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-emrserverless-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-emrserverless-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-eventbridge-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-eventbridge-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-firehose-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-firehose-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-glue-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-glue-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-iam-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-iam-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-kafka-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-kafka-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-keyspaces-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-keyspaces-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-kinesis-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-kinesis-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-kms-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-kms-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-lambda-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-lambda-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-lambdamicrovms-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-lambdamicrovms-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-memorydb-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-memorydb-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-mq-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-mq-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-mwaa-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-mwaa-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-networkfirewall-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-networkfirewall-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-opensearchserverless-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-opensearchserverless-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-opensearchservice-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-opensearchservice-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-organizations-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-organizations-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-pipes-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-pipes-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-prometheusservice-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-prometheusservice-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-quicksight-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-quicksight-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ram-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ram-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-rds-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-rds-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-recyclebin-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-recyclebin-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-route53-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-route53-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-route53resolver-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-route53resolver-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-s3-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-s3-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-s3control-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-s3control-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-s3files-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-s3files-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-s3tables-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-s3tables-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-s3vectors-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-s3vectors-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-sagemaker-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-sagemaker-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-secretsmanager-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-secretsmanager-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ses-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ses-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-sfn-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-sfn-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-sns-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-sns-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-sqs-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-sqs-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-ssm-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-ssm-controller
+
+---
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: ack-wafv2-controller
+spec:
+  namespace: ack-system
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: ack-wafv2-controller
