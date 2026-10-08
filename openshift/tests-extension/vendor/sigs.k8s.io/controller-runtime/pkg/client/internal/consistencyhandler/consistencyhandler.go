@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -97,12 +98,19 @@ func (h *ConsistencyHandler) Register(ctx context.Context, informer cacheapi.Inf
 }
 
 func (h *ConsistencyHandler) waitForHandlerSyncLocked(ctx context.Context, registration cache.ResourceEventHandlerRegistration) error {
-	select {
-	case <-registration.HasSyncedChecker().Done():
-		h.registered = true
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("failed waiting for consistency handler to sync: %w", ctx.Err())
+	// Use HasSynced polling for compatibility with OpenShift's client-go version.
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if registration.HasSynced() {
+			h.registered = true
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("failed waiting for consistency handler to sync: %w", ctx.Err())
+		case <-ticker.C:
+		}
 	}
 }
 
