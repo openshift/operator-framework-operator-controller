@@ -113,7 +113,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension progress deadline", g
 			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ce.Status.ActiveRevisions[1].Name}, cos)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterObjectSet")
 			expectCondition(g, cos.Status.Conditions, olmv1.TypeProgressing, metav1.ConditionTrue, olmv1.ReasonRollingOut)
-			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeAvailable, metav1.ConditionFalse, olmv1.ClusterObjectSetReasonProbeFailure)
+			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ClusterObjectSetReasonProbeFailure)
 		}, 3*time.Minute)
 	})
 })
