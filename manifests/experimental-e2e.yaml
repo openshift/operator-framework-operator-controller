@@ -762,11 +762,16 @@ spec:
               namespace:
                 description: |-
                   namespace specifies a Kubernetes namespace.
-                  It designates the default namespace where namespace-scoped resources for the extension are applied to the cluster.
-                  Some extensions may contain namespace-scoped resources to be applied in other namespaces.
-                  This namespace must exist.
 
-                  The namespace field is required, immutable, and follows the DNS label standard as defined in [RFC 1123].
+                  It designates the default namespace where namespace-scoped resources for the extension
+                  are applied to.
+
+                  namespace is optional. When set, it must reference an existing namespace on the cluster.
+                  When omitted, operator-controller resolves and creates a managed namespace from the
+                  bundle's metadata. Whether namespace is set or omitted is fixed at creation time and
+                  cannot be changed afterwards.
+
+                  The namespace field follows the DNS label standard as defined in [RFC 1123].
                   It must contain only lowercase alphanumeric characters or hyphens (-), start and end with an alphanumeric character,
                   and be no longer than 63 characters.
 
@@ -1107,9 +1112,12 @@ spec:
                   rule: 'has(self.sourceType) && self.sourceType == ''Catalog'' ?
                     has(self.catalog) : !has(self.catalog)'
             required:
-            - namespace
             - source
             type: object
+            x-kubernetes-validations:
+            - message: namespace presence is immutable; it cannot be added or removed
+                after creation
+              rule: has(oldSelf.namespace) == has(self.namespace)
           status:
             description: status is an optional field that defines the observed state
               of the ClusterExtension.
@@ -1123,8 +1131,8 @@ spec:
                   properties:
                     conditions:
                       description: |-
-                        conditions optionally expose Progressing and Available condition of the revision,
-                        in case when it is not yet marked as successfully installed (condition Succeeded is not set to True).
+                        conditions optionally expose the Available condition of the revision,
+                        in case when it is not yet marked as successfully installed (completedAt is not set).
                         Given that a ClusterExtension should remain available during upgrades, an observer may use these conditions
                         to get more insights about reasons for its current state.
                       items:
@@ -1351,7 +1359,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.1
+    controller-gen.kubebuilder.io/version: v0.21.0
     olm.operatorframework.io/generator: experimental
   name: clusterobjectsets.olm.operatorframework.io
 spec:
@@ -1364,11 +1372,8 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=='Available')].status
-      name: Available
-      type: string
-    - jsonPath: .status.conditions[?(@.type=='Progressing')].status
-      name: Progressing
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -1890,27 +1895,34 @@ spec:
             description: status is optional and defines the observed state of the
               ClusterObjectSet.
             properties:
+              completedAt:
+                description: |-
+                  completedAt is the timestamp at which the revision was first observed to be
+                  ready, meaning it had successfully rolled out and all of its objects passed
+                  their probes. It is set once and is immutable thereafter.
+                format: date-time
+                type: string
+                x-kubernetes-validations:
+                - message: completedAt is immutable
+                  rule: self == oldSelf || oldSelf == null
               conditions:
                 description: |-
                   conditions is an optional list of status conditions describing the state of the
                   ClusterObjectSet.
 
-                  The Progressing condition represents whether the revision is actively rolling out:
-                    - When status is True and reason is RollingOut, the ClusterObjectSet rollout is actively making progress and is in transition.
-                    - When status is True and reason is Retrying, the ClusterObjectSet has encountered an error that could be resolved on subsequent reconciliation attempts.
-                    - When status is True and reason is Succeeded, the ClusterObjectSet has reached the desired state.
-                    - When status is False and reason is Blocked, the ClusterObjectSet has encountered an error that requires manual intervention for recovery.
-                    - When status is False and reason is Archived, the ClusterObjectSet is archived and not being actively reconciled.
+                  The Ready condition represents the state of the revision.
+                  True means all objects are at the desired state; False means one or more
+                  objects are not at the desired state; Unknown is the initial state, before
+                  the first reconciliation has evaluated the revision.
+                    - True with reason AllObjectsReady: the revision has rolled out and all objects are at the desired state.
+                    - False with reason ProbeFailure: one or more objects are failing their readiness probes during rollout.
+                    - False with reason RollingOut: the revision is actively rolling out and has not yet become ready.
+                    - False with reason Blocked: the revision has encountered an error that requires manual intervention for recovery.
+                    - False with reason ProgressDeadlineExceeded: the revision did not roll out within spec.progressDeadlineMinutes.
+                    - False with reason Reconciling: the revision encountered an error that prevented it from observing the probes.
+                    - False with reason Archived: the revision has been archived and its objects have been torn down.
 
-                  The Available condition represents whether the revision has been successfully rolled out and is available:
-                    - When status is True and reason is ProbesSucceeded, the ClusterObjectSet has been successfully rolled out and all objects pass their readiness probes.
-                    - When status is False and reason is ProbeFailure, one or more objects are failing their readiness probes during rollout.
-                    - When status is Unknown and reason is Reconciling, the ClusterObjectSet has encountered an error that prevented it from observing the probes.
-                    - When status is Unknown and reason is Archived, the ClusterObjectSet has been archived and its objects have been torn down.
-                    - When status is Unknown and reason is Migrated, the ClusterObjectSet was migrated from an existing release and object status probe results have not yet been observed.
-
-                  The Succeeded condition represents whether the revision has successfully completed its rollout:
-                    - When status is True and reason is Succeeded, the ClusterObjectSet has successfully completed its rollout. This condition is set once and persists even if the revision later becomes unavailable.
+                  Rollout completion is recorded separately by status.completedAt.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -2013,6 +2025,9 @@ spec:
                 - message: observedPhases is immutable
                   rule: self == oldSelf || oldSelf.size() == 0
             type: object
+            x-kubernetes-validations:
+            - message: completedAt cannot be removed once set
+              rule: '!has(oldSelf.completedAt) || has(self.completedAt)'
         type: object
     served: true
     storage: true
