@@ -1576,7 +1576,7 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         list:
           elementType:
-            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Condition
+            namedType: Condition.v1.meta.apis.pkg.apimachinery.k8s.io
           elementRelationship: associative
           keys:
           - type
@@ -4835,47 +4835,18 @@ var schemaYAML = typed.YAMLObject(`types:
         elementType:
           namedType: __untyped_deduced_
         elementRelationship: separable
+- name: com.github.openshift.api.config.v1alpha1.BasicAuth
+  map:
+    fields:
+    - name: password
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.SecretKeySelector
+      default: {}
+    - name: username
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.SecretKeySelector
+      default: {}
 - name: com.github.openshift.api.config.v1alpha1.CRIOCredentialProviderConfig
-  map:
-    fields:
-    - name: apiVersion
-      type:
-        scalar: string
-    - name: kind
-      type:
-        scalar: string
-    - name: metadata
-      type:
-        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
-      default: {}
-    - name: spec
-      type:
-        namedType: com.github.openshift.api.config.v1alpha1.CRIOCredentialProviderConfigSpec
-    - name: status
-      type:
-        namedType: com.github.openshift.api.config.v1alpha1.CRIOCredentialProviderConfigStatus
-      default: {}
-- name: com.github.openshift.api.config.v1alpha1.CRIOCredentialProviderConfigSpec
-  map:
-    fields:
-    - name: matchImages
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: associative
-- name: com.github.openshift.api.config.v1alpha1.CRIOCredentialProviderConfigStatus
-  map:
-    fields:
-    - name: conditions
-      type:
-        list:
-          elementType:
-            namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Condition
-          elementRelationship: associative
-          keys:
-          - type
-- name: com.github.openshift.api.config.v1alpha1.ClusterImagePolicy
   map:
     fields:
     - name: apiVersion
@@ -4953,6 +4924,18 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: metricsServerConfig
       type:
         namedType: com.github.openshift.api.config.v1alpha1.MetricsServerConfig
+      default: {}
+    - name: openShiftStateMetricsConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.OpenShiftStateMetricsConfig
+      default: {}
+    - name: prometheusConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.PrometheusConfig
+      default: {}
+    - name: prometheusOperatorAdmissionWebhookConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.PrometheusOperatorAdmissionWebhookConfig
       default: {}
     - name: prometheusOperatorConfig
       type:
@@ -5604,46 +5587,84 @@ var schemaYAML = typed.YAMLObject(`types:
     unions:
     - discriminator: type
       fields:
-      - fieldName: fulcioCAWithRekor
-        discriminatorValue: FulcioCAWithRekor
-      - fieldName: pki
-        discriminatorValue: PKI
-      - fieldName: publicKey
-        discriminatorValue: PublicKey
-- name: com.github.openshift.api.config.v1alpha1.PrometheusOperatorConfig
+      - fieldName: basicAuth
+        discriminatorValue: BasicAuth
+      - fieldName: bearerToken
+        discriminatorValue: BearerToken
+      - fieldName: oauth2
+        discriminatorValue: OAuth2
+      - fieldName: safeAuthorization
+        discriminatorValue: SafeAuthorization
+      - fieldName: sigv4
+        discriminatorValue: Sigv4
+- name: com.github.openshift.api.config.v1alpha1.RemoteWriteSpec
   map:
     fields:
-    - name: logLevel
+    - name: authorization
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.RemoteWriteAuthorization
+      default: {}
+    - name: exemplarsMode
       type:
         scalar: string
-    - name: nodeSelector
-      type:
-        map:
-          elementType:
-            scalar: string
-    - name: resources
+    - name: headers
       type:
         list:
           elementType:
-            namedType: com.github.openshift.api.config.v1alpha1.ContainerResource
+            namedType: com.github.openshift.api.config.v1alpha1.PrometheusRemoteWriteHeader
           elementRelationship: associative
           keys:
           - name
-    - name: tolerations
+    - name: metadataConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.MetadataConfig
+      default: {}
+    - name: name
+      type:
+        scalar: string
+    - name: proxyUrl
+      type:
+        scalar: string
+    - name: queueConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.QueueConfig
+      default: {}
+    - name: remoteTimeoutSeconds
+      type:
+        scalar: numeric
+    - name: tlsConfig
+      type:
+        namedType: com.github.openshift.api.config.v1alpha1.TLSConfig
+      default: {}
+    - name: url
+      type:
+        scalar: string
+    - name: writeRelabelConfigs
       type:
         list:
           elementType:
-            namedType: io.k8s.api.core.v1.Toleration
-          elementRelationship: atomic
-    - name: topologySpreadConstraints
-      type:
-        list:
-          elementType:
-            namedType: io.k8s.api.core.v1.TopologySpreadConstraint
+            namedType: com.github.openshift.api.config.v1alpha1.RelabelConfig
           elementRelationship: associative
           keys:
-          - topologyKey
-          - whenUnsatisfiable
+          - name
+- name: com.github.openshift.api.config.v1alpha1.ReplaceActionConfig
+  map:
+    fields:
+    - name: replacement
+      type:
+        scalar: string
+    - name: targetLabel
+      type:
+        scalar: string
+- name: com.github.openshift.api.config.v1alpha1.Retention
+  map:
+    fields:
+    - name: durationInDays
+      type:
+        scalar: numeric
+    - name: sizeInGiB
+      type:
+        scalar: numeric
 - name: com.github.openshift.api.config.v1alpha1.RetentionNumberConfig
   map:
     fields:
