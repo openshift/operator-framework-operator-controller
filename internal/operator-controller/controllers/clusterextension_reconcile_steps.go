@@ -32,8 +32,8 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/bundleutil"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/resolve"
+	"github.com/operator-framework/operator-controller/internal/shared/labels"
 	imageutil "github.com/operator-framework/operator-controller/internal/shared/util/image"
 )
 
@@ -422,7 +422,7 @@ func ValidateInstallNamespace(nsClient corev1client.NamespacesGetter) ReconcileS
 
 		_, err := nsClient.Namespaces().Get(ctx, ext.Spec.Namespace, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			nsErr := fmt.Errorf("namespace %q not found; spec.namespace must reference an existing namespace", ext.Spec.Namespace)
+			nsErr := fmt.Errorf("namespace %q not found; when set, spec.namespace must reference an existing namespace", ext.Spec.Namespace)
 			setStatusProgressing(ext, nsErr)
 			return nil, nsErr
 		}

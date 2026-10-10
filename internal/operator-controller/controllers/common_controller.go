@@ -69,21 +69,91 @@ func setInstalledStatusFromRevisionStates(ext *ocv1.ClusterExtension, revisionSt
 	setInstalledStatusConditionSuccess(ext, fmt.Sprintf("Installed bundle %s successfully", revisionStates.Installed.Image))
 }
 
+// availableTrueMessage is the message surfaced on the ClusterExtension Available condition when the
+// active revision is Ready. It is intentionally decoupled from the ClusterObjectSet Ready condition's
+// own message.
+const availableTrueMessage = "Objects are available and pass all probes."
+
+// availableFromReady maps a ClusterObjectSet Ready condition onto a ClusterExtension Available condition.
+// Non-ready states are surfaced as-is (only the Type is rewritten to Available). The ready (True) state is
+// re-emitted with a ClusterExtension-owned reason and message.
+func availableFromReady(ready metav1.Condition, generation int64) metav1.Condition {
+	a := ready
+	a.Type = ocv1.TypeAvailable
+	a.ObservedGeneration = generation
+	if a.Status == metav1.ConditionTrue {
+		a.Reason = ocv1.ReasonProbesSucceeded
+		a.Message = availableTrueMessage
+	}
+	return a
+}
+
+// setActiveRevisionsFromRevisionStates derives the active revisions for the ClusterExtension status
+func setActiveRevisionsFromRevisionStates(ext *ocv1.ClusterExtension, revisionStates *RevisionStates) {
+	ext.Status.ActiveRevisions = make([]ocv1.RevisionStatus, 0, 1+len(revisionStates.RollingOut))
+	if i := revisionStates.Installed; i != nil {
+		ext.Status.ActiveRevisions = append(ext.Status.ActiveRevisions, ocv1.RevisionStatus{Name: i.RevisionName})
+	}
+	for _, r := range revisionStates.RollingOut {
+		rs := ocv1.RevisionStatus{Name: r.RevisionName}
+		ready := apimeta.FindStatusCondition(r.Conditions, ocv1.ClusterObjectSetTypeReady)
+		if ready != nil {
+			apimeta.SetStatusCondition(&rs.Conditions, availableFromReady(*ready, ext.GetGeneration()))
+		}
+		ext.Status.ActiveRevisions = append(ext.Status.ActiveRevisions, rs)
+	}
+}
+
+// setAvailableFromRevisionStates sets the Available status condition based on the given revision states
+func setAvailableFromRevisionStates(ext *ocv1.ClusterExtension, revisionStates *RevisionStates) {
+	if i := revisionStates.Installed; i != nil {
+		ready := apimeta.FindStatusCondition(i.Conditions, ocv1.ClusterObjectSetTypeReady)
+		if ready != nil {
+			apimeta.SetStatusCondition(&ext.Status.Conditions, availableFromReady(*ready, ext.GetGeneration()))
+		}
+	}
+}
+
+// setProgressingFromRevisionStates sets the Progressing status condition based on the given revision states
+// The Progressing condition is derived from the Ready condition of either:
+// - the latest rolling out revision (when one exists); OR
+// - the installed revision
+// When the source revision has no Ready condition yet (e.g. a freshly created revision that has
+// not reconciled), a nil condition is passed so the helper applies the RollingOut default rather than
+// leaving Progressing stale.
+func setProgressingFromRevisionStates(ext *ocv1.ClusterExtension, revisionStates *RevisionStates) {
+	if len(revisionStates.RollingOut) > 0 {
+		revisionMeta := revisionStates.RollingOut[len(revisionStates.RollingOut)-1]
+		readyCond := apimeta.FindStatusCondition(revisionMeta.Conditions, ocv1.ClusterObjectSetTypeReady)
+		setProgressingFromReady(ext, readyCond, false)
+	} else if revisionStates.Installed != nil {
+		setProgressingFromReady(ext, apimeta.FindStatusCondition(revisionStates.Installed.Conditions, ocv1.ClusterObjectSetTypeReady), true)
+	}
+}
+
+// setProgressingFromReady derives the correct Progressing condition for the ClusterExtension from the given
+// revision Ready condition, and whether the revision is complete or not
+func setProgressingFromReady(ext *ocv1.ClusterExtension, readyCond *metav1.Condition, isRevisionCompleted bool) {
+	prog := progressingFromReady(readyCond, isRevisionCompleted)
+	prog.ObservedGeneration = ext.GetGeneration()
+	apimeta.SetStatusCondition(&ext.Status.Conditions, prog)
+}
+
 // determineFailureReason determines the appropriate reason for the Installed condition
 // when no bundle is installed (Installed: False).
 //
 // Returns Failed when:
 //   - No rolling revisions exist (nothing to install)
-//   - The latest rolling revision has Reason: Retrying (indicates an error occurred)
+//   - The latest rolling revision has Ready condition with Reason: RetryableError (indicates an error occurred)
 //
 // Returns Absent when:
-//   - Rolling revisions exist with the latest having Reason: RollingOut (healthy phased rollout in progress)
+//   - Rolling revisions exist with the latest not having Ready=RetryableError (healthy phased rollout in progress)
 //
 // Rationale:
 //   - Failed: Semantically indicates an error prevented installation
 //   - Absent: Semantically indicates "not there yet" (neutral state, e.g., during healthy rollout)
-//   - Retrying reason indicates an error (config validation, apply failure, etc.)
-//   - RollingOut reason indicates healthy progress (not an error)
+//   - RetryableError reason on Ready indicates an error (config validation, apply failure, etc.)
+//   - Other Ready reasons indicate healthy progress or terminal states handled elsewhere
 //   - Only the LATEST revision matters - old errors superseded by newer healthy revisions should not cause Failed
 //
 // Note: rollingRevisions are sorted in ascending order by Spec.Revision (oldest to newest),
@@ -92,14 +162,13 @@ func determineFailureReason(rollingRevisions []*RevisionMetadata) string {
 	if len(rollingRevisions) == 0 {
 		return ocv1.ReasonFailed
 	}
-
-	// Check if the LATEST rolling revision indicates an error (Retrying reason)
-	// Latest revision is the last element in the array (sorted ascending by Spec.Revision)
+	// Latest revision is the last element (sorted ascending by Spec.Revision).
 	latestRevision := rollingRevisions[len(rollingRevisions)-1]
-	progressingCond := apimeta.FindStatusCondition(latestRevision.Conditions, ocv1.ClusterObjectSetTypeProgressing)
-	if progressingCond != nil && progressingCond.Reason == string(ocv1.ClusterObjectSetReasonRetrying) {
-		// Retrying indicates an error occurred (config, apply, validation, etc.)
-		// Use Failed for semantic correctness: installation failed due to error
+	readyCond := apimeta.FindStatusCondition(latestRevision.Conditions, ocv1.ClusterObjectSetTypeReady)
+	// RetryableError (transient error) or ObjectCollision (an object is owned by another
+	// revision/controller) on the Ready condition both indicate an error prevented installation.
+	if readyCond != nil && (readyCond.Reason == ocv1.ClusterObjectSetReasonRetryableError ||
+		readyCond.Reason == ocv1.ClusterObjectSetReasonObjectCollision) {
 		return ocv1.ReasonFailed
 	}
 
@@ -173,4 +242,42 @@ func setStatusProgressing(ext *ocv1.ClusterExtension, err error) {
 	}
 
 	SetStatusCondition(&ext.Status.Conditions, progressingCond)
+}
+
+// progressingFromReady reconstructs the ClusterExtension Progressing condition
+// for a single revision from that revision's ClusterObjectSet Ready condition
+// and whether the revision has completed its rollout (status.completedAt set).
+//
+// This replaces the previous behavior of mirroring the ClusterObjectSet Progressing
+// condition, which no longer exists. ObservedGeneration is left unset; callers set it.
+func progressingFromReady(ready *metav1.Condition, completed bool) metav1.Condition {
+	cond := metav1.Condition{
+		Type:   ocv1.TypeProgressing,
+		Status: metav1.ConditionTrue,
+	}
+	if completed {
+		cond.Reason = ocv1.ReasonSucceeded
+		cond.Message = "Desired state reached"
+		return cond
+	}
+	if ready == nil {
+		cond.Reason = ocv1.ReasonRollingOut
+		cond.Message = "Revision is rolling out."
+		return cond
+	}
+	cond.Message = ready.Message
+	switch ready.Reason {
+	case ocv1.ClusterObjectSetReasonBlocked:
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = ocv1.ReasonBlocked
+	case ocv1.ReasonProgressDeadlineExceeded:
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = ocv1.ReasonProgressDeadlineExceeded
+	case ocv1.ClusterObjectSetReasonRetryableError, ocv1.ClusterObjectSetReasonObjectCollision:
+		cond.Reason = ocv1.ReasonRetrying
+	default:
+		// ProbeFailure, RollingOut, or AllObjectsReady-but-not-yet-complete.
+		cond.Reason = ocv1.ReasonRollingOut
+	}
+	return cond
 }

@@ -99,6 +99,13 @@ type WithCollisionProtection = types.WithCollisionProtection
 // Can also be described as dry-run, as no modification will occur.
 type WithPaused = types.WithPaused
 
+// WithObserveAfterIncomplete continues processing subsequent phases after the
+// first incomplete phase read-only, so their status is reported instead of
+// stopping and waiting at the first incomplete phase. On reconcile the remaining
+// phases run with WithPaused; on teardown they run with WithObserve, never
+// deleted out of order.
+type WithObserveAfterIncomplete = types.WithObserveAfterIncomplete
+
 // WithAggregatePhaseReconcileErrors causes phase reconciliation to aggregate all object
 // errors as a single error instead of returning on the first error.
 var WithAggregatePhaseReconcileErrors = types.WithAggregatePhaseReconcileErrors
@@ -106,6 +113,11 @@ var WithAggregatePhaseReconcileErrors = types.WithAggregatePhaseReconcileErrors
 // WithAggregatePhaseTeardownErrors causes phase teardown to aggregate all object
 // errors as a single error instead of returning on the first error.
 var WithAggregatePhaseTeardownErrors = types.WithAggregatePhaseTeardownErrors
+
+// WithObserve skips deletion and just reports whether objects are still present
+// on the cluster. Can be described as a read-only teardown, as no modification
+// will occur.
+type WithObserve = types.WithObserve
 
 // Prober needs to be implemented by any probing implementation.
 type Prober = types.Prober
