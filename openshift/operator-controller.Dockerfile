@@ -17,6 +17,9 @@ RUN make -f openshift/Makefile go-build-local && \
 FROM registry.ci.openshift.org/ocp/5.0:base-rhel9
 USER 1001
 COPY --from=builder /build/bin/operator-controller /operator-controller
+# object-controller is baked into this image for now; it is deployed (reusing
+# this image) only when cluster-olm-operator renders with BoxcutterRuntime on.
+COPY --from=builder /build/bin/object-controller /object-controller
 COPY --from=builder /tmp/build/olmv1-tests-ext.gz /usr/bin/olmv1-tests-ext.gz
 COPY openshift/operator-controller/cp-manifests /cp-manifests
 COPY helm/olmv1 /openshift/helm/olmv1
