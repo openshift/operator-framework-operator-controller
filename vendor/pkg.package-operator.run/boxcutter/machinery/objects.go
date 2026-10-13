@@ -122,6 +122,12 @@ func (e *ObjectEngine) Teardown(
 	// managed by KCM's gc controller. If we observe it, we are racing with
 	// the gc controller, and should not delete dependent objects.
 	if options.Orphan || (options.Owner != nil && controllerutil.ContainsFinalizer(options.Owner, "orphan")) {
+		if options.Observe {
+			// Read-only: the object would be orphaned (released), so it is
+			// no longer part of our teardown.
+			return true, nil
+		}
+
 		err := e.removeBoxcutterManagedLabelsAndAnnotations(ctx, e.writer, desiredObject)
 		if err != nil {
 			return false, err
@@ -151,28 +157,36 @@ func (e *ObjectEngine) Teardown(
 		return false, fmt.Errorf("getting object before deletion: %w", err)
 	}
 
-	// Check revision matches.
-	actualRevision, err := e.getObjectRevision(actualObject)
-	if err != nil {
-		return false, fmt.Errorf("getting object revision: %w", err)
-	}
-
-	// Object is not owned by this revision
-	if actualRevision != revision {
-		if options.Owner == nil {
-			// No Owner to remove from the object, return.
-			return true, nil
-		}
-
+	if options.Owner != nil { //nolint:nestif // observe short-circuit adds one level.
+		// Check ownership instead of revision to determine if we should delete.
+		// If we're not the controller, only remove our owner ref and leave the object in place.
+		// A possible reason for this could be an orphaning deletion.
 		ctrlSit, _ := e.detectOwner(options.Owner, options.OwnerStrategy, actualObject, nil)
 		if ctrlSit != ctrlSituationIsController {
-			// Remove us from owners list:
-			patch := actualObject.DeepCopyObject().(Object)
-			options.OwnerStrategy.RemoveOwner(options.Owner, patch)
+			// Not our object to delete; either way it is no longer ours.
+			if options.Observe {
+				// Read-only: don't touch the owner ref.
+				return true, nil
+			}
 
-			// TODO should we check if the patch differs from actualObject before firing the request?
-			return true, e.writer.Patch(ctx, patch, client.MergeFrom(actualObject))
+			return true, e.releaseOwnerRef(ctx, options, actualObject)
 		}
+	} else {
+		// No Owner to check against. Fall back to revision comparison.
+		actualRevision, err := e.getObjectRevision(actualObject)
+		if err != nil {
+			return false, fmt.Errorf("getting object revision: %w", err)
+		}
+
+		if actualRevision != revision {
+			return true, nil
+		}
+	}
+
+	if options.Observe {
+		// Read-only: the object is still present and owned by this revision,
+		// so it would be deleted. Report it as not yet gone without deleting.
+		return false, nil
 	}
 
 	// Actually delete the object.
@@ -194,6 +208,18 @@ func (e *ObjectEngine) Teardown(
 	}
 	// need to wait for Not Found Error to ensure finalizers have been progressed.
 	return false, nil
+}
+
+// releaseOwnerRef removes this revision's owner reference from the object.
+func (e *ObjectEngine) releaseOwnerRef(
+	ctx context.Context, options types.ObjectTeardownOptions, actualObject Object,
+) error {
+	// Remove us from owners list:
+	patch := actualObject.DeepCopyObject().(Object)
+	options.OwnerStrategy.RemoveOwner(options.Owner, patch)
+
+	// TODO should we check if the patch differs from actualObject before firing the request?
+	return e.writer.Patch(ctx, patch, client.MergeFrom(actualObject))
 }
 
 // Reconcile runs actions to bring actual state closer to desired.
@@ -284,7 +310,7 @@ func (e *ObjectEngine) Reconcile(
 			return nil, fmt.Errorf("creating resource: %w", err)
 		}
 
-		if err := e.migrateFieldManagersToSSA(ctx, desiredObject); err != nil {
+		if err := e.migrateFieldManagersToSSA(ctx, desiredObject, options); err != nil {
 			return nil, fmt.Errorf("migrating to SSA after create: %w", err)
 		}
 
@@ -550,7 +576,7 @@ func (e *ObjectEngine) create(
 	options types.ObjectReconcileOptions, opts ...client.CreateOption,
 ) error {
 	if options.Paused {
-		return nil
+		opts = append(opts, client.DryRunAll)
 	}
 
 	return e.writer.Create(ctx, obj, opts...)
@@ -567,7 +593,7 @@ func (e *ObjectEngine) apply(
 		return nil
 	}
 
-	if err := e.migrateFieldManagersToSSA(ctx, actualObject); err != nil {
+	if err := e.migrateFieldManagersToSSA(ctx, actualObject, options); err != nil {
 		return err
 	}
 
@@ -666,7 +692,12 @@ func (e *ObjectEngine) getObjectRevision(obj client.Object) (int64, error) {
 // SSA really is complicated: https://github.com/kubernetes/kubernetes/issues/99003
 func (e *ObjectEngine) migrateFieldManagersToSSA(
 	ctx context.Context, object Object,
+	options types.ObjectReconcileOptions,
 ) error {
+	if options.Paused {
+		return nil
+	}
+
 	patch, err := csaupgrade.UpgradeManagedFieldsPatch(
 		object, sets.New(e.fieldOwner), e.fieldOwner)
 

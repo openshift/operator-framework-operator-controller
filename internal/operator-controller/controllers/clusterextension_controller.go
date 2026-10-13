@@ -50,7 +50,7 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/conditionsets"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
+	"github.com/operator-framework/operator-controller/internal/shared/labels"
 	errorutil "github.com/operator-framework/operator-controller/internal/shared/util/error"
 	k8sutil "github.com/operator-framework/operator-controller/internal/shared/util/k8s"
 )
@@ -174,11 +174,13 @@ func (r *ClusterExtensionReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // ensureFailureConditionsWithReason keeps every non-deprecation condition present.
 // If one is missing, we add it with the given reason and message so users see why
 // reconcile failed. Deprecation conditions are handled later by SetDeprecationStatus.
+// The Available condition is handled separately through the ApplyBundleWithBoxcutter reconciliation step when
+// the BoxcutterRuntime feature gate is turned on.
 //
 //nolint:unparam // reason parameter is designed to be flexible, even if current callers use the same value
 func ensureFailureConditionsWithReason(ext *ocv1.ClusterExtension, reason v1alpha1.ConditionReason, message string) {
 	for _, condType := range conditionsets.ConditionTypes {
-		if isDeprecationCondition(condType) {
+		if isDeprecationCondition(condType) || condType == ocv1.TypeAvailable {
 			continue
 		}
 		cond := apimeta.FindStatusCondition(ext.Status.Conditions, condType)

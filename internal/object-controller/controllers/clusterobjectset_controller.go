@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,15 +41,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
+	"github.com/operator-framework/operator-controller/internal/shared/labels"
 )
 
 const (
 	clusterObjectSetTeardownFinalizer = "olm.operatorframework.io/teardown"
 )
 
-// ClusterObjectSetReconciler actions individual snapshots of ClusterExtensions,
-// as part of the boxcutter integration.
+// ClusterObjectSetReconciler manages the Kubernetes objects in a ClusterObjectSet.
 type ClusterObjectSetReconciler struct {
 	Client                client.Client
 	RevisionEngineFactory RevisionEngineFactory
@@ -74,6 +72,10 @@ type trackingCache interface {
 func (c *ClusterObjectSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx).WithName("cluster-extension-revision")
 	ctx = log.IntoContext(ctx, l)
+
+	if c.Clock == nil {
+		c.Clock = clock.RealClock{}
+	}
 
 	existingRev := &ocv1.ClusterObjectSet{}
 	if err := c.Client.Get(ctx, req.NamespacedName, existingRev); err != nil {
@@ -132,13 +134,13 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	// Blocked takes precedence over ProgressDeadlineExceeded: it is more actionable for the user.
 	if err := c.verifyReferencedSecretsImmutable(ctx, cos); err != nil {
 		l.Error(err, "referenced Secret verification failed, blocking reconciliation")
-		markAsNotProgressing(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
+		markAsNotReady(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
 		return ctrl.Result{}, nil
 	}
 
 	phases, currentPhases, opts, err := c.buildBoxcutterPhases(ctx, cos)
 	if err != nil {
-		setRetryingConditions(l, cos, err.Error(), isDeadlineExceeded)
+		setRetryableErrorConditions(cos, err.Error(), isDeadlineExceeded)
 		return ctrl.Result{}, fmt.Errorf("converting to boxcutter revision: %v", err)
 	}
 
@@ -146,13 +148,13 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 		cos.Status.ObservedPhases = currentPhases
 	} else if err := verifyObservedPhases(cos.Status.ObservedPhases, currentPhases); err != nil {
 		l.Error(err, "resolved phases content changed, blocking reconciliation")
-		markAsNotProgressing(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
+		markAsNotReady(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
 		return ctrl.Result{}, nil
 	}
 
 	revisionEngine, err := c.RevisionEngineFactory.CreateRevisionEngine(ctx, cos)
 	if err != nil {
-		setRetryingConditions(l, cos, err.Error(), isDeadlineExceeded)
+		setRetryableErrorConditions(cos, err.Error(), isDeadlineExceeded)
 		return ctrl.Result{}, fmt.Errorf("failed to create revision engine: %v", err)
 	}
 
@@ -166,7 +168,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 
 	if cos.Spec.LifecycleState == ocv1.ClusterObjectSetLifecycleStateArchived {
 		if err := c.TrackingCache.Free(ctx, cos); err != nil {
-			markAsAvailableUnknown(cos, ocv1.ClusterObjectSetReasonReconciling, err.Error())
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonRetryableError, err.Error())
 			return ctrl.Result{}, fmt.Errorf("error stopping informers: %v", err)
 		}
 		return c.archive(ctx, revisionEngine, cos, revision)
@@ -178,7 +180,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 
 	if err := c.establishWatch(ctx, cos, revision); err != nil {
 		werr := fmt.Errorf("establish watch: %v", err)
-		setRetryingConditions(l, cos, werr.Error(), isDeadlineExceeded)
+		setRetryableErrorConditions(cos, werr.Error(), isDeadlineExceeded)
 		return ctrl.Result{}, werr
 	}
 
@@ -188,7 +190,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 			// Log detailed reconcile reports only in debug mode (V(1)) to reduce verbosity.
 			l.V(1).Info("reconcile report", "report", rres.String())
 		}
-		setRetryingConditions(l, cos, err.Error(), isDeadlineExceeded)
+		setRetryableErrorConditions(cos, err.Error(), isDeadlineExceeded)
 		return ctrl.Result{}, fmt.Errorf("revision reconcile: %v", err)
 	}
 
@@ -196,34 +198,49 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	// TODO: report status, backoff?
 	if verr := rres.GetValidationError(); verr != nil {
 		l.Error(fmt.Errorf("%w", verr), "preflight validation failed, retrying after 10s")
-		setRetryingConditions(l, cos, fmt.Sprintf("revision validation error: %s", verr), isDeadlineExceeded)
+		setRetryableErrorConditions(cos, fmt.Sprintf("revision validation error: %s", verr), isDeadlineExceeded)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	for i, pres := range rres.GetPhases() {
 		if verr := pres.GetValidationError(); verr != nil {
 			l.Error(fmt.Errorf("%w", verr), "phase preflight validation failed, retrying after 10s", "phase", i)
-			setRetryingConditions(l, cos, fmt.Sprintf("phase %d validation error: %s", i, verr), isDeadlineExceeded)
+			setRetryableErrorConditions(cos, fmt.Sprintf("phase %d validation error: %s", i, verr), isDeadlineExceeded)
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
 		var collidingObjs []string
 		for _, ores := range pres.GetObjects() {
-			if ores.Action() == machinery.ActionCollision {
-				collidingObjs = append(collidingObjs, ores.String())
+			if ores.Action() != machinery.ActionCollision {
+				continue
 			}
+			obj := ores.Object()
+			name := obj.GetName()
+			if ns := obj.GetNamespace(); ns != "" {
+				name = ns + "/" + name
+			}
+			gvk := obj.GetObjectKind().GroupVersionKind()
+			desc := fmt.Sprintf("%s.%s %q", gvk.Kind, gvk.GroupVersion().String(), name)
+			if coll, ok := ores.(machinery.ObjectResultCollision); ok {
+				if owner, hasOwner := coll.ConflictingOwner(); hasOwner {
+					desc += fmt.Sprintf(" is owned by %s %q", owner.Kind, owner.Name)
+				}
+			}
+			collidingObjs = append(collidingObjs, desc)
 		}
 
 		if len(collidingObjs) > 0 {
-			l.Error(fmt.Errorf("object collision detected"), "object collision, retrying after 10s", "phase", i, "collisions", collidingObjs)
-			setRetryingConditions(l, cos, fmt.Sprintf("revision object collisions in phase %d\n%s", i, strings.Join(collidingObjs, "\n\n")), isDeadlineExceeded)
+			l.Error(fmt.Errorf("object collision detected"), "object collision, retrying after 10s", "phase", pres.GetName(), "collisions", collidingObjs)
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonObjectCollision,
+				fmt.Sprintf("Cannot take ownership of %d object(s) in phase %q because they are owned by another controller or already exist. Remove the conflicting owner or object, or create a new ClusterObjectSet with a more permissive collisionProtection setting.", len(collidingObjs), pres.GetName()),
+				isDeadlineExceeded)
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
 
-	revVersion := cos.GetAnnotations()[labels.BundleVersionKey]
+	revisionNumber := cos.Spec.Revision
 	if rres.InTransition() {
-		markAsProgressing(l, cos, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion), isDeadlineExceeded)
+		setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %d is rolling out.", revisionNumber), isDeadlineExceeded)
 	}
 
 	//nolint:nestif
@@ -243,19 +260,15 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 			}
 		}
 
-		markAsProgressing(l, cos, ocv1.ReasonSucceeded, fmt.Sprintf("Revision %s has rolled out.", revVersion), isDeadlineExceeded)
-		markAsAvailable(cos, ocv1.ClusterObjectSetReasonProbesSucceeded, "Objects are available and pass all probes.")
+		markAsReady(cos, ocv1.ClusterObjectSetReasonAllObjectsReady, "All objects are at the desired state")
 
-		// We'll probably only want to remove this once we are done updating the ClusterExtension conditions
-		// as its one of the interfaces between the revision and the extension. If we still have the Succeeded for now
-		// that's fine.
-		meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-			Type:               ocv1.ClusterObjectSetTypeSucceeded,
-			Status:             metav1.ConditionTrue,
-			Reason:             ocv1.ReasonSucceeded,
-			Message:            "Revision succeeded rolling out.",
-			ObservedGeneration: cos.Generation,
-		})
+		// Record the timestamp of the first time the revision was observed to be
+		// ready. This is set once and never changes for subsequent reconciliations.
+		// It also serves as the signal that the revision has completed its rollout,
+		// which the ClusterExtension controller uses to determine the installed revision.
+		if cos.Status.CompletedAt.IsZero() {
+			cos.Status.CompletedAt = metav1.NewTime(c.Clock.Now())
+		}
 	} else {
 		var probeFailureMsgs []string
 		for _, pres := range rres.GetPhases() {
@@ -263,13 +276,16 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 				continue
 			}
 			for _, ores := range pres.GetObjects() {
+				if ores.IsPaused() && ores.Action() == machinery.ActionCreated {
+					// Skip probe checks of objects not yet created
+					continue
+				}
 				// we probably want an AvailabilityProbeType and run through all of them independently of whether
 				// the revision is complete or not
 				pr := ores.ProbeResults()[boxcutter.ProgressProbeType]
 				if pr.Status == machinerytypes.ProbeStatusTrue {
 					continue
 				}
-
 				obj := ores.Object()
 				gvk := obj.GetObjectKind().GroupVersionKind()
 				// I think these can be pretty large and verbose. We may want to
@@ -283,12 +299,19 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 			}
 		}
 
-		if len(probeFailureMsgs) > 0 {
-			markAsUnavailable(cos, ocv1.ClusterObjectSetReasonProbeFailure, strings.Join(probeFailureMsgs, "\n"))
-		} else {
-			markAsUnavailable(cos, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion))
+		rollingOutMsg := fmt.Sprintf("Revision %d is rolling out.", revisionNumber)
+		switch {
+		case isDeadlineExceeded:
+			// Deadline wins over ProbeFailure. Use the generic rolling-out summary as
+			// the "last status", not the per-object probe detail, so the reconstructed
+			// ClusterExtension Progressing/ProgressDeadlineExceeded message matches the
+			// message the removed COS Progressing condition historically carried.
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, rollingOutMsg, true)
+		case len(probeFailureMsgs) > 0:
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonProbeFailure, strings.Join(probeFailureMsgs, "\n"), false)
+		default:
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, rollingOutMsg, false)
 		}
-		markAsProgressing(l, cos, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %s is rolling out.", revVersion), isDeadlineExceeded)
 		if hasDeadline && !isDeadlineExceeded {
 			return ctrl.Result{RequeueAfter: remaining}, nil
 		}
@@ -299,7 +322,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 
 func (c *ClusterObjectSetReconciler) delete(ctx context.Context, cos *ocv1.ClusterObjectSet) (ctrl.Result, error) {
 	if err := c.TrackingCache.Free(ctx, cos); err != nil {
-		markAsAvailableUnknown(cos, ocv1.ClusterObjectSetReasonReconciling, err.Error())
+		markAsNotReady(cos, ocv1.ClusterObjectSetReasonRetryableError, err.Error())
 		return ctrl.Result{}, fmt.Errorf("error stopping informers: %v", err)
 	}
 	if err := c.removeFinalizer(ctx, cos, clusterObjectSetTeardownFinalizer); err != nil {
@@ -309,15 +332,14 @@ func (c *ClusterObjectSetReconciler) delete(ctx context.Context, cos *ocv1.Clust
 }
 
 func (c *ClusterObjectSetReconciler) archive(ctx context.Context, revisionEngine RevisionEngine, cos *ocv1.ClusterObjectSet, revision boxcutter.RevisionBuilder) (ctrl.Result, error) {
-	l := log.FromContext(ctx)
-	tdres, err := revisionEngine.Teardown(ctx, revision)
+	tdres, err := revisionEngine.Teardown(ctx, revision, machinerytypes.WithObserveAfterIncomplete{})
 	if err != nil {
 		err = fmt.Errorf("error archiving revision: %v", err)
-		setRetryingConditions(l, cos, err.Error(), false)
+		setRetryableErrorConditions(cos, err.Error(), false)
 		return ctrl.Result{}, err
 	}
 	if tdres != nil && !tdres.IsComplete() {
-		setRetryingConditions(l, cos, "removing revision resources that are not owned by another revision", false)
+		setRetryableErrorConditions(cos, "removing revision resources that are not owned by another revision", false)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	// Ensure conditions are set before removing the finalizer when archiving
@@ -417,14 +439,14 @@ func (c *ClusterObjectSetReconciler) removeFinalizer(ctx context.Context, obj cl
 	return nil
 }
 
-// listSiblingRevisions returns all active revisions belonging to the same ClusterExtension, excluding the current one.
+// listSiblingRevisions returns all active revisions belonging to the same owner, excluding the current one.
 // This includes both lower and higher revision numbers, enabling boxcutter to properly classify
 // sibling owners and avoid reporting false collisions during revision handover.
 func (c *ClusterObjectSetReconciler) listSiblingRevisions(ctx context.Context, cos *ocv1.ClusterObjectSet) ([]*ocv1.ClusterObjectSet, error) {
 	return c.listOtherActiveRevisions(ctx, cos, func(*ocv1.ClusterObjectSet) bool { return true })
 }
 
-// listPreviousRevisions returns active revisions belonging to the same ClusterExtension with lower revision numbers.
+// listPreviousRevisions returns active revisions belonging to the same owner with lower revision numbers.
 func (c *ClusterObjectSetReconciler) listPreviousRevisions(ctx context.Context, cos *ocv1.ClusterObjectSet) ([]*ocv1.ClusterObjectSet, error) {
 	return c.listOtherActiveRevisions(ctx, cos, func(r *ocv1.ClusterObjectSet) bool {
 		return r.Spec.Revision < cos.Spec.Revision
@@ -487,6 +509,7 @@ func (c *ClusterObjectSetReconciler) buildBoxcutterPhases(ctx context.Context, c
 		boxcutter.WithSiblingOwners(siblingObjs),
 		boxcutter.WithProbe(boxcutter.ProgressProbeType, progressionProbes),
 		boxcutter.WithAggregatePhaseReconcileErrors(),
+		boxcutter.WithObserveAfterIncomplete{},
 	}
 
 	phases := make([]boxcutter.Phase, 0, len(cos.Spec.Phases))
@@ -647,34 +670,32 @@ func buildProgressionProbes(progressionProbes []ocv1.ProgressionProbe) (probing.
 	return userProbes, nil
 }
 
-func setRetryingConditions(l logr.Logger, cos *ocv1.ClusterObjectSet, message string, isDeadlineExceeded bool) {
-	markAsProgressing(l, cos, ocv1.ClusterObjectSetReasonRetrying, message, isDeadlineExceeded)
-	if meta.FindStatusCondition(cos.Status.Conditions, ocv1.ClusterObjectSetTypeAvailable) != nil {
-		markAsAvailableUnknown(cos, ocv1.ClusterObjectSetReasonReconciling, message)
-	}
-}
-
-var nonTerminalProgressingReasons = map[string]struct{}{
-	ocv1.ReasonRollingOut:               {},
-	ocv1.ClusterObjectSetReasonRetrying: {},
-}
-
-func markAsProgressing(l logr.Logger, cos *ocv1.ClusterObjectSet, reason, message string, isDeadlineExceeded bool) {
-	switch reason {
-	case ocv1.ReasonSucceeded:
-		// Terminal — always apply.
-	default:
-		if _, known := nonTerminalProgressingReasons[reason]; !known {
-			l.Error(fmt.Errorf("unregistered progressing reason: %q", reason), "treating as non-terminal for deadline enforcement")
-		}
-		if isDeadlineExceeded {
-			markAsNotProgressing(cos, ocv1.ReasonProgressDeadlineExceeded,
-				fmt.Sprintf("Revision has not rolled out for %d minute(s). Last status: %s", cos.Spec.ProgressDeadlineMinutes, message))
-			return
-		}
+// setReadyWithDeadline sets the Ready condition to the supplied status/reason/message,
+// unless the progress deadline has been exceeded — in which case it reports
+// Ready=False/ProgressDeadlineExceeded instead. This centralises the progress
+// deadline enforcement for the Ready condition.
+func setReadyWithDeadline(cos *ocv1.ClusterObjectSet, status metav1.ConditionStatus, reason, message string, isDeadlineExceeded bool) { // nolint:unparam
+	if isDeadlineExceeded {
+		markAsNotReady(cos, ocv1.ReasonProgressDeadlineExceeded,
+			fmt.Sprintf("Revision has not rolled out for %d minute(s). Last status: %s", cos.Spec.ProgressDeadlineMinutes, message))
+		return
 	}
 	meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeProgressing,
+		Type:               ocv1.ClusterObjectSetTypeReady,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: cos.Generation,
+	})
+}
+
+func setRetryableErrorConditions(cos *ocv1.ClusterObjectSet, message string, isDeadlineExceeded bool) {
+	setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonRetryableError, message, isDeadlineExceeded)
+}
+
+func markAsReady(cos *ocv1.ClusterObjectSet, reason, message string) bool {
+	return meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
+		Type:               ocv1.ClusterObjectSetTypeReady,
 		Status:             metav1.ConditionTrue,
 		Reason:             reason,
 		Message:            message,
@@ -682,40 +703,10 @@ func markAsProgressing(l logr.Logger, cos *ocv1.ClusterObjectSet, reason, messag
 	})
 }
 
-func markAsNotProgressing(cos *ocv1.ClusterObjectSet, reason, message string) bool {
+func markAsNotReady(cos *ocv1.ClusterObjectSet, reason, message string) bool {
 	return meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeProgressing,
+		Type:               ocv1.ClusterObjectSetTypeReady,
 		Status:             metav1.ConditionFalse,
-		Reason:             reason,
-		Message:            message,
-		ObservedGeneration: cos.Generation,
-	})
-}
-
-func markAsAvailable(cos *ocv1.ClusterObjectSet, reason, message string) bool {
-	return meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeAvailable,
-		Status:             metav1.ConditionTrue,
-		Reason:             reason,
-		Message:            message,
-		ObservedGeneration: cos.Generation,
-	})
-}
-
-func markAsUnavailable(cos *ocv1.ClusterObjectSet, reason, message string) {
-	meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeAvailable,
-		Status:             metav1.ConditionFalse,
-		Reason:             reason,
-		Message:            message,
-		ObservedGeneration: cos.Generation,
-	})
-}
-
-func markAsAvailableUnknown(cos *ocv1.ClusterObjectSet, reason, message string) bool {
-	return meta.SetStatusCondition(&cos.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeAvailable,
-		Status:             metav1.ConditionUnknown,
 		Reason:             reason,
 		Message:            message,
 		ObservedGeneration: cos.Generation,
@@ -724,8 +715,7 @@ func markAsAvailableUnknown(cos *ocv1.ClusterObjectSet, reason, message string) 
 
 func markAsArchived(cos *ocv1.ClusterObjectSet) bool {
 	const msg = "revision is archived"
-	updated := markAsNotProgressing(cos, ocv1.ClusterObjectSetReasonArchived, msg)
-	return markAsAvailableUnknown(cos, ocv1.ClusterObjectSetReasonArchived, msg) || updated
+	return markAsNotReady(cos, ocv1.ClusterObjectSetReasonArchived, msg)
 }
 
 // computePhaseDigest computes a deterministic SHA-256 digest of a phase's

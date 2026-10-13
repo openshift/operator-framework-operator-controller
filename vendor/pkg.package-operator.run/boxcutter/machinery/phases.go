@@ -197,9 +197,9 @@ func (e *PhaseEngine) Reconcile(
 	// Preflight
 	err := e.phaseValidator.Validate(ctx, phase, opts...)
 	if err != nil {
-		var perr validation.PhaseValidationError
+		var perr *validation.PhaseValidationError
 		if errors.As(err, &perr) {
-			pres.validationError = &perr
+			pres.validationError = perr
 
 			return pres, nil
 		}
@@ -279,8 +279,9 @@ func (r *phaseResult) GetObjects() []ObjectResult {
 }
 
 // InTransition returns true if the Phase has not yet fully rolled out,
-// if the phase has some objects progressed to a new revision or
-// if objects have unresolved conflicts.
+// if the phase has some objects progressed to a new revision,
+// if objects have unresolved conflicts or if the phase was only
+// observed (paused) while still incomplete.
 func (r *phaseResult) InTransition() bool {
 	if err := r.GetValidationError(); err != nil {
 		return false
@@ -296,6 +297,12 @@ func (r *phaseResult) InTransition() bool {
 		case ActionCollision, ActionProgressed:
 			return true
 		}
+
+		if o.IsPaused() && !o.IsComplete() {
+			// Object was only observed (paused) and has pending changes,
+			// so the phase has not settled.
+			return true
+		}
 	}
 
 	return false
@@ -303,6 +310,10 @@ func (r *phaseResult) InTransition() bool {
 
 // HasProgressed returns true when all objects have been progressed to a newer revision.
 func (r *phaseResult) HasProgressed() bool {
+	if r.GetValidationError() != nil {
+		return false
+	}
+
 	var numProgressed int
 
 	for _, o := range r.objects {

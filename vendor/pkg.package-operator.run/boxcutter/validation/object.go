@@ -193,6 +193,9 @@ func validateDryRun(
 	case err == nil:
 		return nil
 
+	case meta.IsNoMatchError(err):
+		return DryRunValidationError{err: err}
+
 	case errors.As(err, &apiErr):
 		switch apiErr.Status().Reason {
 		case metav1.StatusReasonUnauthorized,

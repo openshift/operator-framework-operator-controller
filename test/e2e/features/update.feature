@@ -253,7 +253,7 @@ Feature: Update ClusterExtension
       """
     Then ClusterExtension "${NAME}-dup" reports Progressing as True with Reason Retrying and Message includes:
       """
-      revision object collisions
+      because they are owned by another controller or already exist
       """
     And ClusterExtension "${NAME}" reports Installed as True
     # Force a second revision on the dup via env var change — collision must persist
@@ -284,7 +284,7 @@ Feature: Update ClusterExtension
     Then ClusterExtension "${NAME}-dup" owns 2 ClusterObjectSets
     And ClusterExtension "${NAME}-dup" reports Progressing as True with Reason Retrying and Message includes:
       """
-      revision object collisions
+      because they are owned by another controller or already exist
       """
     And ClusterExtension "${NAME}" reports Installed as True
 
@@ -315,8 +315,7 @@ Feature: Update ClusterExtension
     And ClusterExtension is rolled out
     And ClusterExtension is available
     And ClusterExtension reports "${NAME}-2" as active revision
-    And ClusterObjectSet "${NAME}-2" reports Progressing as True with Reason Succeeded
-    And ClusterObjectSet "${NAME}-2" reports Available as True with Reason ProbesSucceeded
+    And ClusterObjectSet "${NAME}-2" reports Ready as True with Reason AllObjectsReady
     And ClusterObjectSet "${NAME}-1" is archived
     And ClusterObjectSet "${NAME}-1" phase objects are not found or not owned by the revision
 
@@ -344,8 +343,7 @@ Feature: Update ClusterExtension
     And ClusterExtension is available
     When ClusterExtension version is updated to "1.0.2"
     Then ClusterExtension reports "${NAME}-1, ${NAME}-2" as active revisions
-    And ClusterObjectSet "${NAME}-2" reports Progressing as True with Reason RollingOut
-    And ClusterObjectSet "${NAME}-2" reports Available as False with Reason ProbeFailure
+    And ClusterObjectSet "${NAME}-2" reports Ready as False with Reason ProbeFailure
 
   Scenario: Clearing deprecated serviceAccount field is reconciled without warnings
     Given ClusterExtension is applied

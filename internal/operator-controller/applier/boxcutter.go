@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,8 +32,8 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	ocv1ac "github.com/operator-framework/operator-controller/applyconfigurations/api/v1"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
+	"github.com/operator-framework/operator-controller/internal/shared/labels"
 	"github.com/operator-framework/operator-controller/internal/shared/util/cache"
 )
 
@@ -274,7 +273,10 @@ type boxcutterStorageMigratorClient interface {
 // The migration is idempotent and skipped if revisions already exist or no Helm release is found.
 func (m *BoxcutterStorageMigrator) Migrate(ctx context.Context, ext *ocv1.ClusterExtension, objectLabels map[string]string) error {
 	// Managed namespace mode (spec.namespace empty) means this is a new-style extension
-	// that never had a Helm release, so there's nothing to migrate.
+	// that never had a Helm release, so there is nothing to migrate. The previous CRD
+	// required a non-empty namespace, while the current CRD prevents an existing
+	// namespace from being removed. Consequently, an extension with an omitted namespace
+	// must have been created after managed namespace mode was introduced.
 	if ext.Spec.Namespace == "" {
 		return nil
 	}
@@ -373,8 +375,8 @@ func (m *BoxcutterStorageMigrator) ensureMigratedRevisionStatus(ctx context.Cont
 		if revisions[i].Spec.Revision != 1 {
 			continue
 		}
-		// Skip if already succeeded - status is already set correctly.
-		if meta.IsStatusConditionTrue(revisions[i].Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded) {
+		// Skip if already completed - status is already set correctly.
+		if !revisions[i].Status.CompletedAt.IsZero() {
 			return nil
 		}
 		// Ensure revision 1 status is set correctly, including for previously migrated
@@ -413,8 +415,8 @@ func (m *BoxcutterStorageMigrator) findLatestDeployedRelease(ac helmclient.Actio
 	return latestDeployed, nil
 }
 
-// ensureRevisionStatus ensures the revision has the Succeeded status condition set.
-// Returns nil if the status is already set or after successfully setting it.
+// ensureRevisionStatus ensures the revision has completedAt set, marking it as
+// installed. Returns nil if the status is already set or after successfully setting it.
 // Only sets status on revisions that were actually migrated from Helm (marked with MigratedFromHelmKey label).
 func (m *BoxcutterStorageMigrator) ensureRevisionStatus(ctx context.Context, name string) error {
 	rev := &ocv1.ClusterObjectSet{}
@@ -423,25 +425,22 @@ func (m *BoxcutterStorageMigrator) ensureRevisionStatus(ctx context.Context, nam
 	}
 
 	// Only set status if this revision was actually migrated from Helm.
-	// This prevents us from incorrectly marking normal Boxcutter revision 1 as succeeded
+	// This prevents us from incorrectly marking normal Boxcutter revision 1 as completed
 	// when it's still in progress.
 	if rev.Labels[labels.MigratedFromHelmKey] != "true" {
 		return nil
 	}
 
-	// Check if status is already set to Succeeded=True
-	if meta.IsStatusConditionTrue(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded) {
+	// Check if completedAt is already set.
+	if !rev.Status.CompletedAt.IsZero() {
 		return nil
 	}
 
-	// Set the Succeeded status condition
-	meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
-		Type:               ocv1.ClusterObjectSetTypeSucceeded,
-		Status:             metav1.ConditionTrue,
-		Reason:             ocv1.ReasonSucceeded,
-		Message:            "Revision succeeded - migrated from Helm release",
-		ObservedGeneration: rev.GetGeneration(),
-	})
+	// Since we're migrating from a successfully deployed Helm release, the revision
+	// represents a working installation. Record completedAt so the ClusterExtension
+	// controller treats it as installed. The original ready time is not recoverable,
+	// so we use the migration time.
+	rev.Status.CompletedAt = metav1.Now()
 
 	if err := m.Client.Status().Update(ctx, rev); err != nil {
 		return fmt.Errorf("updating migrated revision status: %w", err)

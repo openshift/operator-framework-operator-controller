@@ -167,15 +167,16 @@ Indicates whether the revision is actively rolling out.
 | False | `Blocked` | Error requiring manual intervention |
 | False | `Archived` | No longer actively reconciled |
 
-### Available
+### Ready
 
-Indicates whether all objects have been successfully rolled out and pass readiness probes.
+Indicates whether all objects in the revision have been successfully rolled out and reached their desired state.
 
 | Status | Reason | Meaning |
 | --- | --- | --- |
-| True | `ProbesSucceeded` | All objects pass readiness probes |
+| True | `AllObjectsReady` | All objects are at the desired state |
 | False | `ProbeFailure` | One or more probes failing |
-| Unknown | `Reconciling` | Error prevented probe observation |
+| False | `ObjectCollision` | One or more objects are controlled by another owner, or are unowned and collision protection prevents adoption |
+| Unknown | `RetryableError` | Error prevented probe observation |
 | Unknown | `Archived` | Objects torn down after archival |
 | Unknown | `Migrated` | Migrated from existing release; probes not yet observed |
 
@@ -387,7 +388,7 @@ kubectl get clusterobjectset <name> -o yaml
 Example output:
 
 ```
-NAME                   AVAILABLE   PROGRESSING   AGE
-my-extension-abc12     Unknown     False         2d
-my-extension-def34     True        True          1h
+NAME                   READY     AGE
+my-extension-abc12     Unknown   2d
+my-extension-def34     True      1h
 ```

@@ -31,6 +31,7 @@ var ConditionTypes = []string{
 	ocv1.TypeChannelDeprecated,
 	ocv1.TypeBundleDeprecated,
 	ocv1.TypeProgressing,
+	ocv1.TypeAvailable,
 }
 
 var ConditionReasons = []string{
@@ -45,4 +46,5 @@ var ConditionReasons = []string{
 	ocv1.ReasonAbsent,
 	ocv1.ReasonRollingOut,
 	ocv1.ReasonProgressDeadlineExceeded,
+	ocv1.ReasonProbesSucceeded,
 }

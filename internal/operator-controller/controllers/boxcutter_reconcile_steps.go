@@ -24,14 +24,13 @@ import (
 	"io/fs"
 	"slices"
 
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
+	"github.com/operator-framework/operator-controller/internal/shared/labels"
 )
 
 type BoxcutterRevisionStatesGetter struct {
@@ -76,7 +75,9 @@ func (d *BoxcutterRevisionStatesGetter) GetRevisionStates(ctx context.Context, e
 			rm.Release = &releaseValue
 		}
 
-		if apimeta.IsStatusConditionTrue(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded) {
+		// A revision is considered installed once it has been observed ready at
+		// least once, recorded by status.completedAt.
+		if !rev.Status.CompletedAt.IsZero() {
 			rs.Installed = rm
 		} else {
 			rs.RollingOut = append(rs.RollingOut, rm)
@@ -132,39 +133,12 @@ func ApplyBundleWithBoxcutter(apply func(ctx context.Context, contentFS fs.FS, e
 			return nil, err
 		}
 
-		ext.Status.ActiveRevisions = []ocv1.RevisionStatus{}
-		// Mirror Available/Progressing conditions from the installed revision
-		if i := state.revisionStates.Installed; i != nil {
-			for _, cndType := range []string{ocv1.ClusterObjectSetTypeAvailable, ocv1.ClusterObjectSetTypeProgressing} {
-				if cnd := apimeta.FindStatusCondition(i.Conditions, cndType); cnd != nil {
-					cnd.ObservedGeneration = ext.GetGeneration()
-					apimeta.SetStatusCondition(&ext.Status.Conditions, *cnd)
-				}
-			}
-			ext.Status.Install = &ocv1.ClusterExtensionInstallStatus{
-				Bundle: i.BundleMetadata,
-			}
-			ext.Status.ActiveRevisions = []ocv1.RevisionStatus{{Name: i.RevisionName}}
-		}
-		for idx, r := range state.revisionStates.RollingOut {
-			rs := ocv1.RevisionStatus{Name: r.RevisionName}
-			for _, cndType := range []string{ocv1.ClusterObjectSetTypeAvailable, ocv1.ClusterObjectSetTypeProgressing} {
-				if cnd := apimeta.FindStatusCondition(r.Conditions, cndType); cnd != nil {
-					cnd.ObservedGeneration = ext.GetGeneration()
-					apimeta.SetStatusCondition(&rs.Conditions, *cnd)
-				}
-			}
-			// Mirror Progressing condition from the latest active revision
-			if idx == len(state.revisionStates.RollingOut)-1 {
-				if pcnd := apimeta.FindStatusCondition(r.Conditions, ocv1.ClusterObjectSetTypeProgressing); pcnd != nil {
-					pcnd.ObservedGeneration = ext.GetGeneration()
-					apimeta.SetStatusCondition(&ext.Status.Conditions, *pcnd)
-				}
-			}
-			ext.Status.ActiveRevisions = append(ext.Status.ActiveRevisions, rs)
-		}
+		setActiveRevisionsFromRevisionStates(ext, state.revisionStates)
 
+		setAvailableFromRevisionStates(ext, state.revisionStates)
+		setProgressingFromRevisionStates(ext, state.revisionStates)
 		setInstalledStatusFromRevisionStates(ext, state.revisionStates)
+
 		return nil, nil
 	}
 }
