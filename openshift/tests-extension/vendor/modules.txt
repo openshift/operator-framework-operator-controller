@@ -1267,6 +1267,7 @@ sigs.k8s.io/structured-merge-diff/v6/value
 sigs.k8s.io/yaml
 # github.com/operator-framework/operator-controller => ../../
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20250416174521-4eb003743b54
+# sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.24.1
 # k8s.io/kubernetes => github.com/openshift/kubernetes v0.0.0-20251108023427-891f5bb03061
 # k8s.io/api => github.com/openshift/kubernetes/staging/src/k8s.io/api v0.0.0-20251108023427-891f5bb03061
 # k8s.io/apiextensions-apiserver => github.com/openshift/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20251108023427-891f5bb03061
