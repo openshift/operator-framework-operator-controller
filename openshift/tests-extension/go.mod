@@ -132,6 +132,13 @@ replace github.com/operator-framework/operator-controller => ../../
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20250416174521-4eb003743b54
 
+// Pin controller-runtime to v0.24.1. Newer versions (v0.25.x) reference
+// k8s.io/client-go's tools/cache.DoneChecker, which is not present in the
+// OpenShift client-go fork used here. v0.24.1's source has no such reference,
+// so the build stays green even after `go mod vendor` regenerates the vendor
+// tree (unlike a hand-patched vendored file, which a re-vendor would revert).
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.24.1
+
 replace k8s.io/kubernetes => github.com/openshift/kubernetes v0.0.0-20251108023427-891f5bb03061
 
 replace k8s.io/api => github.com/openshift/kubernetes/staging/src/k8s.io/api v0.0.0-20251108023427-891f5bb03061
