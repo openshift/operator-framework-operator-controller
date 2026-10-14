@@ -206,6 +206,57 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdAPIV1Metas][Skipped:D
 	})
 })
 
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdGraphQL][Skipped:Disconnected] OLMv1 openshift-community-operators Catalog", func() {
+	BeforeEach(func() {
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+	})
+	It("should serve FBC via the /v1/api/graphql endpoint", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-community-operators",
+			`{"query":"{ summary { schemas { name } } }"}`)
+	})
+})
+
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdGraphQL][Skipped:Disconnected] OLMv1 openshift-certified-operators Catalog", func() {
+	BeforeEach(func() {
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+	})
+	It("should serve FBC via the /v1/api/graphql endpoint", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-certified-operators",
+			`{"query":"{ summary { schemas { name } } }"}`)
+	})
+})
+
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdGraphQL][Skipped:Disconnected] OLMv1 openshift-redhat-operators Catalog", func() {
+	BeforeEach(func() {
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+	})
+	It("should serve FBC via the /v1/api/graphql endpoint", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-redhat-operators",
+			`{"query":"{ summary { schemas { name } } }"}`)
+	})
+})
+
+var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMCatalogdGraphQL][Skipped:Disconnected] OLMv1 Catalog GraphQL query scenarios", func() {
+	BeforeEach(func() {
+		helpers.RequireOLMv1CapabilityOnOpenshift()
+	})
+
+	It("should return olm.package data without the icon field when not requested", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-community-operators",
+			`{"query":"{ olmpackages(limit: 10) { name defaultChannel description schema } }"}`)
+	})
+
+	It("should return olm.bundle names with properties containing type and value", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-community-operators",
+			`{"query":"{ olmbundles(limit: 10) { name properties { type value } } }"}`)
+	})
+
+	It("should return olm.bundle and olm.channel data for cross-referencing membership", func(ctx SpecContext) {
+		verifyCatalogGraphQLEndpoint(ctx, "openshift-community-operators",
+			`{"query":"{ olmbundles(limit: 10) { name package } olmchannels(limit: 10) { name package entries } }"}`)
+	})
+})
+
 var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 New Catalog Install", func() {
 	BeforeEach(func() {
 		helpers.RequireOLMv1CapabilityOnOpenshift()
@@ -363,6 +414,125 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Seria
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
 	})
 })
+
+func verifyCatalogGraphQLEndpoint(ctx SpecContext, catalog, graphqlBody string) {
+	k8sClient := env.Get().K8sClient
+
+	By(fmt.Sprintf("Retrieving base URL from ClusterCatalog %q", catalog))
+	cc := &olmv1.ClusterCatalog{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: catalog}, cc)
+	Expect(err).NotTo(HaveOccurred(), "failed to get ClusterCatalog")
+
+	Expect(cc.Status.URLs.Base).NotTo(BeEmpty(), fmt.Sprintf("catalog %q has empty base URL", catalog))
+	serviceURL := fmt.Sprintf("%s/api/v1/graphql", cc.Status.URLs.Base)
+
+	By(fmt.Sprintf("Creating curl Job to POST GraphQL query to: %s", serviceURL))
+
+	jobNamePrefix := fmt.Sprintf("verify-graphql-%s-%s",
+		strings.ReplaceAll(catalog, "-", ""),
+		rand.String(5),
+	)
+
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobNamePrefix,
+			Namespace: "default",
+		},
+	}
+
+	job := buildCurlPostJob(jobNamePrefix, "default", serviceURL, serviceAccount.Name, graphqlBody)
+
+	DeferCleanup(func(ctx SpecContext) {
+		deletePolicy := metav1.DeletePropagationForeground
+		gracePeriod := int64(0)
+
+		Eventually(func(ctx SpecContext) error {
+			err := k8sClient.Delete(ctx, job, &client.DeleteOptions{
+				GracePeriodSeconds: &gracePeriod,
+				PropagationPolicy:  &deletePolicy,
+			})
+			return client.IgnoreNotFound(err)
+		}).WithContext(ctx).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(job), &batchv1.Job{})
+			g.Expect(err).To(WithTransform(apierrors.IsNotFound, BeTrue()), "Expected Job to be deleted")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		Eventually(func(ctx SpecContext) error {
+			err = k8sClient.Delete(ctx, serviceAccount)
+			return client.IgnoreNotFound(err)
+		}).WithContext(ctx).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(serviceAccount), &corev1.ServiceAccount{})
+			g.Expect(err).To(WithTransform(apierrors.IsNotFound, BeTrue()), "Expected ServiceAccount to be deleted")
+		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+	})
+
+	err = k8sClient.Create(ctx, serviceAccount)
+	Expect(err).NotTo(HaveOccurred(), "failed to create ServiceAccount")
+
+	err = k8sClient.Create(ctx, job)
+	Expect(err).NotTo(HaveOccurred(), "failed to create Job")
+
+	By("Waiting for Job to succeed")
+	Eventually(func(g Gomega) {
+		recheck := &batchv1.Job{}
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(job), recheck)).NotTo(HaveOccurred())
+
+		for _, c := range recheck.Status.Conditions {
+			if c.Type == batchv1.JobComplete && c.Status == corev1.ConditionTrue {
+				return
+			}
+			if c.Type == batchv1.JobFailed && c.Status == corev1.ConditionTrue {
+				StopTrying(fmt.Sprintf("Job failed: %s", c.Message)).Now()
+			}
+		}
+	}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+}
+
+func buildCurlPostJob(prefix, namespace, url, serviceAccountName, body string) *batchv1.Job {
+	backoff := int32(1)
+	ttl := int32(300)
+
+	commandString := fmt.Sprintf(`set -ex;
+                            curl -v -k -X POST -H "Content-Type: application/json" -d %q %q;
+                            if [ $? -ne 0 ]; then
+                                echo "Failed to access endpoint";
+                                exit 1;
+                            fi;
+                            echo "Successfully verified API endpoint";
+                            exit 0;`, body, url)
+
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: prefix + "-",
+			Namespace:    namespace,
+		},
+		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: &ttl,
+			BackoffLimit:            &backoff,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: serviceAccountName,
+					RestartPolicy:      corev1.RestartPolicyNever,
+					Containers: []corev1.Container{{
+						Name:    "api-tester",
+						Image:   "registry.redhat.io/rhel8/httpd-24:latest",
+						Command: []string{"/bin/bash", "-c", commandString},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("10m"),
+								corev1.ResourceMemory: resource.MustParse("50Mi"),
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
 
 func buildCurlJob(prefix, namespace, url, serviceAccountName string) *batchv1.Job {
 	backoff := int32(1)
