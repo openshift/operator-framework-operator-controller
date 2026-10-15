@@ -7,15 +7,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"go.podman.io/storage/pkg/idtools"
 	"go.podman.io/storage/pkg/system"
 )
 
 func collectFileInfoForChanges(oldDir, newDir string, oldIDMap, newIDMap *idtools.IDMappings) (*FileInfo, *FileInfo, error) {
-	// WARNING: This is called in contexts where the contents of newDir (but not oldDir) may be maliciously
-	// concurrently modified.
-
 	var (
 		oldRoot, newRoot *FileInfo
 		err1, err2       error
@@ -41,35 +40,41 @@ func collectFileInfoForChanges(oldDir, newDir string, oldIDMap, newIDMap *idtool
 }
 
 func collectFileInfo(sourceDir string, idMappings *idtools.IDMappings) (*FileInfo, error) {
-	// WARNING: This is called in contexts where the contents of sourceDir may be maliciously
-	// concurrently modified.
+	root := newRootFileInfo(idMappings)
 
-	root, err := os.OpenRoot(sourceDir)
-	if err != nil {
-		return nil, err
-	}
-	defer root.Close()
-
-	rootFileInfo := newRootFileInfo(idMappings)
-
-	sourceStat, err := system.RootLstat(root, ".")
+	sourceStat, err := system.Lstat(sourceDir)
 	if err != nil {
 		return nil, err
 	}
 
-	err = fs.WalkDir(root.FS(), ".", func(fsPath string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(sourceDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if fsPath == "." {
-			return nil
+		// Rebase path
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
 		}
 
 		// As this runs on the daemon side, file paths are OS specific.
-		relPath := filepath.FromSlash("/" + fsPath) // We have skipped ".", and no other fsPath values start with "." or "/", so blindly prepending "/" is safe.
+		relPath = filepath.Join(string(os.PathSeparator), relPath)
 
-		parent := rootFileInfo.LookUp(filepath.Dir(relPath))
+		// See https://github.com/golang/go/issues/9168 - bug in filepath.Join.
+		// Temporary workaround. If the returned path starts with two backslashes,
+		// trim it down to a single backslash. Only relevant on Windows.
+		if runtime.GOOS == "windows" {
+			if strings.HasPrefix(relPath, `\\`) {
+				relPath = relPath[1:]
+			}
+		}
+
+		if relPath == string(os.PathSeparator) {
+			return nil
+		}
+
+		parent := root.LookUp(filepath.Dir(relPath))
 		if parent == nil {
 			return fmt.Errorf("collectFileInfo: Unexpectedly no parent for %s", relPath)
 		}
@@ -81,7 +86,7 @@ func collectFileInfo(sourceDir string, idMappings *idtools.IDMappings) (*FileInf
 			idMappings: idMappings,
 		}
 
-		s, err := system.RootLstat(root, fsPath)
+		s, err := system.Lstat(path)
 		if err != nil {
 			return err
 		}
@@ -94,13 +99,7 @@ func collectFileInfo(sourceDir string, idMappings *idtools.IDMappings) (*FileInf
 		}
 
 		info.stat = s
-		info.capability, _ = system.RootLgetxattr(root, fsPath, "security.capability")
-		if s.IsSymlink() {
-			info.target, err = root.Readlink(fsPath)
-			if err != nil {
-				return err
-			}
-		}
+		info.capability, _ = system.Lgetxattr(path, "security.capability")
 
 		parent.children[info.name] = info
 
@@ -109,5 +108,5 @@ func collectFileInfo(sourceDir string, idMappings *idtools.IDMappings) (*FileInf
 	if err != nil {
 		return nil, err
 	}
-	return rootFileInfo, nil
+	return root, nil
 }

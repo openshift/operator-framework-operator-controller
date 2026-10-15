@@ -14,10 +14,6 @@ type RevisionReconcileOptions struct {
 	DefaultPhaseOptions []PhaseReconcileOption
 	// PhaseOptions maps PhaseOptions for specific phases.
 	PhaseOptions map[string][]PhaseReconcileOption
-	// ObserveAfterIncomplete continues reconciling phases after the first
-	// incomplete phase with WithPaused, reporting read-only status for the
-	// remaining phases instead of stopping and waiting.
-	ObserveAfterIncomplete bool
 }
 
 // ForPhase returns the options for a given phase.
@@ -48,19 +44,12 @@ type RevisionReconcileOption interface {
 	ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions)
 }
 
-var _ RevisionReconcileOption = (WithObserveAfterIncomplete{})
-
 // RevisionTeardownOptions holds configuration options changing revision teardown.
 type RevisionTeardownOptions struct {
 	// DefaultObjectOptions applying to all phases in the revision.
 	DefaultPhaseOptions []PhaseTeardownOption
 	// PhaseOptions maps PhaseOptions for specific phases.
 	PhaseOptions map[string][]PhaseTeardownOption
-	// ObserveAfterIncomplete continues tearing down phases after the first
-	// incomplete phase with WithObserve, reporting read-only status for the
-	// remaining phases instead of stopping and waiting. Remaining phases are
-	// never deleted out of order, only observed.
-	ObserveAfterIncomplete bool
 }
 
 // ForPhase returns the options for a given phase.
@@ -169,9 +158,6 @@ var (
 	_ ObjectReconcileOption = (WithSiblingOwnerClassifier)(nil)
 	_ ObjectReconcileOption = (WithProbe("", nil))
 	_ ObjectTeardownOption  = (WithTeardownWriter(nil))
-	_ ObjectTeardownOption  = (WithObserve{})
-
-	_ RevisionTeardownOption = (WithObserveAfterIncomplete{})
 )
 
 // ObjectTeardownOptions holds configuration options changing object teardown.
@@ -180,9 +166,6 @@ type ObjectTeardownOptions struct {
 	TeardownWriter client.Writer
 	Owner          client.Object
 	OwnerStrategy  OwnerStrategy
-	// Observe skips deletion and just reports whether the object is still
-	// present on the cluster. Can be described as a read-only teardown.
-	Observe bool
 }
 
 // Default sets empty Option fields to their default value.
@@ -302,23 +285,6 @@ func (p WithPaused) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptio
 	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }
 
-// WithObserveAfterIncomplete continues processing subsequent phases after the
-// first incomplete phase read-only, so their status is reported instead of
-// stopping and waiting at the first incomplete phase. On reconcile the remaining
-// phases run with WithPaused; on teardown they run with WithObserve, never
-// deleted out of order.
-type WithObserveAfterIncomplete struct{}
-
-// ApplyToRevisionReconcileOptions implements RevisionReconcileOptions.
-func (p WithObserveAfterIncomplete) ApplyToRevisionReconcileOptions(opts *RevisionReconcileOptions) {
-	opts.ObserveAfterIncomplete = true
-}
-
-// ApplyToRevisionTeardownOptions implements RevisionTeardownOptions.
-func (p WithObserveAfterIncomplete) ApplyToRevisionTeardownOptions(opts *RevisionTeardownOptions) {
-	opts.ObserveAfterIncomplete = true
-}
-
 // WithProbe registers the given probe to evaluate state of objects.
 func WithProbe(t string, probe Prober) ObjectReconcileOption {
 	return &optionFn{
@@ -330,26 +296,6 @@ func WithProbe(t string, probe Prober) ObjectReconcileOption {
 			opts.Probes[t] = probe
 		},
 	}
-}
-
-// WithObserve skips deletion and just reports whether objects are still
-// present on the cluster. Can be described as a read-only teardown, as no
-// modification will occur.
-type WithObserve struct{}
-
-// ApplyToObjectTeardownOptions implements ObjectTeardownOption.
-func (p WithObserve) ApplyToObjectTeardownOptions(opts *ObjectTeardownOptions) {
-	opts.Observe = true
-}
-
-// ApplyToPhaseTeardownOptions implements PhaseTeardownOption.
-func (p WithObserve) ApplyToPhaseTeardownOptions(opts *PhaseTeardownOptions) {
-	opts.DefaultObjectOptions = append(opts.DefaultObjectOptions, p)
-}
-
-// ApplyToRevisionTeardownOptions implements RevisionTeardownOptions.
-func (p WithObserve) ApplyToRevisionTeardownOptions(opts *RevisionTeardownOptions) {
-	opts.DefaultPhaseOptions = append(opts.DefaultPhaseOptions, p)
 }
 
 // WithOrphan exclude objects from Teardown.

@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +31,7 @@ import (
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	ocv1ac "github.com/operator-framework/operator-controller/applyconfigurations/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
-	"github.com/operator-framework/operator-controller/internal/shared/labels"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
 	bundlecsv "github.com/operator-framework/operator-controller/internal/testing/bundle/csv"
 	bundlefs "github.com/operator-framework/operator-controller/internal/testing/bundle/fs"
 	mockapplier "github.com/operator-framework/operator-controller/internal/testutil/mock/applier"
@@ -1140,8 +1141,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		brb := newStorageMigratorGenerator(t)
@@ -1195,13 +1195,18 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
 		require.NoError(t, err)
 
-		// Verify the migrated revision has completedAt set, marking it as installed
+		// Verify the migrated revision has Succeeded=True status with Succeeded reason and a migration message
 		require.NotNil(t, updatedObj, "Updated object should not be nil")
 
 		rev, ok := updatedObj.(*ocv1.ClusterObjectSet)
 		require.True(t, ok, "Updated object should be a ClusterObjectSet")
 
-		assert.False(t, rev.Status.CompletedAt.IsZero(), "completedAt should be set on migrated revision")
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
+		assert.Equal(t, "Revision succeeded - migrated from Helm release", succeededCond.Message, "Message should indicate Helm migration")
+		assert.Equal(t, int64(1), succeededCond.ObservedGeneration, "ObservedGeneration should match revision generation")
 	})
 
 	t.Run("does not create revision when revisions exist", func(t *testing.T) {
@@ -1209,8 +1214,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		// GenerateRevisionFromHelmRelease should not be called when revisions already exist
 		ctrl := gomock.NewController(t)
@@ -1239,7 +1243,13 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 				Revision: 1, // Migration creates revision 1
 			},
 			Status: ocv1.ClusterObjectSetStatus{
-				CompletedAt: metav1.Now(),
+				Conditions: []metav1.Condition{
+					{
+						Type:   ocv1.ClusterObjectSetTypeSucceeded,
+						Status: metav1.ConditionTrue,
+						Reason: ocv1.ReasonSucceeded,
+					},
+				},
 			},
 		}
 
@@ -1259,8 +1269,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		brb := mockapplier.NewMockClusterObjectSetGenerator(ctrl)
@@ -1322,16 +1331,18 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		rev, ok := updatedObj.(*ocv1.ClusterObjectSet)
 		require.True(t, ok, "Updated object should be a ClusterObjectSet")
 
-		assert.False(t, rev.Status.CompletedAt.IsZero(), "completedAt should be set")
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
 	})
 
-	t.Run("sets completedAt for migrated revision that has not completed", func(t *testing.T) {
+	t.Run("updates status from False to True for migrated revision", func(t *testing.T) {
 		testScheme := runtime.NewScheme()
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		brb := mockapplier.NewMockClusterObjectSetGenerator(ctrl)
@@ -1349,8 +1360,8 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			FieldOwner:         "test-owner",
 		}
 
-		// Migrated revision without completedAt (e.g., from a previous failed status update attempt).
-		// This simulates a revision whose completedAt should be set during migration.
+		// Migrated revision with Succeeded=False (e.g., from a previous failed status update attempt)
+		// This simulates a revision whose Succeeded condition should be corrected from False to True during migration.
 		existingRev := ocv1.ClusterObjectSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "test-revision",
@@ -1362,7 +1373,15 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 			Spec: ocv1.ClusterObjectSetSpec{
 				Revision: 1,
 			},
-			// completedAt is not set - simulating a revision that was migrated but never marked completed.
+			Status: ocv1.ClusterObjectSetStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   ocv1.ClusterObjectSetTypeSucceeded,
+						Status: metav1.ConditionFalse, // Important: False, not missing
+						Reason: "InProgress",
+					},
+				},
+			},
 		}
 
 		mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -1389,13 +1408,16 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
 		require.NoError(t, err)
 
-		// Verify completedAt was set
+		// Verify the status was updated from False to True
 		require.NotNil(t, updatedObj, "Updated object should not be nil")
 
 		rev, ok := updatedObj.(*ocv1.ClusterObjectSet)
 		require.True(t, ok, "Updated object should be a ClusterObjectSet")
 
-		assert.False(t, rev.Status.CompletedAt.IsZero(), "completedAt should be set during migration")
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be updated to True")
+		assert.Equal(t, ocv1.ReasonSucceeded, succeededCond.Reason, "Reason should be Succeeded")
 	})
 
 	t.Run("does not set status on non-migrated revision 1", func(t *testing.T) {
@@ -1403,8 +1425,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		brb := mockapplier.NewMockClusterObjectSetGenerator(ctrl)
@@ -1461,8 +1482,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		expectedRelease := &release.Release{
 			Name:    "test123",
@@ -1543,13 +1563,15 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		err := sm.Migrate(t.Context(), ext, map[string]string{"my-label": "my-value"})
 		require.NoError(t, err)
 
-		// Verify the migrated revision has completedAt set
+		// Verify the migrated revision has Succeeded=True status
 		require.NotNil(t, updatedObj, "Updated object should not be nil")
 
 		rev, ok := updatedObj.(*ocv1.ClusterObjectSet)
 		require.True(t, ok, "Updated object should be a ClusterObjectSet")
 
-		assert.False(t, rev.Status.CompletedAt.IsZero(), "completedAt should be set on migrated revision")
+		succeededCond := apimeta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterObjectSetTypeSucceeded)
+		require.NotNil(t, succeededCond, "Succeeded condition should be set")
+		assert.Equal(t, metav1.ConditionTrue, succeededCond.Status, "Succeeded condition should be True")
 	})
 
 	t.Run("does not create revision when helm release is not deployed and no deployed history", func(t *testing.T) {
@@ -1557,8 +1579,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		// GenerateRevisionFromHelmRelease should NOT be called when no deployed release exists
@@ -1605,8 +1626,7 @@ func TestBoxcutterStorageMigrator(t *testing.T) {
 		require.NoError(t, ocv1.AddToScheme(testScheme))
 
 		ext := &ocv1.ClusterExtension{
-			ObjectMeta: metav1.ObjectMeta{Name: "test123"},
-			Spec:       ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test123"}, Spec: ocv1.ClusterExtensionSpec{Namespace: "test-namespace"},
 		}
 		ctrl := gomock.NewController(t)
 		brb := mockapplier.NewMockClusterObjectSetGenerator(ctrl)

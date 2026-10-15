@@ -30,12 +30,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.podman.io/image/v5/types"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	apimachineryrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/klog/v2"
@@ -58,6 +61,7 @@ import (
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	clusterobjctrl "github.com/operator-framework/operator-controller/internal/object-controller/controllers"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/action"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/catalogmetadata/cache"
@@ -115,6 +119,7 @@ type boxcutterReconcilerConfigurator struct {
 	imageCache            imageutil.Cache
 	imagePuller           imageutil.Puller
 	finalizers            crfinalizer.Finalizers
+	trackingCache         managedcache.TrackingCache
 }
 
 type helmReconcilerConfigurator struct {
@@ -456,22 +461,26 @@ func run() error {
 		crdupgradesafety.NewPreflight(aeClient.CustomResourceDefinitions()),
 	}
 
-	var trackingCache managedcache.TrackingCache
+	trackingCache, err := managedcache.NewTrackingCache(
+		ctrl.Log.WithName("trackingCache"),
+		mgr.GetConfig(),
+		crcache.Options{
+			Scheme: mgr.GetScheme(), Mapper: mgr.GetRESTMapper(),
+		},
+	)
+	if err != nil {
+		setupLog.Error(err, "unable to create tracking cache")
+		return err
+	}
+	if err := mgr.Add(trackingCache); err != nil {
+		setupLog.Error(err, "unable to add tracking cache to manager")
+		return err
+	}
+
 	var ctrlBuilderOpts []controllers.ControllerBuilderOption
 	if features.OperatorControllerFeatureGate.Enabled(features.BoxcutterRuntime) {
 		ctrlBuilderOpts = append(ctrlBuilderOpts, controllers.WithOwns(&ocv1.ClusterObjectSet{}))
 	} else {
-		trackingCache, err = managedcache.NewTrackingCache(
-			ctrl.Log.WithName("trackingCache"),
-			mgr.GetConfig(),
-			crcache.Options{Scheme: mgr.GetScheme(), Mapper: mgr.GetRESTMapper()},
-		)
-		if err != nil {
-			return fmt.Errorf("unable to create tracking cache: %w", err)
-		}
-		if err := mgr.Add(trackingCache); err != nil {
-			return fmt.Errorf("unable to add tracking cache to manager: %w", err)
-		}
 		ctrlBuilderOpts = append(ctrlBuilderOpts, controllers.WithWatchesRawSource(
 			trackingCache.Source(
 				crhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &ocv1.ClusterExtension{}),
@@ -511,6 +520,7 @@ func run() error {
 			imageCache:            imageCache,
 			imagePuller:           imagePuller,
 			finalizers:            clusterExtensionFinalizers,
+			trackingCache:         trackingCache,
 		}
 	} else {
 		cerCfg = &helmReconcilerConfigurator{
@@ -655,6 +665,38 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		controllers.ApplyBundleWithBoxcutter(appl.Apply),
 	}
 
+	baseDiscoveryClient, err := discovery.NewDiscoveryClientForConfig(c.mgr.GetConfig())
+	if err != nil {
+		return fmt.Errorf("unable to create discovery client: %w", err)
+	}
+
+	// Wrap the discovery client with caching to reduce memory usage from repeated OpenAPI schema fetches
+	discoveryClient := memory.NewMemCacheClient(baseDiscoveryClient)
+
+	revisionEngineFactory, err := clusterobjctrl.NewDefaultRevisionEngineFactory(
+		c.mgr.GetScheme(),
+		c.trackingCache,
+		discoveryClient,
+		c.mgr.GetRESTMapper(),
+		fieldOwnerPrefix,
+		c.mgr.GetConfig(),
+	)
+	if err != nil {
+		return fmt.Errorf("unable to create revision engine factory: %w", err)
+	}
+
+	cosClient := &secretFallbackClient{
+		Client:          c.mgr.GetClient(),
+		apiReader:       c.mgr.GetAPIReader(),
+		systemNamespace: cfg.systemNamespace,
+	}
+	if err = (&clusterobjctrl.ClusterObjectSetReconciler{
+		Client:                cosClient,
+		RevisionEngineFactory: revisionEngineFactory,
+		TrackingCache:         c.trackingCache,
+	}).SetupWithManager(c.mgr); err != nil {
+		return fmt.Errorf("unable to setup ClusterObjectSet controller: %w", err)
+	}
 	return nil
 }
 
@@ -718,4 +760,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// secretFallbackClient wraps a cached client.Client and falls back to direct
+// API reads for Secrets outside the system namespace, where the cache does not watch.
+type secretFallbackClient struct {
+	client.Client
+	apiReader       client.Reader
+	systemNamespace string
+}
+
+func (c *secretFallbackClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, isSecret := obj.(*corev1.Secret); isSecret && key.Namespace != c.systemNamespace {
+		return c.apiReader.Get(ctx, key, obj, opts...)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
 }

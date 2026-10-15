@@ -22,11 +22,7 @@ func (ref ociReference) DeleteImage(ctx context.Context, sys *types.SystemContex
 		sharedBlobsDir = sys.OCISharedBlobDirPath
 	}
 
-	index, err := destGetIndex(ref)
-	if err != nil {
-		return err
-	}
-	descriptor, descriptorIndex, err := ref.getManifestDescriptor(index)
+	descriptor, descriptorIndex, err := ref.getManifestDescriptor()
 	if err != nil {
 		return err
 	}
@@ -51,7 +47,7 @@ func (ref ociReference) DeleteImage(ctx context.Context, sys *types.SystemContex
 
 // countBlobsForDescriptor updates dest with usage counts of blobs required for descriptor, INCLUDING descriptor itself.
 func (ref ociReference) countBlobsForDescriptor(dest map[digest.Digest]int, descriptor *imgspecv1.Descriptor, sharedBlobsDir string) error {
-	blobPath, err := destBlobPath(ref, descriptor.Digest, sharedBlobsDir)
+	blobPath, err := ref.blobPath(descriptor.Digest, sharedBlobsDir)
 	if err != nil {
 		return err
 	}
@@ -59,7 +55,7 @@ func (ref ociReference) countBlobsForDescriptor(dest map[digest.Digest]int, desc
 	dest[descriptor.Digest]++
 	switch descriptor.MediaType {
 	case imgspecv1.MediaTypeImageManifest:
-		manifest, err := destParseJSON[imgspecv1.Manifest](blobPath)
+		manifest, err := parseJSON[imgspecv1.Manifest](blobPath)
 		if err != nil {
 			return err
 		}
@@ -68,7 +64,7 @@ func (ref ociReference) countBlobsForDescriptor(dest map[digest.Digest]int, desc
 			dest[layer.Digest]++
 		}
 	case imgspecv1.MediaTypeImageIndex:
-		index, err := destParseJSON[imgspecv1.Index](blobPath)
+		index, err := parseIndex(blobPath)
 		if err != nil {
 			return err
 		}
@@ -94,7 +90,7 @@ func (ref ociReference) countBlobsReferencedByIndex(destination map[digest.Diges
 // This takes in a map of the digest and their usage count in the manifest to be deleted
 // It will compare it to the digest usage in the root index, and return a set of the blobs that can be safely deleted
 func (ref ociReference) getBlobsToDelete(blobsUsedByDescriptorToDelete map[digest.Digest]int, sharedBlobsDir string) (*set.Set[digest.Digest], error) {
-	rootIndex, err := destGetIndex(ref)
+	rootIndex, err := ref.getIndex()
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +121,10 @@ func (ref ociReference) getBlobsToDelete(blobsUsedByDescriptorToDelete map[diges
 // in case the layout was created using some other tool or without OCISharedBlobDirPath set, so let's silently
 // check for local blobs (but we should make no noise if the blobs are actually in the shared directory).
 //
-// So, NOTE: the destBlobPath() call below hard-codes "" even in calls where OCISharedBlobDirPath is set
+// So, NOTE: the blobPath() call below hard-codes "" even in calls where OCISharedBlobDirPath is set
 func (ref ociReference) deleteBlobs(blobsToDelete *set.Set[digest.Digest]) error {
 	for digest := range blobsToDelete.All() {
-		blobPath, err := destBlobPath(ref, digest, "") // Only delete in the local directory, see comment above
+		blobPath, err := ref.blobPath(digest, "") // Only delete in the local directory, see comment above
 		if err != nil {
 			return err
 		}
@@ -153,14 +149,14 @@ func deleteBlob(blobPath string) error {
 }
 
 func (ref ociReference) deleteReferenceFromIndex(referenceIndex int) error {
-	index, err := destGetIndex(ref)
+	index, err := ref.getIndex()
 	if err != nil {
 		return err
 	}
 
 	index.Manifests = slices.Delete(index.Manifests, referenceIndex, referenceIndex+1)
 
-	return saveJSON(destIndexPath(ref), index)
+	return saveJSON(ref.indexPath(), index)
 }
 
 func saveJSON(path string, content any) (retErr error) {

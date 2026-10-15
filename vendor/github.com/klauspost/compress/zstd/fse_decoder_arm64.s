@@ -47,10 +47,12 @@ init_main_loop_condition:
 
 	// Spread symbols
 	// Calculate table step
-	LSR $0x01, R0, R8
-	LSR $0x03, R0, R9
-	ADD R9, R8, R8
-	ADD $3, R8, R8
+	MOVD R0, R8
+	LSR  $0x01, R8, R8
+	MOVD R0, R9
+	LSR  $0x03, R9, R9
+	ADD  R9, R8, R8
+	ADD  $3, R8, R8
 
 	// Fill add bits values
 	SUB  $1, R0, R9

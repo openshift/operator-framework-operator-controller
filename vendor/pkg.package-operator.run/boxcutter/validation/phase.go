@@ -12,15 +12,11 @@ import (
 	"pkg.package-operator.run/boxcutter/machinery/types"
 )
 
-type objectValidator interface {
-	Validate(ctx context.Context, obj client.Object, opts ...types.ObjectReconcileOption) error
-}
-
 // PhaseValidator valiates a phase with all contained objects.
 // Intended as a preflight check be ensure a higher success chance when
 // rolling out the phase and prevent partial application of phases.
 type PhaseValidator struct {
-	objectValidator objectValidator
+	*ObjectValidator
 }
 
 // NewClusterPhaseValidator returns an PhaseValidator for cross-cluster deployments.
@@ -29,7 +25,7 @@ func NewClusterPhaseValidator(
 	writer client.Writer,
 ) *PhaseValidator {
 	return &PhaseValidator{
-		objectValidator: NewClusterObjectValidator(restMapper, writer),
+		ObjectValidator: NewClusterObjectValidator(restMapper, writer),
 	}
 }
 
@@ -39,7 +35,7 @@ func NewNamespacedPhaseValidator(
 	writer client.Writer,
 ) *PhaseValidator {
 	return &PhaseValidator{
-		objectValidator: NewNamespacedObjectValidator(restMapper, writer),
+		ObjectValidator: NewNamespacedObjectValidator(restMapper, writer),
 	}
 }
 
@@ -60,14 +56,14 @@ func (v *PhaseValidator) Validate(
 	)
 
 	for _, obj := range phase.GetObjects() {
-		err := v.objectValidator.Validate(ctx, obj, options.ForObject(obj)...)
+		err := v.ObjectValidator.Validate(ctx, obj, options.ForObject(obj)...)
 		if err == nil {
 			continue
 		}
 
-		var oerr *ObjectValidationError
+		var oerr ObjectValidationError
 		if errors.As(err, &oerr) {
-			objectErrors = append(objectErrors, *oerr)
+			objectErrors = append(objectErrors, oerr)
 		} else {
 			errs = append(errs, err)
 		}

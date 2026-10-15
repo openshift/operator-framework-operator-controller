@@ -203,32 +203,18 @@ func (re *RevisionEngine) Reconcile(
 	}
 
 	// Reconcile
-	var paused bool
-
 	for _, phase := range rev.GetPhases() {
-		phaseOpts := options.ForPhase(phase.GetName())
-		if paused {
-			// A prior phase was incomplete; reconcile the remaining phases
-			// read-only so their status is reported without modification.
-			phaseOpts = append(phaseOpts, types.WithPaused{})
-		}
-
 		pres, err := re.phaseEngine.Reconcile(
-			ctx, rev.GetRevisionNumber(), phase, phaseOpts...)
+			ctx, rev.GetRevisionNumber(),
+			phase, options.ForPhase(phase.GetName())...)
 		if err != nil {
 			return rres, fmt.Errorf("reconciling object: %w", err)
 		}
 
 		rres.phasesResults = append(rres.phasesResults, pres)
 		if !pres.IsComplete() {
-			if !options.ObserveAfterIncomplete {
-				// Wait
-				return rres, nil
-			}
-
-			// Observe the remaining phases read-only (paused). Their paused,
-			// incomplete results carry the in-transition signal on their own.
-			paused = true
+			// Wait
+			return rres, nil
 		}
 	}
 
@@ -350,63 +336,39 @@ func (re *RevisionEngine) Teardown(
 	reversedPhases := slices.Clone(rev.GetPhases())
 	slices.Reverse(reversedPhases)
 
-	var observe bool
-
 	for _, p := range reversedPhases {
 		// Phase is no longer waiting.
 		delete(waiting, p.GetName())
-
-		phaseOpts := options.ForPhase(p.GetName())
-		if observe {
-			// A later phase is still being torn down; observe the remaining
-			// phases read-only instead of deleting them out of order.
-			phaseOpts = append(phaseOpts, types.WithObserve{})
-		}
+		res.active = p.GetName()
 
 		pres, err := re.phaseEngine.Teardown(
-			ctx, rev.GetRevisionNumber(), p, phaseOpts...)
+			ctx, rev.GetRevisionNumber(),
+			p, options.ForPhase(p.GetName())...)
 		if err != nil {
 			return nil, fmt.Errorf("teardown phase: %w", err)
 		}
 
 		res.phases = append(res.phases, pres)
-
-		if observe {
-			// Read-only status only; remaining phases stay recorded as waiting.
-			continue
-		}
-
 		if pres.IsComplete() {
 			res.gone = append(res.gone, p.GetName())
 
 			continue
 		}
 
-		// First incomplete phase is the one actively being torn down.
-		res.active = p.GetName()
-
 		// record other phases as waiting in normal order.
-		for _, wp := range rev.GetPhases() {
-			if _, ok := waiting[wp.GetName()]; ok {
-				res.waiting = append(res.waiting, wp.GetName())
+		for _, p := range rev.GetPhases() {
+			if _, ok := waiting[p.GetName()]; ok {
+				res.waiting = append(res.waiting, p.GetName())
 			}
 		}
 
-		if !options.ObserveAfterIncomplete {
-			slices.Reverse(res.gone)
+		slices.Reverse(res.gone)
 
-			return res, nil
-		}
-
-		// Continue observing the remaining phases read-only.
-		observe = true
+		return res, nil
 	}
 
 	slices.Reverse(res.gone)
-
-	if !observe {
-		res.active = ""
-	}
+	res.active = ""
 
 	return res, nil
 }

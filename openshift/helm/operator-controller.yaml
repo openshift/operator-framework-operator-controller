@@ -11,15 +11,6 @@ options:
       replicas: 1
     podDisruptionBudget:
       enabled: false
-  objectController:
-    # enabled is intentionally left unset (null) so object-controller follows
-    # operator-controller's BoxcutterRuntime gate: cluster-olm-operator renders
-    # it only when it enables the BoxcutterRuntime feature gate.
-    # The binary is baked into the operator-controller image (see
-    # operator-controller.Dockerfile), so reuse that image here rather than a
-    # separate object-controller image.
-    deployment:
-      image: ${OPERATOR_CONTROLLER_IMAGE}
   catalogd:
     enabled: false
   openshift:

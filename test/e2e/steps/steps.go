@@ -185,11 +185,6 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)catalog "([^"]+)" is labeled with "([^"]+)"$`, CatalogIsLabeledWith)
 	sc.Step(`^(?i)ValidatingAdmissionPolicy "([^"]+)" is active$`, ValidatingAdmissionPolicyIsActive)
 
-	sc.Step(`^(?i)namespace "([^"]+)" has labels$`, NamespaceHasLabels)
-	sc.Step(`^(?i)namespace "([^"]+)" is managed by OLM$`, NamespaceIsManagedByOLM)
-	sc.Step(`^(?i)namespace "([^"]+)" does not have label "([^"]+)"$`, NamespaceDoesNotHaveLabel)
-	sc.Step(`^(?i)namespace "([^"]+)" has no owner references$`, NamespaceHasNoOwnerReferences)
-
 	sc.Step(`^(?i)operator "([^"]+)" target namespace is "([^"]+)"$`, OperatorTargetNamespace)
 	sc.Step(`^(?i)Prometheus metrics are returned in the response$`, PrometheusMetricsAreReturned)
 
@@ -974,10 +969,10 @@ func ClusterObjectSetHasObservedPhase(ctx context.Context, cosName, phaseName st
 	return nil
 }
 
-// ClusterObjectSetIsArchived waits for the named ClusterObjectSet to have Ready=False
+// ClusterObjectSetIsArchived waits for the named ClusterObjectSet to have Progressing=False
 // with reason Archived. Polls with timeout.
 func ClusterObjectSetIsArchived(ctx context.Context, revisionName string) error {
-	return waitForCondition(ctx, "clusterobjectset", substituteScenarioVars(revisionName, scenarioCtx(ctx)), "Ready", "False", ptr.To("Archived"), nil)
+	return waitForCondition(ctx, "clusterobjectset", substituteScenarioVars(revisionName, scenarioCtx(ctx)), "Progressing", "False", ptr.To("Archived"), nil)
 }
 
 // ClusterObjectSetHasAnnotationWithValue waits for the named ClusterObjectSet to have the specified
@@ -1973,10 +1968,6 @@ func parseContents(contents string) ([]catalog.BundleOption, error) {
 			dir := part[len("StaticBundleDir(") : len(part)-1]
 			absDir := filepath.Join(projectRootDir(), dir)
 			opts = append(opts, catalog.StaticBundleDir(absDir))
-		case strings.HasPrefix(part, "NSTemplate(") && strings.HasSuffix(part, ")"):
-			// NSTemplate(privileged) or NSTemplate(baseline) or NSTemplate(restricted)
-			level := part[len("NSTemplate(") : len(part)-1]
-			opts = append(opts, catalog.WithNSTemplate(level))
 		}
 	}
 	return opts, nil
@@ -2465,103 +2456,6 @@ func ResourceHasLabels(ctx context.Context, resourceName string, table *godog.Ta
 		}
 		return true
 	})
-	return nil
-}
-
-// NamespaceHasLabels waits for a namespace (cluster-scoped) to have all labels specified in the data table.
-func NamespaceHasLabels(ctx context.Context, nsName string, table *godog.Table) error {
-	sc := scenarioCtx(ctx)
-	nsName = substituteScenarioVars(nsName, sc)
-
-	expected, err := parseKeyValueTable(table, sc)
-	if err != nil {
-		return fmt.Errorf("invalid labels table: %w", err)
-	}
-
-	waitFor(ctx, func() bool {
-		out, err := k8sClient(ctx, "get", "namespace", nsName, "-o", "json")
-		if err != nil {
-			return false
-		}
-		var obj unstructured.Unstructured
-		if err := json.Unmarshal([]byte(out), &obj); err != nil {
-			return false
-		}
-		if key, got, ok := matchLabels(obj.GetLabels(), expected); !ok {
-			logger.V(1).Info("Namespace label not yet present or value mismatch", "namespace", nsName, "key", key, "expected", expected[key], "actual", got)
-			return false
-		}
-		return true
-	})
-	return nil
-}
-
-// NamespaceDoesNotHaveLabel verifies a namespace does not have the specified label.
-func NamespaceDoesNotHaveLabel(ctx context.Context, nsName string, labelKey string) error {
-	sc := scenarioCtx(ctx)
-	nsName = substituteScenarioVars(nsName, sc)
-
-	out, err := k8sClient(ctx, "get", "namespace", nsName, "-o", "json")
-	if err != nil {
-		return fmt.Errorf("failed to get namespace %q: %w", nsName, err)
-	}
-	var obj unstructured.Unstructured
-	if err := json.Unmarshal([]byte(out), &obj); err != nil {
-		return fmt.Errorf("failed to unmarshal namespace: %w", err)
-	}
-	if v, ok := obj.GetLabels()[labelKey]; ok {
-		return fmt.Errorf("namespace %q has unexpected label %s=%s", nsName, labelKey, v)
-	}
-	return nil
-}
-
-// NamespaceIsManagedByOLM waits for a namespace to be owned by the extension's active ClusterObjectSet.
-func NamespaceIsManagedByOLM(ctx context.Context, nsName string) error {
-	sc := scenarioCtx(ctx)
-	nsName = substituteScenarioVars(nsName, sc)
-
-	waitFor(ctx, func() bool {
-		revision, err := latestActiveRevisionForExtension(sc.clusterExtensionName)
-		if err != nil {
-			logger.V(1).Error(err, "failed to get active revision", "extension", sc.clusterExtensionName)
-			return false
-		}
-		out, err := k8sClient(ctx, "get", "namespace", nsName, "-o", "json")
-		if err != nil {
-			return false
-		}
-		var ns corev1.Namespace
-		if err := json.Unmarshal([]byte(out), &ns); err != nil {
-			return false
-		}
-		owner := metav1.GetControllerOf(&ns)
-		if owner == nil || owner.APIVersion != ocv1.GroupVersion.String() ||
-			owner.Kind != ocv1.ClusterObjectSetKind || owner.Name != revision.Name || owner.UID != revision.UID {
-			logger.V(1).Info("Namespace is not yet owned by the extension's active revision",
-				"namespace", nsName, "revision", revision.Name, "owner", owner)
-			return false
-		}
-		return true
-	})
-	return nil
-}
-
-// NamespaceHasNoOwnerReferences verifies a namespace remains unmanaged after installation.
-func NamespaceHasNoOwnerReferences(ctx context.Context, nsName string) error {
-	sc := scenarioCtx(ctx)
-	nsName = substituteScenarioVars(nsName, sc)
-
-	out, err := k8sClient(ctx, "get", "namespace", nsName, "-o", "json")
-	if err != nil {
-		return fmt.Errorf("failed to get namespace %q: %w", nsName, err)
-	}
-	var obj unstructured.Unstructured
-	if err := json.Unmarshal([]byte(out), &obj); err != nil {
-		return fmt.Errorf("failed to unmarshal namespace: %w", err)
-	}
-	if refs := obj.GetOwnerReferences(); len(refs) != 0 {
-		return fmt.Errorf("namespace %q has unexpected owner references: %v", nsName, refs)
-	}
 	return nil
 }
 

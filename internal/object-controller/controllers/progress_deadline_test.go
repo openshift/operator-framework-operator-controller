@@ -38,12 +38,15 @@ func TestDurationUntilDeadline(t *testing.T) {
 			expectHasDeadline: false,
 		},
 		{
-			name: "completedAt is set — no deadline",
+			name: "Succeeded is true — no deadline",
 			cos: ocv1.ClusterObjectSet{
 				ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(creation)},
 				Spec:       ocv1.ClusterObjectSetSpec{ProgressDeadlineMinutes: 1, LifecycleState: ocv1.ClusterObjectSetLifecycleStateActive},
 				Status: ocv1.ClusterObjectSetStatus{
-					CompletedAt: metav1.NewTime(creation),
+					Conditions: []metav1.Condition{{
+						Type:   ocv1.ClusterObjectSetTypeSucceeded,
+						Status: metav1.ConditionTrue,
+					}},
 				},
 			},
 			expectDuration:    0,

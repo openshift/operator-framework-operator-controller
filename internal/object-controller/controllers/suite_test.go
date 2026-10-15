@@ -32,7 +32,6 @@ import (
 )
 
 func newScheme(t *testing.T) *apimachineryruntime.Scheme {
-	t.Helper()
 	sch := apimachineryruntime.NewScheme()
 	require.NoError(t, ocv1.AddToScheme(sch))
 	return sch
@@ -42,7 +41,6 @@ var config *rest.Config
 
 func TestMain(m *testing.M) {
 	testEnv := test.NewEnv()
-	testEnv.CRDDirectoryPaths = []string{"../../../helm/olmv1/base/object-controller/crd/experimental"}
 
 	var err error
 	config, err = testEnv.Start()
