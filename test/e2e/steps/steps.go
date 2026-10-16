@@ -132,6 +132,8 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reconciliation is triggered$`, TriggerClusterObjectSetReconciliation)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" has observed phase "([^"]+)" with a non-empty digest$`, ClusterObjectSetHasObservedPhase)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" is archived$`, ClusterObjectSetIsArchived)
+	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports phase "([^"]+)" object counts: total=(\d+), present=(\d+), synced=(\d+), ready=(\d+)$`, ClusterObjectSetPhaseHasObjectCounts)
+	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports aggregate object counts: total=(\d+), present=(\d+), synced=(\d+), ready=(\d+)$`, ClusterObjectSetHasAggregateObjectCounts)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" contains annotation "([^"]+)" with value$`, ClusterObjectSetHasAnnotationWithValue)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" has label "([^"]+)" with value "([^"]+)"$`, ClusterObjectSetHasLabelWithValue)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" phase objects are not found or not owned by the revision$`, ClusterObjectSetObjectsNotFoundOrNotOwned)
@@ -485,7 +487,7 @@ func ResourceIsAppliedAsUser(ctx context.Context, user, group string, yamlTempla
 func ResourceApplyAsUserFails(ctx context.Context, user, group, errMsg string, yamlTemplate *godog.DocString) error {
 	sc := scenarioCtx(ctx)
 	yamlContent := substituteScenarioVars(yamlTemplate.Content, sc)
-	_, err := toUnstructured(yamlContent)
+	res, err := toUnstructured(yamlContent)
 	if err != nil {
 		return fmt.Errorf("failed to parse resource yaml: %v", err)
 	}
@@ -499,18 +501,62 @@ func ResourceApplyAsUserFails(ctx context.Context, user, group, errMsg string, y
 		}
 		return strings.Contains(stdErr, errMsg)
 	})
-	_, stdErr, err := k8scliWithInput(ctx, yamlContent, "apply", "-f", "-", "--as="+user, "--as-group="+group)
-	if err == nil {
-		res, _ := toUnstructured(yamlContent)
-		if res != nil {
-			sc.addedResources = append(sc.addedResources, resource{name: res.GetName(), kind: strings.ToLower(res.GetKind())})
+	// The dry-run above may have been served by a kube-apiserver replica that already enforces the
+	// binding while the real apply is load-balanced to a different replica that has not caught up yet —
+	// VAP binding enforcement propagates per-replica and is eventually consistent, so a single dry-run
+	// denial does not guarantee the next request is denied. Poll the real apply until it is denied with
+	// the expected message; if a request slips through the propagation window, the object is persisted,
+	// so delete it and retry. This converges without leaking the resource or reporting a false
+	// "it succeeded".
+	var lastErr error
+	// pendingCleanup is true once an apply has been admitted and the persisted object has not yet been
+	// confirmed removed. We must not report success while a leaked object remains — a following
+	// "is not found" step would time out, and ScenarioCleanup skips tracked-resource deletion once the
+	// scenario has failed, so the object would also leak into the next scenario.
+	pendingCleanup := false
+	deadline := time.Now().Add(timeout)
+	for {
+		_, stdErr, applyErr := k8scliWithInput(ctx, yamlContent, "apply", "-f", "-", "--as="+user, "--as-group="+group)
+		switch {
+		case applyErr == nil:
+			// Admitted before enforcement propagated to this replica. Track for cleanup and remove it below.
+			if !pendingCleanup {
+				sc.addedResources = append(sc.addedResources, resource{name: res.GetName(), kind: strings.ToLower(res.GetKind())})
+			}
+			pendingCleanup = true
+			lastErr = fmt.Errorf("apply was admitted before enforcement propagated")
+		case strings.Contains(stdErr, errMsg):
+			// Denied with the expected message. Succeed only once any earlier-admitted object is gone.
+			if !pendingCleanup {
+				return nil
+			}
+		default:
+			lastErr = fmt.Errorf("expected apply error containing %q, got: %s", errMsg, stdErr)
 		}
-		return fmt.Errorf("expected apply to fail with %q, but it succeeded", errMsg)
+		if pendingCleanup {
+			// A blocking delete (default --wait) returns only once the object is actually removed, so a
+			// nil error confirms removal. Keep pendingCleanup set on failure so a later denial is not accepted.
+			// Bound the wait by the remaining step budget (at least one tick) so a finalizer-blocked delete —
+			// e.g. a ClusterExtension waiting on its controller — cannot push the step past deadline.
+			remaining := time.Until(deadline)
+			if remaining < tick {
+				remaining = tick
+			}
+			delArgs := []string{"delete", res.GetKind(), res.GetName(), "--ignore-not-found", "--timeout=" + remaining.String()}
+			if ns := res.GetNamespace(); ns != "" {
+				delArgs = append(delArgs, "-n", ns)
+			}
+			if _, delErr := k8sClient(ctx, delArgs...); delErr != nil {
+				lastErr = fmt.Errorf("failed to remove admitted resource: %w", delErr)
+			} else {
+				pendingCleanup = false
+			}
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("expected apply to fail with %q within %s: %w", errMsg, timeout, lastErr)
+		}
+		time.Sleep(tick)
 	}
-	if !strings.Contains(stdErr, errMsg) {
-		return fmt.Errorf("expected apply error containing %q, got: %s", errMsg, stdErr)
-	}
-	return nil
 }
 
 // ResourceApplyEmitsWarning asserts the last kubectl apply produced stderr output containing the expected warning.
@@ -978,6 +1024,56 @@ func ClusterObjectSetHasObservedPhase(ctx context.Context, cosName, phaseName st
 // with reason Archived. Polls with timeout.
 func ClusterObjectSetIsArchived(ctx context.Context, revisionName string) error {
 	return waitForCondition(ctx, "clusterobjectset", substituteScenarioVars(revisionName, scenarioCtx(ctx)), "Ready", "False", ptr.To("Archived"), nil)
+}
+
+// ClusterObjectSetPhaseHasObjectCounts waits for a specific phase of the named ClusterObjectSet to
+// report exact object counts for total, present, synced, and available. Polls with timeout.
+func ClusterObjectSetPhaseHasObjectCounts(ctx context.Context, cosName, phaseName string, total, present, synced, ready int64) error {
+	sc := scenarioCtx(ctx)
+	cosName = substituteScenarioVars(cosName, sc)
+	phaseName = substituteScenarioVars(phaseName, sc)
+	waitFor(ctx, func() bool {
+		out, err := k8sClient(ctx, "get", "clusterobjectset", cosName, "-o", "json")
+		if err != nil {
+			return false
+		}
+		var cos ocv1.ClusterObjectSet
+		if err := json.Unmarshal([]byte(out), &cos); err != nil {
+			return false
+		}
+		for _, phase := range cos.Status.ObservedPhases {
+			if phase.Name == phaseName {
+				return phase.ObjectCounts.Total == total &&
+					phase.ObjectCounts.Present == present &&
+					phase.ObjectCounts.Synced == synced &&
+					phase.ObjectCounts.Ready == ready
+			}
+		}
+		return false
+	})
+	return nil
+}
+
+// ClusterObjectSetHasAggregateObjectCounts waits for the named ClusterObjectSet to report exact
+// aggregate object counts (summed across all phases). Polls with timeout.
+func ClusterObjectSetHasAggregateObjectCounts(ctx context.Context, cosName string, total, present, synced, ready int64) error {
+	sc := scenarioCtx(ctx)
+	cosName = substituteScenarioVars(cosName, sc)
+	waitFor(ctx, func() bool {
+		out, err := k8sClient(ctx, "get", "clusterobjectset", cosName, "-o", "json")
+		if err != nil {
+			return false
+		}
+		var cos ocv1.ClusterObjectSet
+		if err := json.Unmarshal([]byte(out), &cos); err != nil {
+			return false
+		}
+		return cos.Status.ObjectCounts.Total == total &&
+			cos.Status.ObjectCounts.Present == present &&
+			cos.Status.ObjectCounts.Synced == synced &&
+			cos.Status.ObjectCounts.Ready == ready
+	})
+	return nil
 }
 
 // ClusterObjectSetHasAnnotationWithValue waits for the named ClusterObjectSet to have the specified

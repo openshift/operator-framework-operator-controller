@@ -60,9 +60,9 @@ Feature: Install ClusterObjectSet
       """
 
     Then resource "persistentvolumeclaim/test-pvc" is installed
-    And ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ProbeFailure and Message:
+    And ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ObjectsNotReady and Message:
     """
-      Object PersistentVolumeClaim.v1 ${TEST_NAMESPACE}/test-pvc: value at key "status.phase" != "Bound"; expected: "Bound" got: "Pending"
+      1 object(s) are not yet ready.
     """
     And resource "configmap/test-configmap" is not installed
 
@@ -204,9 +204,9 @@ Feature: Install ClusterObjectSet
       """
 
     Then resource "configmap/test-configmap-1" is installed
-    And ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ProbeFailure and Message:
+    And ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ObjectsNotReady and Message:
     """
-      Object ConfigMap.v1 ${TEST_NAMESPACE}/test-configmap-1: value at key "data.foo" != "bar"; expected: "bar" got: "foo"
+      1 object(s) are not yet ready.
     """
     And resource "configmap/test-configmap-2" is not installed
 
@@ -423,7 +423,7 @@ Feature: Install ClusterObjectSet
     And resource "deployment/test-httpd" is installed
     And ClusterObjectSet "${COS_NAME}" has observed phase "resources" with a non-empty digest
 
-  Scenario: ClusterObjectSet blocks reconciliation when referenced Secret is mutable
+  Scenario: ClusterObjectSet reports ValidationFailure when referenced Secret is mutable
     Given namespace "${TEST_NAMESPACE}" is available
     And resource is applied
       """
@@ -465,12 +465,12 @@ Feature: Install ClusterObjectSet
               key: configmap
         revision: 1
       """
-    Then ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason Blocked and Message:
+    Then ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ValidationFailure and Message:
     """
       the following secrets are not immutable (referenced secrets must have immutable set to true): ${TEST_NAMESPACE}/${COS_NAME}-mutable-secret
     """
 
-  Scenario: ClusterObjectSet blocks reconciliation when referenced Secret content changes
+  Scenario: ClusterObjectSet reports ValidationFailure when referenced Secret content changes
     Given namespace "${TEST_NAMESPACE}" is available
     When resource is applied
       """
@@ -541,9 +541,9 @@ Feature: Install ClusterObjectSet
           }
       """
     And ClusterObjectSet "${COS_NAME}" reconciliation is triggered
-    Then ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason Blocked and Message includes:
+    Then ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ValidationFailure and Message includes:
     """
-      resolved content of 1 phase(s) has changed: phase "resources"
+      resolved content of 1 phase(s) has changed since first rollout: "resources"
     """
     # Restore original content — COS should recover
     When resource "secret/${COS_NAME}-change-secret" is removed
@@ -704,3 +704,81 @@ Feature: Install ClusterObjectSet
       """
     Then ClusterObjectSet "${COS_NAME}" reports Ready as False with Reason ProgressDeadlineExceeded
     And ClusterObjectSet "${COS_NAME}" reports Ready as True with Reason AllObjectsReady
+
+  Scenario: Report Object Counts for managed workloads
+    Given namespace "${TEST_NAMESPACE}" is available
+    When ClusterObjectSet is applied
+      """
+      apiVersion: olm.operatorframework.io/v1
+      kind: ClusterObjectSet
+      metadata:
+        name: ${COS_NAME}
+      spec:
+        lifecycleState: Active
+        collisionProtection: Prevent
+        progressionProbes:
+        - selector:
+            type: GroupKind
+            groupKind:
+              group: apps
+              kind: Deployment
+          assertions:
+          - type: ConditionEqual
+            conditionEqual:
+              type: Available
+              status: "True"
+        phases:
+        - name: workload
+          objects:
+          - object:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: test-deployment
+                namespace: ${TEST_NAMESPACE}
+              spec:
+                replicas: 1
+                selector:
+                  matchLabels:
+                    app: workload
+                template:
+                  metadata:
+                    labels:
+                      app: workload
+                  spec:
+                    containers:
+                    - name: workload
+                      image: busybox:1.36
+                      imagePullPolicy: IfNotPresent
+                      command: ["sleep", "1000"]
+                      readinessProbe:
+                        exec:
+                          command: ["true"]
+                        initialDelaySeconds: 120
+                      securityContext:
+                        allowPrivilegeEscalation: false
+                        capabilities:
+                          drop:
+                          - ALL
+                        seccompProfile:
+                          type: RuntimeDefault
+        - name: config
+          objects:
+          - object:
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: test-configmap
+                namespace: ${TEST_NAMESPACE}
+              data:
+                key: value
+        revision: 1
+      """
+    Then resource "deployment/test-deployment" is installed
+    And ClusterObjectSet "${COS_NAME}" reports phase "workload" object counts: total=1, present=1, synced=1, ready=0
+    And ClusterObjectSet "${COS_NAME}" reports phase "config" object counts: total=1, present=0, synced=0, ready=0
+    And ClusterObjectSet "${COS_NAME}" reports aggregate object counts: total=2, present=1, synced=1, ready=0
+    And ClusterObjectSet "${COS_NAME}" reports Ready as True with Reason AllObjectsReady
+    And ClusterObjectSet "${COS_NAME}" reports phase "workload" object counts: total=1, present=1, synced=1, ready=1
+    And ClusterObjectSet "${COS_NAME}" reports phase "config" object counts: total=1, present=1, synced=1, ready=1
+    And ClusterObjectSet "${COS_NAME}" reports aggregate object counts: total=2, present=2, synced=2, ready=2

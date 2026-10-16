@@ -476,8 +476,13 @@ func TestDetermineFailureReason(t *testing.T) {
 			expected: ocv1.ReasonAbsent,
 		},
 		{
-			name:     "latest blocked -> Absent (Blocked is terminal, handled elsewhere)",
-			rolling:  []*RevisionMetadata{{Conditions: availCond(metav1.ConditionFalse, ocv1.ClusterObjectSetReasonBlocked)}},
+			name:     "latest validation failure -> Failed",
+			rolling:  []*RevisionMetadata{{Conditions: availCond(metav1.ConditionFalse, ocv1.ClusterObjectSetReasonValidationFailure)}},
+			expected: ocv1.ReasonFailed,
+		},
+		{
+			name:     "latest superseded -> Absent",
+			rolling:  []*RevisionMetadata{{Conditions: availCond(metav1.ConditionFalse, ocv1.ClusterObjectSetReasonSuperseded)}},
 			expected: ocv1.ReasonAbsent,
 		},
 		{
@@ -515,10 +520,22 @@ func TestProgressingFromReady(t *testing.T) {
 			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRollingOut, Message: "Revision is rolling out."},
 		},
 		{
-			name:      "probe failure maps to RollingOut",
-			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonProbeFailure, Message: "probe failed"},
+			name:      "objects not ready maps to RollingOut",
+			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonObjectsNotReady, Message: "Objects are not yet ready."},
 			completed: false,
-			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRollingOut, Message: "probe failed"},
+			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRollingOut, Message: "Objects are not yet ready."},
+		},
+		{
+			name:      "superseded maps to RollingOut",
+			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonSuperseded, Message: "Object(s) have been adopted by a newer revision of the object set."},
+			completed: false,
+			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRollingOut, Message: "Object(s) have been adopted by a newer revision of the object set."},
+		},
+		{
+			name:      "archiving maps to RollingOut",
+			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonArchiving, Message: "The object set is being archived; removing owned objects."},
+			completed: false,
+			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRollingOut, Message: "The object set is being archived; removing owned objects."},
 		},
 		{
 			name:      "retryable error maps to Retrying",
@@ -527,8 +544,8 @@ func TestProgressingFromReady(t *testing.T) {
 			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionTrue, Reason: ocv1.ReasonRetrying, Message: "boom"},
 		},
 		{
-			name:      "blocked maps to Blocked",
-			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonBlocked, Message: "manual fix needed"},
+			name:      "validation failure maps to Blocked",
+			ready:     &metav1.Condition{Type: ocv1.ClusterObjectSetTypeReady, Status: metav1.ConditionFalse, Reason: ocv1.ClusterObjectSetReasonValidationFailure, Message: "manual fix needed"},
 			completed: false,
 			expected:  metav1.Condition{Type: ocv1.TypeProgressing, Status: metav1.ConditionFalse, Reason: ocv1.ReasonBlocked, Message: "manual fix needed"},
 		},
@@ -586,14 +603,14 @@ func TestSetAvailableFromRevisionStates(t *testing.T) {
 					Conditions: []metav1.Condition{{
 						Type:    ocv1.ClusterObjectSetTypeReady,
 						Status:  metav1.ConditionFalse,
-						Reason:  ocv1.ClusterObjectSetReasonProbeFailure,
+						Reason:  ocv1.ClusterObjectSetReasonObjectsNotReady,
 						Message: "probe failed",
 					}},
 				},
 			},
 			expectAvailable: &metav1.Condition{
 				Status:  metav1.ConditionFalse,
-				Reason:  ocv1.ClusterObjectSetReasonProbeFailure,
+				Reason:  ocv1.ClusterObjectSetReasonObjectsNotReady,
 				Message: "probe failed",
 			},
 		},

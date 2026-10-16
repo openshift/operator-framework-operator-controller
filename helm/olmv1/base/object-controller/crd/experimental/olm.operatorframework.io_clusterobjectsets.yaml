@@ -559,12 +559,13 @@ spec:
                   objects are not at the desired state; Unknown is the initial state, before
                   the first reconciliation has evaluated the revision.
                     - True with reason AllObjectsReady: the revision has rolled out and all objects are at the desired state.
-                    - False with reason ProbeFailure: one or more objects are failing their readiness probes during rollout.
-                    - False with reason RollingOut: the revision is actively rolling out and has not yet become ready.
+                    - False with reason ObjectsNotReady: one or more objects are still being applied or have not yet passed their readiness probes during rollout.
+                    - False with reason Superseded: one or more objects have been adopted by a newer revision of the object set.
                     - False with reason ObjectCollision: one or more objects are controlled by another owner, or are unowned while collision protection prevents adoption, so this revision cannot take ownership of them.
-                    - False with reason Blocked: the revision has encountered an error that requires manual intervention for recovery.
+                    - False with reason ValidationFailure: the revision failed a pre-apply check (an invalid revision/phase object or probe, preflight validation, a mutable referenced Secret, or changed referenced content) and requires manual intervention.
                     - False with reason ProgressDeadlineExceeded: the revision did not roll out within spec.progressDeadlineMinutes.
-                    - False with reason Reconciling: the revision encountered an error that prevented it from observing the probes.
+                    - False with reason RetryableError: the revision encountered a transient error that may resolve on a subsequent reconciliation.
+                    - False with reason Archiving: the revision is being archived and its owned objects are still being torn down.
                     - False with reason Archived: the revision has been archived and its objects have been torn down.
 
                   Rollout completion is recorded separately by status.completedAt.
@@ -626,6 +627,46 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              objectCounts:
+                description: |-
+                  objectCounts reports aggregate object counts across all phases.
+                  Values are sums of the per-phase counts in observedPhases.
+                properties:
+                  present:
+                    description: |-
+                      present is the number of objects in this phase that exist on the
+                      cluster. During reconcile, this counts objects that the controller
+                      has found or created. During teardown, this decrements toward zero
+                      as objects are deleted.
+                    format: int64
+                    maximum: 1000
+                    minimum: 0
+                    type: integer
+                  ready:
+                    description: |-
+                      ready is the number of objects in this phase that are synced
+                      and pass their assertions.
+                    format: int64
+                    maximum: 1000
+                    minimum: 0
+                    type: integer
+                  synced:
+                    description: |-
+                      synced is the number of objects in this phase whose cluster state
+                      matches the desired state.
+                    format: int64
+                    maximum: 1000
+                    minimum: 0
+                    type: integer
+                  total:
+                    description: total is the number of objects in this phase.
+                    format: int64
+                    maximum: 1000
+                    minimum: 0
+                    type: integer
+                required:
+                - total
+                type: object
               observedPhases:
                 description: |-
                   observedPhases records the content hashes of resolved phases
@@ -645,6 +686,8 @@ spec:
                       minLength: 1
                       type: string
                       x-kubernetes-validations:
+                      - message: digest is immutable
+                        rule: self == oldSelf || oldSelf.size() == 0
                       - message: digest must be in the format '<algorithm>:<hex>'
                         rule: self.matches('^[a-z0-9]+:[a-f0-9]+$')
                     name:
@@ -657,18 +700,55 @@ spec:
                           characters and hyphens, and must start and end with an alphanumeric
                           character.
                         rule: '!format.dns1123Label().validate(self).hasValue()'
+                    objectCounts:
+                      description: objectCounts reports the number of objects in this
+                        phase by state.
+                      properties:
+                        present:
+                          description: |-
+                            present is the number of objects in this phase that exist on the
+                            cluster. During reconcile, this counts objects that the controller
+                            has found or created. During teardown, this decrements toward zero
+                            as objects are deleted.
+                          format: int64
+                          maximum: 1000
+                          minimum: 0
+                          type: integer
+                        ready:
+                          description: |-
+                            ready is the number of objects in this phase that are synced
+                            and pass their assertions.
+                          format: int64
+                          maximum: 1000
+                          minimum: 0
+                          type: integer
+                        synced:
+                          description: |-
+                            synced is the number of objects in this phase whose cluster state
+                            matches the desired state.
+                          format: int64
+                          maximum: 1000
+                          minimum: 0
+                          type: integer
+                        total:
+                          description: total is the number of objects in this phase.
+                          format: int64
+                          maximum: 1000
+                          minimum: 0
+                          type: integer
+                      required:
+                      - total
+                      type: object
                   required:
                   - digest
                   - name
+                  - objectCounts
                   type: object
                 maxItems: 20
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-                x-kubernetes-validations:
-                - message: observedPhases is immutable
-                  rule: self == oldSelf || oldSelf.size() == 0
             type: object
             x-kubernetes-validations:
             - message: completedAt cannot be removed once set

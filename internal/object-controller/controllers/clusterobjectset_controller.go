@@ -41,11 +41,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	"github.com/operator-framework/operator-controller/internal/object-controller/status"
 	"github.com/operator-framework/operator-controller/internal/shared/labels"
 )
 
 const (
 	clusterObjectSetTeardownFinalizer = "olm.operatorframework.io/teardown"
+
+	// validationRetryInterval is how often the reconciler re-checks a revision that is
+	// Ready=False/ValidationFailure. These failures stem from inputs that are not watched
+	// — a mutable or changed referenced Secret, an invalid referenced manifest, or a
+	// preflight dry-run rejected until RBAC or a dependency CRD propagates — and the ref
+	// spec is immutable, so a periodic retry lets the revision recover (once the Secret is
+	// replaced or the cluster state catches up) without a controller restart.
+	validationRetryInterval = 10 * time.Second
 )
 
 // ClusterObjectSetReconciler manages the Kubernetes objects in a ClusterObjectSet.
@@ -131,15 +140,41 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	remaining, hasDeadline := durationUntilDeadline(c.Clock, cos)
 	isDeadlineExceeded := hasDeadline && remaining <= 0
 
-	// Blocked takes precedence over ProgressDeadlineExceeded: it is more actionable for the user.
 	if err := c.verifyReferencedSecretsImmutable(ctx, cos); err != nil {
-		l.Error(err, "referenced Secret verification failed, blocking reconciliation")
-		markAsNotReady(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
-		return ctrl.Result{}, nil
+		var mutErr *mutableSecretError
+		if errors.As(err, &mutErr) {
+			// A confirmed mutable Secret requires user action (replacing the immutable Secret),
+			// which is not watched, so keep retrying so the revision can recover.
+			// ValidationFailure takes precedence over ProgressDeadlineExceeded: it is more actionable.
+			l.Error(err, "referenced Secret is mutable, marking revision not ready")
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, err.Error())
+			return ctrl.Result{RequeueAfter: validationRetryInterval}, nil
+		}
+		// A Secret read error is transient; surface it as retryable and requeue with backoff.
+		werr := fmt.Errorf("verifying referenced Secrets: %v", err)
+		setRetryableErrorConditions(cos, werr.Error(), isDeadlineExceeded)
+		return ctrl.Result{}, werr
 	}
 
 	phases, currentPhases, opts, err := c.buildBoxcutterPhases(ctx, cos)
 	if err != nil {
+		var contentErr *referencedContentError
+		if errors.As(err, &contentErr) {
+			// Invalid referenced Secret content (missing key or malformed manifest). The Secret
+			// is not watched and the ref is immutable, so keep retrying so the revision can
+			// recover once the Secret is replaced with valid content.
+			l.Error(err, "invalid referenced content, marking revision not ready")
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, err.Error())
+			return ctrl.Result{RequeueAfter: validationRetryInterval}, nil
+		}
+		var cfgErr *configValidationError
+		if errors.As(err, &cfgErr) {
+			// Invalid revision spec; a spec edit (or a new revision) re-triggers reconciliation,
+			// so no periodic retry is needed.
+			l.Error(err, "invalid configuration, marking revision not ready")
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, err.Error())
+			return ctrl.Result{}, nil
+		}
 		setRetryableErrorConditions(cos, err.Error(), isDeadlineExceeded)
 		return ctrl.Result{}, fmt.Errorf("converting to boxcutter revision: %v", err)
 	}
@@ -147,9 +182,12 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	if len(cos.Status.ObservedPhases) == 0 {
 		cos.Status.ObservedPhases = currentPhases
 	} else if err := verifyObservedPhases(cos.Status.ObservedPhases, currentPhases); err != nil {
-		l.Error(err, "resolved phases content changed, blocking reconciliation")
-		markAsNotReady(cos, ocv1.ClusterObjectSetReasonBlocked, err.Error())
-		return ctrl.Result{}, nil
+		// The resolved content of a referenced Secret changed since first reconciliation.
+		// Secrets are not watched, so keep retrying so the revision can recover once the
+		// original content is restored.
+		l.Error(err, "resolved phases content changed, marking revision not ready")
+		markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, err.Error())
+		return ctrl.Result{RequeueAfter: validationRetryInterval}, nil
 	}
 
 	revisionEngine, err := c.RevisionEngineFactory.CreateRevisionEngine(ctx, cos)
@@ -194,19 +232,43 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 		return ctrl.Result{}, fmt.Errorf("revision reconcile: %v", err)
 	}
 
-	// Retry failing preflight checks with a flat 10s retry.
-	// TODO: report status, backoff?
+	// Set object counts
+	status.FromReconcile(cos, rres)
+
+	// Report revision-level preflight validation failures and re-check on a flat timer:
+	// the dry-run can be rejected for reasons that clear without a spec change (e.g. RBAC
+	// or a dependency CRD still propagating), and those inputs are not watched.
 	if verr := rres.GetValidationError(); verr != nil {
 		l.Error(fmt.Errorf("%w", verr), "preflight validation failed, retrying after 10s")
-		setRetryableErrorConditions(cos, fmt.Sprintf("revision validation error: %s", verr), isDeadlineExceeded)
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, fmt.Sprintf("revision validation error: %s", verr))
+		return ctrl.Result{RequeueAfter: validationRetryInterval}, nil
 	}
 
-	for i, pres := range rres.GetPhases() {
+	// Phases are reconciled in order; once a phase is incomplete, later phases are
+	// only observed read-only (paused). A paused phase's preflight dry-run can fail
+	// for reasons that resolve once earlier phases roll out (e.g. a Namespace a
+	// later phase depends on has not been created yet), so its validation error is
+	// not actionable yet. Only treat a phase's validation error as a terminal
+	// validation failure while every preceding phase is complete; otherwise skip it
+	// and let the rollout status (and the progress deadline) below take over.
+	// Collisions are still reported for paused phases below: an object owned by
+	// another controller does not become ownable just because earlier phases roll
+	// out, so it remains actionable regardless of phase ordering.
+	precedingPhasesComplete := true
+	for _, pres := range rres.GetPhases() {
 		if verr := pres.GetValidationError(); verr != nil {
-			l.Error(fmt.Errorf("%w", verr), "phase preflight validation failed, retrying after 10s", "phase", i)
-			setRetryableErrorConditions(cos, fmt.Sprintf("phase %d validation error: %s", i, verr), isDeadlineExceeded)
-			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+			if !precedingPhasesComplete {
+				// Paused downstream phase: an earlier phase is still rolling out.
+				l.V(1).Info("ignoring paused phase preflight validation error while an earlier phase rolls out", "phase", pres.GetName(), "err", verr.Error())
+				continue
+			}
+			l.Error(fmt.Errorf("%w", verr), "phase preflight validation failed, retrying after 10s", "phase", pres.GetName())
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonValidationFailure, fmt.Sprintf("phase %q validation error: %s", pres.GetName(), verr))
+			return ctrl.Result{RequeueAfter: validationRetryInterval}, nil
+		}
+
+		if !pres.IsComplete() {
+			precedingPhasesComplete = false
 		}
 
 		var collidingObjs []string
@@ -238,13 +300,15 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 		}
 	}
 
-	revisionNumber := cos.Spec.Revision
-	if rres.InTransition() {
-		setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, fmt.Sprintf("Revision %d is rolling out.", revisionNumber), isDeadlineExceeded)
-	}
+	// A revision whose objects have all been adopted by a newer sibling revision can
+	// report IsComplete() (progressed objects count as complete), but it is superseded,
+	// not successfully rolled out: skip the completion branch so it does not archive
+	// previous revisions, report AllObjectsReady, or record a first completion
+	// (completedAt) that would identify it as the installed revision.
+	superseded := hasSupersededObject(rres)
 
 	//nolint:nestif
-	if rres.IsComplete() {
+	if rres.IsComplete() && !superseded {
 		// Archive previous revisions
 		previous, err := c.listPreviousRevisions(ctx, cos)
 		if err != nil {
@@ -270,7 +334,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 			cos.Status.CompletedAt = metav1.NewTime(c.Clock.Now())
 		}
 	} else {
-		var probeFailureMsgs []string
+		var notReadyMsgs []string
 		for _, pres := range rres.GetPhases() {
 			if pres.IsComplete() {
 				continue
@@ -288,29 +352,36 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 				}
 				obj := ores.Object()
 				gvk := obj.GetObjectKind().GroupVersionKind()
-				// I think these can be pretty large and verbose. We may want to
-				// work a little on the formatting...?
-				probeFailureMsgs = append(probeFailureMsgs, fmt.Sprintf(
+				// Count every not-ready object (the condition reports the count); the
+				// per-object detail here is for the V(1) debug log, not the message.
+				notReadyMsgs = append(notReadyMsgs, fmt.Sprintf(
 					"Object %s.%s %s/%s: %v",
 					gvk.Kind, gvk.GroupVersion().String(),
 					obj.GetNamespace(), obj.GetName(), strings.Join(pr.Messages, " and "),
 				))
-				break
 			}
 		}
 
-		rollingOutMsg := fmt.Sprintf("Revision %d is rolling out.", revisionNumber)
+		// Generic summary used as the ProgressDeadlineExceeded "last status", kept
+		// stable (not the volatile per-object detail) so the deadline message does not
+		// churn. The non-deadline path reports the count. Per-object detail is kept out
+		// of the condition message and logged at V(1) for debugging.
+		const genericNotReadyMsg = "Objects are not yet ready."
+		if len(notReadyMsgs) > 0 {
+			l.V(1).Info("objects not yet ready", "count", len(notReadyMsgs), "details", notReadyMsgs)
+		}
+		// Precedence: ProgressDeadlineExceeded > Superseded > ObjectsNotReady.
 		switch {
 		case isDeadlineExceeded:
-			// Deadline wins over ProbeFailure. Use the generic rolling-out summary as
-			// the "last status", not the per-object probe detail, so the reconstructed
-			// ClusterExtension Progressing/ProgressDeadlineExceeded message matches the
-			// message the removed COS Progressing condition historically carried.
-			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, rollingOutMsg, true)
-		case len(probeFailureMsgs) > 0:
-			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonProbeFailure, strings.Join(probeFailureMsgs, "\n"), false)
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonObjectsNotReady, genericNotReadyMsg, true)
+		case superseded:
+			markAsNotReady(cos, ocv1.ClusterObjectSetReasonSuperseded, "Object(s) have been adopted by a newer revision of the object set.")
 		default:
-			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ReasonRollingOut, rollingOutMsg, false)
+			notReadyMsg := genericNotReadyMsg
+			if len(notReadyMsgs) > 0 {
+				notReadyMsg = fmt.Sprintf("%d object(s) are not yet ready.", len(notReadyMsgs))
+			}
+			setReadyWithDeadline(cos, metav1.ConditionFalse, ocv1.ClusterObjectSetReasonObjectsNotReady, notReadyMsg, false)
 		}
 		if hasDeadline && !isDeadlineExceeded {
 			return ctrl.Result{RequeueAfter: remaining}, nil
@@ -338,8 +409,10 @@ func (c *ClusterObjectSetReconciler) archive(ctx context.Context, revisionEngine
 		setRetryableErrorConditions(cos, err.Error(), false)
 		return ctrl.Result{}, err
 	}
+	// Set object counts
+	status.FromTeardown(cos, tdres)
 	if tdres != nil && !tdres.IsComplete() {
-		setRetryableErrorConditions(cos, "removing revision resources that are not owned by another revision", false)
+		markAsArchiving(cos)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	// Ensure conditions are set before removing the finalizer when archiving
@@ -489,6 +562,19 @@ func (c *ClusterObjectSetReconciler) listOtherActiveRevisions(
 	return result, nil
 }
 
+// configValidationError marks an error caused by invalid user-provided configuration in the
+// revision spec (a malformed revision/phase object or a bad progression probe). The spec is
+// either immutable or watched, so the reconciler reports it as Ready=False/ValidationFailure
+// without a periodic retry: a spec edit re-triggers reconciliation.
+type configValidationError struct{ error }
+
+// referencedContentError marks a validation failure caused by the content of a referenced
+// Secret (a missing key or a malformed manifest). Referenced Secrets are not watched and the
+// phase/ref spec is immutable, so the failure can only clear when the Secret is replaced.
+// The reconciler reports it as Ready=False/ValidationFailure but keeps retrying periodically
+// so the revision can recover without a controller restart.
+type referencedContentError struct{ error }
+
 func (c *ClusterObjectSetReconciler) buildBoxcutterPhases(ctx context.Context, cos *ocv1.ClusterObjectSet) ([]boxcutter.Phase, []ocv1.ObservedPhase, []boxcutter.RevisionReconcileOption, error) {
 	siblings, err := c.listSiblingRevisions(ctx, cos)
 	if err != nil {
@@ -528,7 +614,7 @@ func (c *ClusterObjectSetReconciler) buildBoxcutterPhases(ctx context.Context, c
 				}
 				obj = resolved
 			default:
-				return nil, nil, nil, fmt.Errorf("object in phase %q has neither object nor ref", specPhase.Name)
+				return nil, nil, nil, &configValidationError{fmt.Errorf("object in phase %q has neither object nor ref", specPhase.Name)}
 			}
 
 			objs = append(objs, obj)
@@ -573,31 +659,31 @@ func (c *ClusterObjectSetReconciler) resolveObjectRef(ctx context.Context, ref o
 
 	data, ok := secret.Data[ref.Key]
 	if !ok {
-		return nil, fmt.Errorf("key %q not found in Secret %s/%s", ref.Key, ref.Namespace, ref.Name)
+		return nil, &referencedContentError{fmt.Errorf("key %q not found in Secret %s/%s", ref.Key, ref.Namespace, ref.Name)}
 	}
 
 	// Auto-detect gzip compression (magic bytes 0x1f 0x8b)
 	if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
 		reader, err := gzip.NewReader(bytes.NewReader(data))
 		if err != nil {
-			return nil, fmt.Errorf("creating gzip reader for key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)
+			return nil, &referencedContentError{fmt.Errorf("creating gzip reader for key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)}
 		}
 		defer reader.Close()
 		const maxDecompressedSize = 10 * 1024 * 1024 // 10 MiB
 		limited := io.LimitReader(reader, maxDecompressedSize+1)
 		decompressed, err := io.ReadAll(limited)
 		if err != nil {
-			return nil, fmt.Errorf("decompressing key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)
+			return nil, &referencedContentError{fmt.Errorf("decompressing key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)}
 		}
 		if len(decompressed) > maxDecompressedSize {
-			return nil, fmt.Errorf("decompressed data for key %q in Secret %s/%s exceeds maximum size (%d bytes)", ref.Key, ref.Namespace, ref.Name, maxDecompressedSize)
+			return nil, &referencedContentError{fmt.Errorf("decompressed data for key %q in Secret %s/%s exceeds maximum size (%d bytes)", ref.Key, ref.Namespace, ref.Name, maxDecompressedSize)}
 		}
 		data = decompressed
 	}
 
 	obj := &unstructured.Unstructured{}
 	if err := json.Unmarshal(data, &obj.Object); err != nil {
-		return nil, fmt.Errorf("unmarshaling object from key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)
+		return nil, &referencedContentError{fmt.Errorf("unmarshaling object from key %q in Secret %s/%s: %w", ref.Key, ref.Namespace, ref.Name, err)}
 	}
 
 	return obj, nil
@@ -638,7 +724,7 @@ func buildProgressionProbes(progressionProbes []ocv1.ProgressionProbe) (probing.
 				fieldValueProbe := probing.FieldValueProbe(probe.FieldValue)
 				assertions = append(assertions, &fieldValueProbe)
 			default:
-				return nil, fmt.Errorf("unknown progressionProbe assertion probe type: %s", probe.Type)
+				return nil, &configValidationError{fmt.Errorf("unknown progressionProbe assertion probe type: %s", probe.Type)}
 			}
 		}
 
@@ -654,14 +740,14 @@ func buildProgressionProbes(progressionProbes []ocv1.ProgressionProbe) (probing.
 		case ocv1.SelectorTypeLabel:
 			selector, err := metav1.LabelSelectorAsSelector(&progressionProbe.Selector.Label)
 			if err != nil {
-				return nil, fmt.Errorf("invalid label selector in progressionProbe (%v): %w", progressionProbe.Selector.Label, err)
+				return nil, &configValidationError{fmt.Errorf("invalid label selector in progressionProbe (%v): %w", progressionProbe.Selector.Label, err)}
 			}
 			selectorProbe = &probing.LabelSelector{
 				Selector: selector,
 				Prober:   assertions,
 			}
 		default:
-			return nil, fmt.Errorf("unknown progressionProbe selector type: %s", progressionProbe.Selector.Type)
+			return nil, &configValidationError{fmt.Errorf("unknown progressionProbe selector type: %s", progressionProbe.Selector.Type)}
 		}
 		userProbes = append(userProbes, &probing.ObservedGenerationProbe{
 			Prober: selectorProbe,
@@ -713,6 +799,26 @@ func markAsNotReady(cos *ocv1.ClusterObjectSet, reason, message string) bool {
 	})
 }
 
+// hasSupersededObject reports whether any object in the revision has been adopted
+// by a newer sibling revision (machinery.ActionProgressed). boxcutter only emits
+// ActionProgressed for a newer sibling (a foreign owner is a collision), so no
+// revision comparison is needed here.
+func hasSupersededObject(rres machinery.RevisionResult) bool {
+	for _, pres := range rres.GetPhases() {
+		for _, ores := range pres.GetObjects() {
+			if ores.Action() == machinery.ActionProgressed {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func markAsArchiving(cos *ocv1.ClusterObjectSet) {
+	const msg = "The object set is being archived; removing owned objects."
+	markAsNotReady(cos, ocv1.ClusterObjectSetReasonArchiving, msg)
+}
+
 func markAsArchived(cos *ocv1.ClusterObjectSet) bool {
 	const msg = "revision is archived"
 	return markAsNotReady(cos, ocv1.ClusterObjectSetReasonArchived, msg)
@@ -751,22 +857,30 @@ func verifyObservedPhases(stored, current []ocv1.ObservedPhase) error {
 	var mismatches []string
 	for _, c := range current {
 		if prev, ok := storedMap[c.Name]; ok && prev != c.Digest {
-			mismatches = append(mismatches, fmt.Sprintf(
-				"phase %q (expected digest %s, got %s)", c.Name, prev, c.Digest))
+			mismatches = append(mismatches, fmt.Sprintf("%q", c.Name))
 		}
 	}
 	if len(mismatches) > 0 {
-		return fmt.Errorf(
-			"resolved content of %d phase(s) has changed: %s; "+
-				"a referenced object source may have been deleted and recreated with different content",
-			len(mismatches), strings.Join(mismatches, "; "))
+		return fmt.Errorf("resolved content of %d phase(s) has changed since first rollout: %s",
+			len(mismatches), strings.Join(mismatches, ", "))
 	}
 	return nil
 }
 
+// mutableSecretError is returned by verifyReferencedSecretsImmutable when one or
+// more referenced Secrets are confirmed to be mutable. It distinguishes a
+// (non-retryable) validation failure from a transient Secret read error, so the
+// caller can reserve ValidationFailure for the former and retry the latter.
+type mutableSecretError struct {
+	msg string
+}
+
+func (e *mutableSecretError) Error() string { return e.msg }
+
 // verifyReferencedSecretsImmutable checks that all referenced Secrets
-// have Immutable set to true. It collects all violations and returns
-// a single error listing every misconfigured Secret.
+// have Immutable set to true. A confirmed mutable Secret is returned as a
+// *mutableSecretError listing every misconfigured Secret; a failure to read a
+// Secret is returned as a plain (retryable) error.
 func (c *ClusterObjectSetReconciler) verifyReferencedSecretsImmutable(ctx context.Context, cos *ocv1.ClusterObjectSet) error {
 	type secretRef struct {
 		name      string
@@ -789,6 +903,7 @@ func (c *ClusterObjectSetReconciler) verifyReferencedSecretsImmutable(ctx contex
 	}
 
 	var mutableSecrets []string
+	var readErr error
 	for _, ref := range refs {
 		secret := &corev1.Secret{}
 		key := client.ObjectKey{Name: ref.name, Namespace: ref.namespace}
@@ -798,7 +913,13 @@ func (c *ClusterObjectSetReconciler) verifyReferencedSecretsImmutable(ctx contex
 				// resolveObjectRef will handle the not-found with a retryable error.
 				continue
 			}
-			return fmt.Errorf("getting Secret %s/%s: %w", ref.namespace, ref.name, err)
+			// Remember the first read error but keep checking the remaining refs: a
+			// confirmed mutable Secret is a more actionable failure and takes precedence
+			// over a transient read error.
+			if readErr == nil {
+				readErr = fmt.Errorf("getting Secret %s/%s: %w", ref.namespace, ref.name, err)
+			}
+			continue
 		}
 
 		if secret.Immutable == nil || !*secret.Immutable {
@@ -807,8 +928,13 @@ func (c *ClusterObjectSetReconciler) verifyReferencedSecretsImmutable(ctx contex
 	}
 
 	if len(mutableSecrets) > 0 {
-		return fmt.Errorf("the following secrets are not immutable (referenced secrets must have immutable set to true): %s",
-			strings.Join(mutableSecrets, ", "))
+		return &mutableSecretError{msg: fmt.Sprintf(
+			"the following secrets are not immutable (referenced secrets must have immutable set to true): %s",
+			strings.Join(mutableSecrets, ", "))}
+	}
+
+	if readErr != nil {
+		return readErr
 	}
 
 	return nil

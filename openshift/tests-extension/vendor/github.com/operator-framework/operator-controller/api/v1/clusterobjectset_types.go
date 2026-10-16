@@ -29,12 +29,14 @@ const (
 	ClusterObjectSetTypeReady = "Ready"
 
 	// Condition Reasons
-	ClusterObjectSetReasonArchived        = "Archived"
-	ClusterObjectSetReasonBlocked         = "Blocked"
-	ClusterObjectSetReasonProbeFailure    = "ProbeFailure"
-	ClusterObjectSetReasonObjectCollision = "ObjectCollision"
-	ClusterObjectSetReasonRetryableError  = "RetryableError"
-	ClusterObjectSetReasonAllObjectsReady = "AllObjectsReady"
+	ClusterObjectSetReasonArchived          = "Archived"
+	ClusterObjectSetReasonArchiving         = "Archiving"
+	ClusterObjectSetReasonObjectsNotReady   = "ObjectsNotReady"
+	ClusterObjectSetReasonSuperseded        = "Superseded"
+	ClusterObjectSetReasonObjectCollision   = "ObjectCollision"
+	ClusterObjectSetReasonRetryableError    = "RetryableError"
+	ClusterObjectSetReasonValidationFailure = "ValidationFailure"
+	ClusterObjectSetReasonAllObjectsReady   = "AllObjectsReady"
 )
 
 // ClusterObjectSetSpec defines the desired state of ClusterObjectSet.
@@ -499,12 +501,13 @@ type ClusterObjectSetStatus struct {
 	// objects are not at the desired state; Unknown is the initial state, before
 	// the first reconciliation has evaluated the revision.
 	//   - True with reason AllObjectsReady: the revision has rolled out and all objects are at the desired state.
-	//   - False with reason ProbeFailure: one or more objects are failing their readiness probes during rollout.
-	//   - False with reason RollingOut: the revision is actively rolling out and has not yet become ready.
+	//   - False with reason ObjectsNotReady: one or more objects are still being applied or have not yet passed their readiness probes during rollout.
+	//   - False with reason Superseded: one or more objects have been adopted by a newer revision of the object set.
 	//   - False with reason ObjectCollision: one or more objects are controlled by another owner, or are unowned while collision protection prevents adoption, so this revision cannot take ownership of them.
-	//   - False with reason Blocked: the revision has encountered an error that requires manual intervention for recovery.
+	//   - False with reason ValidationFailure: the revision failed a pre-apply check (an invalid revision/phase object or probe, preflight validation, a mutable referenced Secret, or changed referenced content) and requires manual intervention.
 	//   - False with reason ProgressDeadlineExceeded: the revision did not roll out within spec.progressDeadlineMinutes.
-	//   - False with reason Reconciling: the revision encountered an error that prevented it from observing the probes.
+	//   - False with reason RetryableError: the revision encountered a transient error that may resolve on a subsequent reconciliation.
+	//   - False with reason Archiving: the revision is being archived and its owned objects are still being torn down.
 	//   - False with reason Archived: the revision has been archived and its objects have been torn down.
 	//
 	// Rollout completion is recorded separately by status.completedAt.
@@ -514,13 +517,17 @@ type ClusterObjectSetStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// objectCounts reports aggregate object counts across all phases.
+	// Values are sums of the per-phase counts in observedPhases.
+	// +optional
+	ObjectCounts ObjectCounts `json:"objectCounts,omitempty"`
+
 	// observedPhases records the content hashes of resolved phases
 	// at first successful reconciliation. This is used to detect if
 	// referenced object sources were deleted and recreated with
 	// different content. Each entry covers all fully-resolved object
 	// manifests within a phase, making it source-agnostic.
 	//
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf || oldSelf.size() == 0",message="observedPhases is immutable"
 	// +kubebuilder:validation:MaxItems=20
 	// +listType=map
 	// +listMapKey=name
@@ -550,10 +557,47 @@ type ObservedPhase struct {
 	// at first successful resolution, in the format "<algorithm>:<hex>".
 	//
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || oldSelf.size() == 0",message="digest is immutable"
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=256
 	// +kubebuilder:validation:XValidation:rule=`self.matches('^[a-z0-9]+:[a-f0-9]+$')`,message="digest must be in the format '<algorithm>:<hex>'"
 	Digest string `json:"digest"`
+
+	// objectCounts reports the number of objects in this phase by state.
+	// +required
+	ObjectCounts ObjectCounts `json:"objectCounts"`
+}
+
+// ObjectCounts reports the number of objects in a ClusterObjectSet or phase by state.
+type ObjectCounts struct {
+	// total is the number of objects in this phase.
+	// +required
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=1000
+	Total int64 `json:"total"`
+
+	// present is the number of objects in this phase that exist on the
+	// cluster. During reconcile, this counts objects that the controller
+	// has found or created. During teardown, this decrements toward zero
+	// as objects are deleted.
+	// +optional
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=1000
+	Present int64 `json:"present,omitempty"`
+
+	// synced is the number of objects in this phase whose cluster state
+	// matches the desired state.
+	// +optional
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=1000
+	Synced int64 `json:"synced,omitempty"`
+
+	// ready is the number of objects in this phase that are synced
+	// and pass their assertions.
+	// +optional
+	// +kubebuilder:validation:Minimum:=0
+	// +kubebuilder:validation:Maximum:=1000
+	Ready int64 `json:"ready,omitempty"`
 }
 
 // +genclient
