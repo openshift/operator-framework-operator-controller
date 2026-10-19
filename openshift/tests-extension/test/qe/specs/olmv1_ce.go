@@ -65,9 +65,23 @@ func isAuthfilePodReadinessError(stderr []byte) bool {
 		strings.Contains(message, "completed pod")
 }
 
-func waitForRegistryInAuthfile(ctx context.Context, runner authfileCommandRunner, component, namespace, selector, authfileGlob string, interval, timeout time.Duration) error {
-	var lastReadinessErr, terminalErr error
-	err := wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
+func waitForRegistryInAuthfile(omega o.Gomega, ctx context.Context, runner authfileCommandRunner, component, namespace, selector, authfileGlob string, interval, timeout time.Duration) {
+	deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var lastReadinessErr error
+
+	contextError := func(ctx context.Context) error {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && lastReadinessErr != nil {
+			return lastReadinessErr
+		}
+		return ctx.Err()
+	}
+	retry := func(err error) error {
+		lastReadinessErr = err
+		return err
+	}
+
+	omega.Eventually(func(ctx context.Context) error {
 		stdout, _, _, err := runner(ctx,
 			"--kubeconfig="+exutil.KubeConfigPath(),
 			"get", "pods",
@@ -78,16 +92,14 @@ func waitForRegistryInAuthfile(ctx context.Context, runner authfileCommandRunner
 		)
 		if err != nil {
 			if ctx.Err() != nil {
-				return false, nil
+				return contextError(ctx)
 			}
-			terminalErr = fmt.Errorf("failed to resolve %s pod: %w", component, err)
-			return false, terminalErr
+			return o.StopTrying(fmt.Sprintf("failed to resolve %s pod", component)).Wrap(err)
 		}
 
 		pods := strings.Fields(string(stdout))
 		if len(pods) == 0 {
-			lastReadinessErr = fmt.Errorf("no running %s pod matched selector %q", component, selector)
-			return false, nil
+			return retry(fmt.Errorf("no running %s pod matched selector %q", component, selector))
 		}
 		pod := pods[0]
 
@@ -99,36 +111,25 @@ func waitForRegistryInAuthfile(ctx context.Context, runner authfileCommandRunner
 			"--", "bash", "-c", authfileProbe, "--", authfileGlob, authfileRegistry,
 		)
 		if err == nil {
-			return true, nil
+			return nil
 		}
 		if ctx.Err() != nil {
-			return false, nil
+			return contextError(ctx)
 		}
 		if exitCode == authfileNotReadyExitCode {
-			lastReadinessErr = fmt.Errorf("%s pod %q authfile does not contain %q yet", component, pod, authfileRegistry)
-			return false, nil
+			return retry(fmt.Errorf("%s pod %q authfile does not contain %q yet", component, pod, authfileRegistry))
 		}
 		if isAuthfilePodReadinessError(stderr) {
-			lastReadinessErr = fmt.Errorf("%s pod %q became unavailable during the authfile check", component, pod)
-			return false, nil
+			return retry(fmt.Errorf("%s pod %q became unavailable during the authfile check", component, pod))
 		}
 		if exitCode >= 0 {
-			terminalErr = fmt.Errorf("%s pod %q authfile probe failed with exit code %d", component, pod, exitCode)
-		} else {
-			terminalErr = fmt.Errorf("failed to execute %s pod %q authfile probe: %w", component, pod, err)
+			return o.StopTrying(fmt.Sprintf("%s pod %q authfile probe failed with exit code %d", component, pod, exitCode))
 		}
-		return false, terminalErr
-	})
-	if err == nil {
-		return nil
-	}
-	if terminalErr != nil {
-		return terminalErr
-	}
-	if lastReadinessErr != nil {
-		return fmt.Errorf("timed out after %s waiting for %s authfile readiness: %w", timeout, component, lastReadinessErr)
-	}
-	return fmt.Errorf("timed out after %s waiting for %s authfile readiness: %w", timeout, component, err)
+		return o.StopTrying(fmt.Sprintf("failed to execute %s pod %q authfile probe", component, pod)).Wrap(err)
+	}).WithContext(deadlineCtx).
+		WithTimeout(timeout).
+		WithPolling(interval).
+		Should(o.Succeed(), "waiting for %s authfile readiness", component)
 }
 
 var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperShiftHOST"), func() {
@@ -885,7 +886,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:40m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
+	g.It("PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:40m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]"), func(ctx g.SpecContext) {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID = "76985"
@@ -937,16 +938,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(olmv1util.HealthyMCP4OLM(oc)).To(o.BeTrue())
 
 		g.By("check if auth is updated for catalogd")
-		err = waitForRegistryInAuthfile(context.Background(), runAuthfileCommand,
+		waitForRegistryInAuthfile(o.Default, ctx, runAuthfileCommand,
 			"catalogd", "openshift-catalogd", "control-plane=catalogd-controller-manager",
 			"/tmp/catalogd-global-pull-secret-*.json", 5*time.Second, 3*time.Minute)
-		o.Expect(err).NotTo(o.HaveOccurred())
 
 		g.By("check if auth is updated for operator-controller")
-		err = waitForRegistryInAuthfile(context.Background(), runAuthfileCommand,
+		waitForRegistryInAuthfile(o.Default, ctx, runAuthfileCommand,
 			"operator-controller", "openshift-operator-controller", "control-plane=operator-controller-controller-manager",
 			"/tmp/operator-controller-global-pull-secrets-*.json", 5*time.Second, 3*time.Minute)
-		o.Expect(err).NotTo(o.HaveOccurred())
 
 	})
 

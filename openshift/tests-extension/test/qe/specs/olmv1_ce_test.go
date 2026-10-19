@@ -10,11 +10,17 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	o "github.com/onsi/gomega"
 )
 
 func TestWaitForRegistryInAuthfileReResolvesPodForReadinessErrors(t *testing.T) {
 	var resolvedPods, checkedPods []string
-	runner := func(_ context.Context, args ...string) ([]byte, []byte, int, error) {
+	deadlineContexts := 0
+	runner := func(ctx context.Context, args ...string) ([]byte, []byte, int, error) {
+		if _, ok := ctx.Deadline(); ok {
+			deadlineContexts++
+		}
 		switch args[1] {
 		case "get":
 			pod := "catalogd-old"
@@ -36,12 +42,9 @@ func TestWaitForRegistryInAuthfileReResolvesPodForReadinessErrors(t *testing.T) 
 		}
 	}
 
-	err := waitForRegistryInAuthfile(context.Background(), runner,
+	waitForRegistryInAuthfile(o.NewWithT(t), context.Background(), runner,
 		"catalogd", "openshift-catalogd", "control-plane=catalogd-controller-manager",
 		"/tmp/catalogd-global-pull-secret-*.json", time.Millisecond, time.Second)
-	if err != nil {
-		t.Fatalf("waitForRegistryInAuthfile() error = %v", err)
-	}
 
 	wantPods := []string{"catalogd-old", "catalogd-new"}
 	if !reflect.DeepEqual(resolvedPods, wantPods) {
@@ -49,6 +52,9 @@ func TestWaitForRegistryInAuthfileReResolvesPodForReadinessErrors(t *testing.T) 
 	}
 	if !reflect.DeepEqual(checkedPods, wantPods) {
 		t.Fatalf("checked pods = %v, want %v", checkedPods, wantPods)
+	}
+	if deadlineContexts != 4 {
+		t.Fatalf("commands receiving a deadline context = %d, want 4", deadlineContexts)
 	}
 }
 
@@ -98,46 +104,95 @@ func TestWaitForRegistryInAuthfileStopsOnUnclassifiedErrorWithoutOutput(t *testi
 			getCalls++
 			return []byte("operator-controller-pod"), nil, 0, nil
 		case "exec":
-			return nil, []byte(sensitiveOutput), 7, errors.New("exit status 7")
+			return []byte(sensitiveOutput), []byte(sensitiveOutput), 7, errors.New("exit status 7")
 		default:
 			t.Fatalf("unexpected command arguments: %v", args)
 			return nil, nil, -1, errors.New("unexpected command")
 		}
 	}
 
-	err := waitForRegistryInAuthfile(context.Background(), runner,
+	failure := ""
+	omega := o.NewGomega(func(message string, _ ...int) {
+		failure = message
+	})
+	waitForRegistryInAuthfile(omega, context.Background(), runner,
 		"operator-controller", "openshift-operator-controller", "control-plane=operator-controller-controller-manager",
 		"/tmp/operator-controller-global-pull-secrets-*.json", time.Millisecond, time.Second)
-	if err == nil {
-		t.Fatal("waitForRegistryInAuthfile() error = nil, want terminal probe error")
+	if failure == "" {
+		t.Fatal("waitForRegistryInAuthfile() failure = empty, want terminal probe failure")
 	}
 	if getCalls != 1 {
 		t.Fatalf("pod resolution calls = %d, want 1 for an unclassified error", getCalls)
 	}
-	if !strings.Contains(err.Error(), "exit code 7") {
-		t.Fatalf("error = %q, want exit code", err)
+	if !strings.Contains(failure, "exit code 7") {
+		t.Fatalf("failure = %q, want exit code", failure)
 	}
-	if strings.Contains(err.Error(), sensitiveOutput) || strings.Contains(err.Error(), "must-not-appear") {
-		t.Fatalf("error exposed authentication data: %q", err)
+	if strings.Contains(failure, sensitiveOutput) || strings.Contains(failure, "must-not-appear") {
+		t.Fatalf("failure exposed authentication data: %q", failure)
 	}
 }
 
 func TestWaitForRegistryInAuthfileReportsLastReadinessErrorAtTimeout(t *testing.T) {
+	const sensitiveOutput = `{"auths":{"fake.registry":{"auth":"latest-must-not-appear"}}}`
+	execCalls := 0
 	runner := func(_ context.Context, args ...string) ([]byte, []byte, int, error) {
 		if args[1] == "get" {
 			return []byte("catalogd-deadline"), nil, 0, nil
 		}
-		return nil, nil, authfileNotReadyExitCode, errors.New("exit status 42")
+		execCalls++
+		return []byte(sensitiveOutput), []byte(sensitiveOutput), authfileNotReadyExitCode, errors.New("exit status 42")
 	}
 
-	err := waitForRegistryInAuthfile(context.Background(), runner,
+	failure := ""
+	omega := o.NewGomega(func(message string, _ ...int) {
+		failure = message
+	})
+	waitForRegistryInAuthfile(omega, context.Background(), runner,
 		"catalogd", "openshift-catalogd", "control-plane=catalogd-controller-manager",
-		"/tmp/catalogd-global-pull-secret-*.json", time.Millisecond, 10*time.Millisecond)
-	if err == nil {
-		t.Fatal("waitForRegistryInAuthfile() error = nil, want timeout")
+		"/tmp/catalogd-global-pull-secret-*.json", time.Millisecond, 20*time.Millisecond)
+	if failure == "" {
+		t.Fatal("waitForRegistryInAuthfile() failure = empty, want timeout")
 	}
-	if !strings.Contains(err.Error(), `catalogd pod "catalogd-deadline" authfile does not contain "fake.registry" yet`) {
-		t.Fatalf("error = %q, want last classified readiness error", err)
+	if execCalls < 2 {
+		t.Fatalf("authfile probe calls = %d, want repeated attempts", execCalls)
+	}
+	if !strings.Contains(failure, `catalogd pod "catalogd-deadline" authfile does not contain "fake.registry" yet`) {
+		t.Fatalf("failure = %q, want latest classified readiness error", failure)
+	}
+	if strings.Contains(failure, sensitiveOutput) || strings.Contains(failure, "latest-must-not-appear") {
+		t.Fatalf("failure exposed authentication data: %q", failure)
+	}
+}
+
+func TestWaitForRegistryInAuthfileCancelsRunningCommand(t *testing.T) {
+	parentCtx, cancel := context.WithCancel(context.Background())
+	runnerCtxErr := make(chan error, 1)
+	runnerHadDeadline := make(chan bool, 1)
+	runner := func(ctx context.Context, _ ...string) ([]byte, []byte, int, error) {
+		_, hasDeadline := ctx.Deadline()
+		runnerHadDeadline <- hasDeadline
+		<-ctx.Done()
+		runnerCtxErr <- ctx.Err()
+		return nil, nil, -1, ctx.Err()
+	}
+
+	failure := ""
+	omega := o.NewGomega(func(message string, _ ...int) {
+		failure = message
+	})
+	time.AfterFunc(10*time.Millisecond, cancel)
+	waitForRegistryInAuthfile(omega, parentCtx, runner,
+		"catalogd", "openshift-catalogd", "control-plane=catalogd-controller-manager",
+		"/tmp/catalogd-global-pull-secret-*.json", time.Millisecond, time.Second)
+
+	if !<-runnerHadDeadline {
+		t.Fatal("runner context has no deadline")
+	}
+	if err := <-runnerCtxErr; !errors.Is(err, context.Canceled) {
+		t.Fatalf("runner context error = %v, want context.Canceled", err)
+	}
+	if !strings.Contains(failure, "Context was cancelled") || !strings.Contains(failure, "context canceled") {
+		t.Fatalf("failure = %q, want context cancellation diagnostics", failure)
 	}
 }
 
