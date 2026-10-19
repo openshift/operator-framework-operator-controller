@@ -26,7 +26,14 @@ type TokenIssuerApplyConfiguration struct {
 	//
 	// When specified, it must reference a ConfigMap in the openshift-config namespace containing the PEM-encoded CA certificates under the 'ca-bundle.crt' key in the data field of the ConfigMap.
 	CertificateAuthority *ConfigMapNameReferenceApplyConfiguration `json:"issuerCertificateAuthority,omitempty"`
-	DiscoveryURL         *string                                   `json:"discoveryURL,omitempty"`
+	// discoveryURL is an optional field that, if specified, overrides the default discovery endpoint used to retrieve OIDC configuration metadata.
+	// By default, the discovery URL is derived from `issuerURL` as "{issuerURL}/.well-known/openid-configuration".
+	//
+	// The discoveryURL must be a valid absolute HTTPS URL.
+	// It must not contain query parameters, user information, or fragments.
+	// Additionally, it must differ from the value of `issuerURL` (ignoring trailing slashes).
+	// The discoveryURL value must be at least 1 character long and no longer than 2048 characters.
+	DiscoveryURL *string `json:"discoveryURL,omitempty"`
 }
 
 // TokenIssuerApplyConfiguration constructs a declarative configuration of the TokenIssuer type for use with
