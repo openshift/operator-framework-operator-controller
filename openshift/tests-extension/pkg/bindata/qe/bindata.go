@@ -8,15 +8,12 @@
 // test/qe/testdata/olm/clustercatalog-with-pollinterval.yaml
 // test/qe/testdata/olm/clustercatalog-withlabel.yaml
 // test/qe/testdata/olm/clustercatalog.yaml
-// test/qe/testdata/olm/clusterextension-watchns-config.yaml
 // test/qe/testdata/olm/clusterextension-withselectorExpressions-WithoutChannelVersion.yaml
 // test/qe/testdata/olm/clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml
-// test/qe/testdata/olm/clusterextension-withselectorlabel-OwnSingle.yaml
 // test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutChannel.yaml
 // test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutChannelVersion.yaml
 // test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutVersion.yaml
 // test/qe/testdata/olm/clusterextension-withselectorlabel-inlineconfig.yaml
-// test/qe/testdata/olm/clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml
 // test/qe/testdata/olm/clusterextension-withselectorlabel.yaml
 // test/qe/testdata/olm/clusterextension.yaml
 // test/qe/testdata/olm/clusterextensionWithoutChannel.yaml
@@ -405,65 +402,6 @@ func testQeTestdataOlmClustercatalogYaml() (*asset, error) {
 	return a, nil
 }
 
-var _testQeTestdataOlmClusterextensionWatchnsConfigYaml = []byte(`apiVersion: template.openshift.io/v1
-kind: Template
-metadata:
-  name: operator-template-watchns-config
-objects:
-- apiVersion: olm.operatorframework.io/v1
-  kind: ClusterExtension
-  metadata:
-    name: "${NAME}"
-  spec:
-    namespace: "${INSTALLNAMESPACE}"
-    config:
-      configType: Inline
-      inline:
-        watchNamespace: "${WATCHNS}"
-    source:
-      sourceType: "${SOURCETYPE}"
-      catalog:
-        packageName: "${PACKAGE}"
-        channels:
-          - "${CHANNEL}"
-        version: "${VERSION}"
-        selector:
-          matchLabels:
-            "${LABELKEY}": "${LABELVALUE}"
-        upgradeConstraintPolicy: "${POLICY}"
-parameters:
-- name: NAME
-- name: INSTALLNAMESPACE
-- name: PACKAGE
-- name: CHANNEL
-- name: VERSION
-- name: WATCHNS
-  value: ""
-- name: POLICY
-  value: "CatalogProvided"
-- name: LABELVALUE
-  # suggest to use case id
-- name: LABELKEY
-  value: "olmv1-test"
-- name: SOURCETYPE
-  value: "Catalog"
-`)
-
-func testQeTestdataOlmClusterextensionWatchnsConfigYamlBytes() ([]byte, error) {
-	return _testQeTestdataOlmClusterextensionWatchnsConfigYaml, nil
-}
-
-func testQeTestdataOlmClusterextensionWatchnsConfigYaml() (*asset, error) {
-	bytes, err := testQeTestdataOlmClusterextensionWatchnsConfigYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextension-watchns-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _testQeTestdataOlmClusterextensionWithselectorexpressionsWithoutchannelversionYaml = []byte(`apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
@@ -573,65 +511,6 @@ func testQeTestdataOlmClusterextensionWithselectorlableexpressionsWithoutchannel
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml = []byte(`apiVersion: template.openshift.io/v1
-kind: Template
-metadata:
-  name: operator-template
-objects:
-- apiVersion: olm.operatorframework.io/v1
-  kind: ClusterExtension
-  metadata:
-    name: "${NAME}"
-  spec:
-    namespace: "${INSTALLNAMESPACE}"
-    config:
-      configType: Inline
-      inline:
-        watchNamespace: "${WATCHNS}"
-    source:
-      sourceType: "${SOURCETYPE}"
-      catalog:
-        packageName: "${PACKAGE}"
-        channels:
-          - "${CHANNEL}"
-        version: "${VERSION}"
-        selector:
-          matchLabels:
-            "${LABELKEY}": "${LABELVALUE}"
-        upgradeConstraintPolicy: "${POLICY}"
-parameters:
-- name: NAME
-- name: INSTALLNAMESPACE
-- name: WATCHNS
-- name: PACKAGE
-- name: CHANNEL
-- name: VERSION
-- name: POLICY
-  value: "CatalogProvided"
-- name: LABELVALUE
-  # suggest to use case id
-- name: LABELKEY
-  value: "olmv1-test"
-- name: SOURCETYPE
-  value: "Catalog"
-
-`)
-
-func testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYamlBytes() ([]byte, error) {
-	return _testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml, nil
-}
-
-func testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml() (*asset, error) {
-	bytes, err := testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextension-withselectorlabel-OwnSingle.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -842,65 +721,6 @@ func testQeTestdataOlmClusterextensionWithselectorlabelInlineconfigYaml() (*asse
 	}
 
 	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextension-withselectorlabel-inlineconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml = []byte(`apiVersion: template.openshift.io/v1
-kind: Template
-metadata:
-  name: operator-template
-objects:
-- apiVersion: olm.operatorframework.io/v1
-  kind: ClusterExtension
-  metadata:
-    name: "${NAME}"
-  spec:
-    namespace: "${INSTALLNAMESPACE}"
-    config:
-      configType: Inline
-      inline:
-        watchNamespace: "${WATCHNS}"
-    source:
-      sourceType: "${SOURCETYPE}"
-      catalog:
-        packageName: "${PACKAGE}"
-        version: "${VERSION}"
-        selector:
-          matchLabels:
-            "${LABELKEY}": "${LABELVALUE}"
-        upgradeConstraintPolicy: "${POLICY}"
-parameters:
-- name: NAME
-- name: INSTALLNAMESPACE
-- name: WATCHNS
-- name: PACKAGE
-- name: VERSION
-- name: POLICY
-  value: "CatalogProvided"
-- name: SOURCETYPE
-  value: "Catalog"
-- name: LABELVALUE
-  # suggest to use case id
-- name: LABELKEY
-  value: "olmv1-test"
-
-
-
-
-`)
-
-func testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYamlBytes() ([]byte, error) {
-	return _testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml, nil
-}
-
-func testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml() (*asset, error) {
-	bytes, err := testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "test/qe/testdata/olm/clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1386,15 +1206,12 @@ var _bindata = map[string]func() (*asset, error){
 	"test/qe/testdata/olm/clustercatalog-with-pollinterval.yaml":                                    testQeTestdataOlmClustercatalogWithPollintervalYaml,
 	"test/qe/testdata/olm/clustercatalog-withlabel.yaml":                                            testQeTestdataOlmClustercatalogWithlabelYaml,
 	"test/qe/testdata/olm/clustercatalog.yaml":                                                      testQeTestdataOlmClustercatalogYaml,
-	"test/qe/testdata/olm/clusterextension-watchns-config.yaml":                                     testQeTestdataOlmClusterextensionWatchnsConfigYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorExpressions-WithoutChannelVersion.yaml":      testQeTestdataOlmClusterextensionWithselectorexpressionsWithoutchannelversionYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml": testQeTestdataOlmClusterextensionWithselectorlableexpressionsWithoutchannelversionYaml,
-	"test/qe/testdata/olm/clusterextension-withselectorlabel-OwnSingle.yaml":                        testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutChannel.yaml":                   testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutChannelVersion.yaml":            testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelversionYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorlabel-WithoutVersion.yaml":                   testQeTestdataOlmClusterextensionWithselectorlabelWithoutversionYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorlabel-inlineconfig.yaml":                     testQeTestdataOlmClusterextensionWithselectorlabelInlineconfigYaml,
-	"test/qe/testdata/olm/clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml":         testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml,
 	"test/qe/testdata/olm/clusterextension-withselectorlabel.yaml":                                  testQeTestdataOlmClusterextensionWithselectorlabelYaml,
 	"test/qe/testdata/olm/clusterextension.yaml":                                                    testQeTestdataOlmClusterextensionYaml,
 	"test/qe/testdata/olm/clusterextensionWithoutChannel.yaml":                                      testQeTestdataOlmClusterextensionwithoutchannelYaml,
@@ -1461,15 +1278,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 					"clustercatalog-with-pollinterval.yaml": {testQeTestdataOlmClustercatalogWithPollintervalYaml, map[string]*bintree{}},
 					"clustercatalog-withlabel.yaml":         {testQeTestdataOlmClustercatalogWithlabelYaml, map[string]*bintree{}},
 					"clustercatalog.yaml":                   {testQeTestdataOlmClustercatalogYaml, map[string]*bintree{}},
-					"clusterextension-watchns-config.yaml":  {testQeTestdataOlmClusterextensionWatchnsConfigYaml, map[string]*bintree{}},
 					"clusterextension-withselectorExpressions-WithoutChannelVersion.yaml":      {testQeTestdataOlmClusterextensionWithselectorexpressionsWithoutchannelversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorLableExpressions-WithoutChannelVersion.yaml": {testQeTestdataOlmClusterextensionWithselectorlableexpressionsWithoutchannelversionYaml, map[string]*bintree{}},
-					"clusterextension-withselectorlabel-OwnSingle.yaml":                        {testQeTestdataOlmClusterextensionWithselectorlabelOwnsingleYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-WithoutChannel.yaml":                   {testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-WithoutChannelVersion.yaml":            {testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-WithoutVersion.yaml":                   {testQeTestdataOlmClusterextensionWithselectorlabelWithoutversionYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel-inlineconfig.yaml":                     {testQeTestdataOlmClusterextensionWithselectorlabelInlineconfigYaml, map[string]*bintree{}},
-					"clusterextension-withselectorlabel-withoutChannel-OwnSingle.yaml":         {testQeTestdataOlmClusterextensionWithselectorlabelWithoutchannelOwnsingleYaml, map[string]*bintree{}},
 					"clusterextension-withselectorlabel.yaml":                                  {testQeTestdataOlmClusterextensionWithselectorlabelYaml, map[string]*bintree{}},
 					"clusterextension.yaml":                      {testQeTestdataOlmClusterextensionYaml, map[string]*bintree{}},
 					"clusterextensionWithoutChannel.yaml":        {testQeTestdataOlmClusterextensionwithoutchannelYaml, map[string]*bintree{}},
