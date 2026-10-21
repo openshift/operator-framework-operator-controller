@@ -357,6 +357,15 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				LabelValue:              labelValue,
 				Template:                clusterextensionTemplate,
 			}
+			ceNAN = olmv1util.ClusterExtensionDescription{
+				Name:             "nan-32777",
+				PackageName:      "nginx-ok-v32777nan",
+				Channel:          "alpha",
+				Version:          ">=0.0.1",
+				InstallNamespace: ns,
+				LabelValue:       labelValue,
+				Template:         clusterextensionTemplate,
+			}
 		)
 
 		g.By("Create namespace")
@@ -397,6 +406,13 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			ceWBH.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
 			ceWBH.Delete(oc)
 		}
+
+		g.By("check non all ns mode fails to be installed.")
+		defer ceNAN.Delete(oc)
+		_ = ceNAN.CreateWithoutCheck(oc)
+		ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "bundle does not support AllNamespaces install mode", 10, 180, 0)
+		ceNAN.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
+		ceNAN.Delete(oc)
 
 	})
 
