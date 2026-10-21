@@ -276,6 +276,20 @@ func main() {
 	// 3 - Remove the test in your test file.
 	// 4 - Run make build-update
 	ext.IgnoreObsoleteTests(
+		"[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for singleNamespace watch mode with operator should install a cluster extension successfully",
+		"[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace watch mode with operator should install a cluster extension successfully",
+		"[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation support for ownNamespace and single namespace watch mode with operator should install cluster extensions successfully in both watch modes",
+		"[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace][Serial] OLMv1 operator installation support for ownNamespace watch mode with an operator that does not support ownNamespace installation mode should fail to install a cluster extension successfully",
+		"[sig-olmv1][OCPFeatureGate:NewOLMOwnSingleNamespace] OLMv1 operator installation should reject invalid watch namespace configuration and update the status conditions accordingly should fail to install the ClusterExtension when watch namespace is invalid",
+		"[sig-olmv1][Jira:OLM] clusterextension PolarionID:80117-[OTP][Skipped:Disconnected] Single Namespace Install Mode should be supported",
+		"[sig-olmv1][Jira:OLM] clusterextension PolarionID:80120-[OTP][Skipped:Disconnected] Own Namespace Install Mode should be supported",
+		"[sig-olmv1][Jira:OLM] OLMv1 ClusterExtension DeploymentConfig PolarionID:87552-[Skipped:Disconnected]deploymentConfig works correctly when combined with watchNamespace configuration",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85510-watchNamespace configuration with AllNamespaces InstallMode",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85543-watchNamespace configuration with AllNamespaces+OwnNamespace+SingleNamespace InstallModes",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85546-watchNamespace configuration with OwnNamespace+SingleNamespace InstallModes",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85547-watchNamespace configuration with SingleNamespace InstallMode",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85549-watchNamespace configuration with OwnNamespace InstallMode",
+		"[sig-olmv1][Jira:OLM] clusterextension watchNamespace configuration PolarionID:85650-[Skipped:Disconnected]API-level error validation for watchNamespace configuration",
 		// "[sig-olmv1] OLMv1 should pass a trivial sanity check",
 		// Removed marketplace catalog tests (marketplace catalog removed from default catalogs)
 		"[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected] OLMv1 openshift-redhat-marketplace Catalog should serve FBC via the /v1/api/all endpoint",
