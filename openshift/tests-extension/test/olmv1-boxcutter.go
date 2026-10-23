@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
 	. "github.com/onsi/ginkgo/v2"
@@ -63,29 +64,32 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcu
 		helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
 	})
 
-	It("should report active revisions in the ClusterExtension status after installation", func(ctx SpecContext) {
-		By("ensuring no ClusterExtension for the operator")
-		helpers.EnsureCleanupClusterExtension(context.Background(), opName, "")
+	It("should create a ClusterObjectSet revision for the ClusterExtension after installation",
+		Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should report active revisions in the ClusterExtension status after installation"),
+		func(ctx SpecContext) {
+			By("ensuring no ClusterExtension for the operator")
+			helpers.EnsureCleanupClusterExtension(context.Background(), opName, "")
 
-		By("applying the ClusterExtension resource")
-		name, cleanup := helpers.CreateClusterExtension(opName, "", nsName, unique, helpers.WithCatalogNameSelector(ccName))
-		DeferCleanup(cleanup)
+			By("applying the ClusterExtension resource")
+			name, cleanup := helpers.CreateClusterExtension(opName, "", nsName, unique, helpers.WithCatalogNameSelector(ccName))
+			DeferCleanup(cleanup)
 
-		By("waiting for the ClusterExtension to be installed")
-		helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
+			By("waiting for the ClusterExtension to be installed")
+			helpers.ExpectClusterExtensionToBeInstalled(ctx, name)
 
-		By("verifying active revisions are reported in the ClusterExtension status")
-		k8sClient := env.Get().K8sClient
-		Eventually(func(g Gomega) {
-			var ext olmv1.ClusterExtension
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, &ext)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(ext.Status.ActiveRevisions).ToNot(BeEmpty(),
-				"expected at least one active revision after installation")
-			g.Expect(ext.Status.ActiveRevisions[0].Name).ToNot(BeEmpty(),
-				"expected active revision name to be non-empty")
-		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
-	})
+			By("verifying a ClusterObjectSet revision is created for the ClusterExtension")
+			k8sClient := env.Get().K8sClient
+			Eventually(func(g Gomega) {
+				// The ClusterExtension's revisions are managed as ClusterObjectSets whose
+				// names are "<clusterExtensionName>-<revision>", starting at revision 1.
+				var cos olmv1.ClusterObjectSet
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: fmt.Sprintf("%s-1", name)}, &cos)
+				g.Expect(err).ToNot(HaveOccurred(),
+					"expected a ClusterObjectSet revision for the installed ClusterExtension")
+				g.Expect(cos.Spec.Group).To(Equal(name),
+					"expected the revision group to match the ClusterExtension name")
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		})
 
 	It("should label managed resources with OLM ownership metadata", func(ctx SpecContext) {
 		By("ensuring no ClusterExtension for the operator")
