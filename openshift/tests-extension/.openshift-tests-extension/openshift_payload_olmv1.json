@@ -10,8 +10,11 @@
     "environmentSelector": {}
   },
   {
-    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should report active revisions in the ClusterExtension status after installation",
-    "labels": {},
+    "name": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should create a ClusterObjectSet revision for the ClusterExtension after installation",
+    "originalName": "[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should report active revisions in the ClusterExtension status after installation",
+    "labels": {
+      "original-name:[sig-olmv1][OCPFeatureGate:NewOLMBoxCutterRuntime] OLMv1 Boxcutter runtime should report active revisions in the ClusterExtension status after installation": {}
+    },
     "resources": {
       "isolation": {}
     },
