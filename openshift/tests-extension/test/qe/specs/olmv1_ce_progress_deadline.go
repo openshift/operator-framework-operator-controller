@@ -63,10 +63,11 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension progress deadline", g
 			err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterExtension")
 			expectCondition(g, ce.Status.Conditions, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
-			g.Expect(ce.Status.ActiveRevisions).NotTo(o.BeEmpty(), "expected at least one active revision")
 
+			// The ClusterExtension's revisions are managed as ClusterObjectSets whose
+			// names are "<clusterExtensionName>-<revision>", starting at revision 1.
 			cos := &olmv1.ClusterObjectSet{}
-			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ce.Status.ActiveRevisions[0].Name}, cos)
+			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: fmt.Sprintf("%s-1", ceName)}, cos)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterObjectSet")
 			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
 		}, 12*time.Minute) // 12 minutes for the minimum 10 minute timeout + padding
@@ -104,15 +105,18 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension progress deadline", g
 
 		g.By("verifying both revisions remain active and the new revision reports a probe failure")
 		eventually(ctx, func(g o.Gomega) {
-			ce := &olmv1.ClusterExtension{}
-			err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
-			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterExtension")
-			g.Expect(len(ce.Status.ActiveRevisions)).To(o.BeNumerically(">", 1))
+			// The previous revision ("<name>-1") is not archived until the new revision
+			// ("<name>-2") has rolled out successfully, so both should remain Active.
+			firstRevision := &olmv1.ClusterObjectSet{}
+			err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: fmt.Sprintf("%s-1", ceName)}, firstRevision)
+			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get first ClusterObjectSet revision")
+			g.Expect(firstRevision.Spec.LifecycleState).To(o.Equal(olmv1.ClusterObjectSetLifecycleStateActive), "expected first revision to remain active")
 
-			cos := &olmv1.ClusterObjectSet{}
-			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ce.Status.ActiveRevisions[1].Name}, cos)
-			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterObjectSet")
-			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ClusterObjectSetReasonObjectsNotReady)
+			secondRevision := &olmv1.ClusterObjectSet{}
+			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: fmt.Sprintf("%s-2", ceName)}, secondRevision)
+			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get second ClusterObjectSet revision")
+			g.Expect(secondRevision.Spec.LifecycleState).To(o.Equal(olmv1.ClusterObjectSetLifecycleStateActive), "expected second revision to be active")
+			expectCondition(g, secondRevision.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ClusterObjectSetReasonObjectsNotReady)
 		}, 3*time.Minute)
 	})
 })
