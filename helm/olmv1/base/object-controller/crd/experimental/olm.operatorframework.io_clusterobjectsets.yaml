@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
     olm.operatorframework.io/generator: experimental
   name: clusterobjectsets.olm.operatorframework.io
 spec:
@@ -53,6 +53,9 @@ spec:
           single revision at a time. Ownership of objects is transitioned from one revision
           to the next as new revisions are rolled out. Once the latest revision has rolled
           out successfully, previous active revisions are archived for posterity.
+          Set metadata.name explicitly to <spec.group>-<spec.revision>, using decimal
+          notation without leading zeros. This ensures revision uniqueness within a group.
+          Name generation through metadata.generateName is not supported.
         properties:
           apiVersion:
             description: |-
@@ -76,13 +79,11 @@ spec:
             properties:
               collisionProtection:
                 description: |-
-                  collisionProtection specifies the default collision protection strategy for all objects
-                  in this revision. Individual phases or objects can override this value.
+                  collisionProtection is a required field that specifies the default collision protection
+                  strategy for all objects in this revision. Individual phases or objects can override this value.
 
-                  When set, this value is used as the default for any phase or object that does not
-                  explicitly specify its own collisionProtection.
-
-                  The resolution order is: object > phase > spec
+                  This value is used as the default for any phase or object that does not explicitly specify
+                  its own collisionProtection. The resolution order is: object > phase > spec.
                 enum:
                 - Prevent
                 - IfNoController
@@ -268,8 +269,7 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [object ref] must
                             be set
-                          rule: '[has(self.object),has(self.ref)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.object)?1:0)+(has(self.ref)?1:0) == 1
                       maxItems: 50
                       type: array
                   required:
@@ -307,6 +307,9 @@ spec:
                   a ConfigMap if that particular object does not pass the probe check.
 
                   The maximum number of probes is 20.
+
+                  Once set, even if empty, the progressionProbes field is immutable, as it is
+                  part of the immutable content of a revision.
                 items:
                   description: ProgressionProbe provides a custom probe definition,
                     consisting of an object selection method and assertions.
@@ -553,14 +556,18 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: progressionProbes is immutable
+                  rule: self == oldSelf || oldSelf.size() == 0
               revision:
                 description: |-
                   revision is a required, immutable sequence number identifying a specific
                   ClusterObjectSet within a sequence of related revisions.
 
-                  The revision field must be a positive integer.
-                  Each ClusterObjectSet in the same revision sequence must have a unique revision number.
+                  The revision field must be an integer from 1 to 9999999999, inclusive.
+                  Each ClusterObjectSet in the same group must have a unique revision number.
                 format: int64
+                maximum: 9999999999
                 minimum: 1
                 type: integer
                 x-kubernetes-validations:
@@ -669,6 +676,8 @@ spec:
                 description: |-
                   objectCounts reports aggregate object counts across all phases.
                   Values are sums of the per-phase counts in observedPhases.
+                  It is omitted until counts have been computed; when present, all count
+                  fields are reported (including zeros).
                 properties:
                   present:
                     description: |-
@@ -703,6 +712,9 @@ spec:
                     minimum: 0
                     type: integer
                 required:
+                - present
+                - ready
+                - synced
                 - total
                 type: object
               observedPhases:
@@ -739,8 +751,10 @@ spec:
                           character.
                         rule: '!format.dns1123Label().validate(self).hasValue()'
                     objectCounts:
-                      description: objectCounts reports the number of objects in this
-                        phase by state.
+                      description: |-
+                        objectCounts reports the number of objects in this phase by state.
+                        It is omitted until counts have been computed; when present, all count
+                        fields are reported (including zeros).
                       properties:
                         present:
                           description: |-
@@ -775,12 +789,14 @@ spec:
                           minimum: 0
                           type: integer
                       required:
+                      - present
+                      - ready
+                      - synced
                       - total
                       type: object
                   required:
                   - digest
                   - name
-                  - objectCounts
                   type: object
                 maxItems: 20
                 type: array
@@ -794,6 +810,9 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be <spec.group>-<spec.revision>
+          rule: self.metadata.name == '%s-%d'.format([self.spec.group, self.spec.revision])
     selectableFields:
     - jsonPath: .spec.group
     served: true

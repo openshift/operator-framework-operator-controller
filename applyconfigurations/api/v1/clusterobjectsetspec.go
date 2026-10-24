@@ -48,8 +48,8 @@ type ClusterObjectSetSpecApplyConfiguration struct {
 	// revision is a required, immutable sequence number identifying a specific
 	// ClusterObjectSet within a sequence of related revisions.
 	//
-	// The revision field must be a positive integer.
-	// Each ClusterObjectSet in the same revision sequence must have a unique revision number.
+	// The revision field must be an integer from 1 to 9999999999, inclusive.
+	// Each ClusterObjectSet in the same group must have a unique revision number.
 	Revision *int64 `json:"revision,omitempty"`
 	// phases is an optional, immutable list of phases that group objects to be applied together.
 	//
@@ -88,15 +88,16 @@ type ClusterObjectSetSpecApplyConfiguration struct {
 	//
 	// The maximum number of probes is 20.
 	//
+	// Once set, even if empty, the progressionProbes field is immutable, as it is
+	// part of the immutable content of a revision.
+	//
 	// <opcon:experimental>
 	ProgressionProbes []ProgressionProbeApplyConfiguration `json:"progressionProbes,omitempty"`
-	// collisionProtection specifies the default collision protection strategy for all objects
-	// in this revision. Individual phases or objects can override this value.
+	// collisionProtection is a required field that specifies the default collision protection
+	// strategy for all objects in this revision. Individual phases or objects can override this value.
 	//
-	// When set, this value is used as the default for any phase or object that does not
-	// explicitly specify its own collisionProtection.
-	//
-	// The resolution order is: object > phase > spec
+	// This value is used as the default for any phase or object that does not explicitly specify
+	// its own collisionProtection. The resolution order is: object > phase > spec.
 	CollisionProtection *apiv1.CollisionProtection `json:"collisionProtection,omitempty"`
 }
 

@@ -42,7 +42,6 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/object-controller/status"
-	"github.com/operator-framework/operator-controller/internal/shared/labels"
 )
 
 const (
@@ -442,17 +441,6 @@ type Sourcoser interface {
 	Source(handler handler.EventHandler, predicates ...predicate.Predicate) source.Source
 }
 
-// SetupIndexes registers the cache indexes used to look up ClusterObjectSet revisions.
-func SetupIndexes(ctx context.Context, indexer client.FieldIndexer) error {
-	return indexer.IndexField(ctx, &ocv1.ClusterObjectSet{}, ".spec.group", func(obj client.Object) []string {
-		cos, ok := obj.(*ocv1.ClusterObjectSet)
-		if !ok || cos.Spec.Group == "" {
-			return nil
-		}
-		return []string{cos.Spec.Group}
-	})
-}
-
 func (c *ClusterObjectSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c.Clock = clock.RealClock{}
 	return ctrl.NewControllerManagedBy(mgr).
@@ -557,7 +545,7 @@ func (c *ClusterObjectSetReconciler) listOtherActiveRevisions(
 	predicate func(*ocv1.ClusterObjectSet) bool,
 ) ([]*ocv1.ClusterObjectSet, error) {
 	revList := &ocv1.ClusterObjectSetList{}
-	if err := c.Client.List(ctx, revList, client.MatchingFields{".spec.group": cos.Spec.Group}); err != nil {
+	if err := c.Client.List(ctx, revList, client.MatchingFields{clusterObjectSetGroupIndex: cos.Spec.Group}); err != nil {
 		return nil, fmt.Errorf("listing revisions: %w", err)
 	}
 
@@ -645,15 +633,9 @@ func (c *ClusterObjectSetReconciler) buildBoxcutterPhases(ctx context.Context, c
 		}
 		observedPhases = append(observedPhases, ocv1.ObservedPhase{Name: specPhase.Name, Digest: digest})
 
-		// Apply controller mutations after digest computation.
+		// Managed objects are labeled app.kubernetes.io/managed-by by the boxcutter
+		// revision engine; the controller does not add owner labels of its own.
 		for i, obj := range objs {
-			objLabels := obj.GetLabels()
-			if objLabels == nil {
-				objLabels = map[string]string{}
-			}
-			objLabels[labels.OwnerNameKey] = cos.Labels[labels.OwnerNameKey]
-			obj.SetLabels(objLabels)
-
 			switch cp := EffectiveCollisionProtection(cos.Spec.CollisionProtection, specPhase.CollisionProtection, specPhase.Objects[i].CollisionProtection); cp {
 			case ocv1.CollisionProtectionIfNoController, ocv1.CollisionProtectionNone:
 				opts = append(opts, boxcutter.WithObjectReconcileOptions(

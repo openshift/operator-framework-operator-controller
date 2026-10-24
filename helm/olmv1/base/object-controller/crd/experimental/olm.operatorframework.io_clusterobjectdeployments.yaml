@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
     olm.operatorframework.io/generator: experimental
   name: clusterobjectdeployments.olm.operatorframework.io
 spec:
@@ -18,6 +18,9 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Available
+      type: string
     - jsonPath: .status.conditions[?(@.type=='Progressing')].status
       name: Progressing
       type: string
@@ -51,6 +54,22 @@ spec:
           spec:
             description: spec defines the desired deployment template.
             properties:
+              revisionHistoryLimit:
+                default: 5
+                description: |-
+                  revisionHistoryLimit is the maximum number of archived (superseded)
+                  ClusterObjectSet revisions to retain, so that rollout history can be
+                  inspected and earlier revisions rolled back to. Active revisions are never
+                  removed and do not count against this limit. When the number of archived
+                  revisions exceeds this value, the oldest archived revisions are deleted
+                  until the limit is met.
+
+                  A value of 0 retains no archived revisions. The minimum is 0, the maximum
+                  is 50, and the default is 5.
+                format: int32
+                maximum: 50
+                minimum: 0
+                type: integer
               template:
                 description: |-
                   template is the desired content of newly created ClusterObjectSets.
@@ -63,10 +82,8 @@ spec:
                     properties:
                       collisionProtection:
                         description: |-
-                          collisionProtection is the default strategy for objects in the revision.
-                          Objects and phases may override it. When omitted the controller uses Prevent
-                          in the generated ClusterObjectSet. Omission remains distinct from explicit
-                          Prevent for template identity; admission does not default this field.
+                          collisionProtection is the required default collision protection strategy for objects in the revision.
+                          Objects and phases may override it.
                         enum:
                         - Prevent
                         - IfNoController
@@ -198,8 +215,8 @@ spec:
                                 x-kubernetes-validations:
                                 - message: exactly one of the fields in [object ref]
                                     must be set
-                                  rule: '[has(self.object),has(self.ref)].filter(x,x==true).size()
-                                    == 1'
+                                  rule: (has(self.object)?1:0)+(has(self.ref)?1:0)
+                                    == 1
                               maxItems: 50
                               type: array
                           required:
@@ -212,6 +229,18 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      progressDeadlineMinutes:
+                        description: |-
+                          progressDeadlineMinutes is an optional field that defines the maximum period
+                          of time in minutes after which an installation should be considered failed and
+                          require manual intervention. This functionality is disabled when no value
+                          is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
+
+                          The value is passed through to each ClusterObjectSet revision created from this template.
+                        format: int32
+                        maximum: 720
+                        minimum: 10
+                        type: integer
                       progressionProbes:
                         description: |-
                           progressionProbes supplies custom readiness probes for objects in every phase.
@@ -469,6 +498,7 @@ spec:
                         type: array
                         x-kubernetes-list-type: atomic
                     required:
+                    - collisionProtection
                     - phases
                     type: object
                 required:
@@ -483,11 +513,19 @@ spec:
             properties:
               conditions:
                 description: |-
-                  conditions describes rollout progress for the observed generation.
+                  conditions describes rollout progress and availability for the observed generation.
+
                   Progressing is True with reason NewClusterObjectSetProgressing while the desired
                   rollout is incomplete, or False with reason NewClusterObjectSetProgressed after
                   completion. Completion remains recorded even if the completed revision later
-                  becomes unhealthy.
+                  becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when
+                  the latest revision does not roll out within its spec.progressDeadlineMinutes.
+
+                  Available is True with reason Available when at least one active (non-archived)
+                  ClusterObjectSet revision is Ready, so the deployment remains available across
+                  rollouts while a previous revision is still Ready. It is False with reason
+                  Unavailable when active revisions exist but none are Ready yet, or with reason
+                  NoActiveRevision when no active revision exists.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

@@ -383,7 +383,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | conditions represents the current state of the ClusterExtension.<br />The set of condition types which apply to all spec.source variations are Installed and Progressing.<br />The Installed condition represents whether the bundle has been installed for this ClusterExtension:<br />  - When Installed is True and the Reason is Succeeded, the bundle has been successfully installed.<br />  - When Installed is False and the Reason is Failed, the bundle has failed to install.<br />The Progressing condition represents whether or not the ClusterExtension is advancing towards a new state.<br />When Progressing is True and the Reason is Succeeded, the ClusterExtension is making progress towards a new state.<br />When Progressing is True and the Reason is Retrying, the ClusterExtension has encountered an error that could be resolved on subsequent reconciliation attempts.<br />When Progressing is False and the Reason is Blocked, the ClusterExtension has encountered an error that requires manual intervention for recovery.<br />**Experimental channel:** <br />When Progressing is True and Reason is RollingOut, the ClusterExtension has one or more ClusterObjectSets in active roll out.<br /><br />When the ClusterExtension is sourced from a catalog, it surfaces deprecation conditions based on catalog metadata.<br />These are indications from a package owner to guide users away from a particular package, channel, or bundle:<br />  - BundleDeprecated is True if the installed bundle is marked deprecated, False if not deprecated, or Unknown if no bundle is installed yet or if catalog data is unavailable.<br />  - ChannelDeprecated is True if any requested channel is marked deprecated, False if not deprecated, or Unknown if catalog data is unavailable.<br />  - PackageDeprecated is True if the requested package is marked deprecated, False if not deprecated, or Unknown if catalog data is unavailable.<br />  - Deprecated is a rollup condition that is True when any deprecation exists, False when none exist, or Unknown when catalog data is unavailable. |  | Optional: \{\} <br /> |
 | `install` _[ClusterExtensionInstallStatus](#clusterextensioninstallstatus)_ | install is a representation of the current installation status for this ClusterExtension. |  | Optional: \{\} <br /> |
-| `activeRevisions` _[RevisionStatus](#revisionstatus) array_ | activeRevisions holds a list of currently active (non-archived) ClusterObjectSets,<br />including both installed and rolling out revisions.<br />**Experimental channel:**  |  | Optional: \{\} <br /> |
 
 
 #### ClusterObjectDeployment
@@ -442,6 +441,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `revisionHistoryLimit` _integer_ | revisionHistoryLimit is the maximum number of archived (superseded)<br />ClusterObjectSet revisions to retain, so that rollout history can be<br />inspected and earlier revisions rolled back to. Active revisions are never<br />removed and do not count against this limit. When the number of archived<br />revisions exceeds this value, the oldest archived revisions are deleted<br />until the limit is met.<br />A value of 0 retains no archived revisions. The minimum is 0, the maximum<br />is 50, and the default is 5. | 5 | Maximum: 50 <br />Minimum: 0 <br />Optional: \{\} <br /> |
 | `template` _[ClusterObjectDeploymentTemplate](#clusterobjectdeploymenttemplate)_ | template is the desired content of newly created ClusterObjectSets.<br />Changes to template create a new revision; existing revisions remain immutable. |  | Required: \{\} <br /> |
 
 
@@ -458,7 +458,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | conditions describes rollout progress for the observed generation.<br />Progressing is True with reason NewClusterObjectSetProgressing while the desired<br />rollout is incomplete, or False with reason NewClusterObjectSetProgressed after<br />completion. Completion remains recorded even if the completed revision later<br />becomes unhealthy. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | conditions describes rollout progress and availability for the observed generation.<br />Progressing is True with reason NewClusterObjectSetProgressing while the desired<br />rollout is incomplete, or False with reason NewClusterObjectSetProgressed after<br />completion. Completion remains recorded even if the completed revision later<br />becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when<br />the latest revision does not roll out within its spec.progressDeadlineMinutes.<br />Available is True with reason Available when at least one active (non-archived)<br />ClusterObjectSet revision is Ready, so the deployment remains available across<br />rollouts while a previous revision is still Ready. It is False with reason<br />Unavailable when active revisions exist but none are Ready yet, or with reason<br />NoActiveRevision when no active revision exists. |  | Optional: \{\} <br /> |
 
 
 #### ClusterObjectDeploymentTemplate
@@ -491,8 +491,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `phases` _[ClusterObjectSetPhase](#clusterobjectsetphase) array_ | phases is an ordered list of 1 to 20 uniquely named phases. Each phase contains<br />at most 50 objects using the existing inline object or immutable Secret reference<br />representation. Phase, object, and probe order participate in template identity. |  | MaxItems: 20 <br />MinItems: 1 <br />Required: \{\} <br /> |
+| `progressDeadlineMinutes` _integer_ | progressDeadlineMinutes is an optional field that defines the maximum period<br />of time in minutes after which an installation should be considered failed and<br />require manual intervention. This functionality is disabled when no value<br />is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).<br />The value is passed through to each ClusterObjectSet revision created from this template. |  | Maximum: 720 <br />Minimum: 10 <br />Optional: \{\} <br /> |
 | `progressionProbes` _[ProgressionProbe](#progressionprobe) array_ | progressionProbes supplies custom readiness probes for objects in every phase.<br />The existing ClusterObjectSet selector and assertion semantics apply. |  | MaxItems: 20 <br />MinItems: 1 <br />Optional: \{\} <br /> |
-| `collisionProtection` _[CollisionProtection](#collisionprotection)_ | collisionProtection is the default strategy for objects in the revision.<br />Objects and phases may override it. When omitted the controller uses Prevent<br />in the generated ClusterObjectSet. Omission remains distinct from explicit<br />Prevent for template identity; admission does not default this field. |  | Enum: [Prevent IfNoController None] <br />Optional: \{\} <br /> |
+| `collisionProtection` _[CollisionProtection](#collisionprotection)_ | collisionProtection is the required default collision protection strategy for objects in the revision.<br />Objects and phases may override it. |  | Enum: [Prevent IfNoController None] <br />Required: \{\} <br /> |
 
 
 
@@ -751,23 +752,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `ref` _string_ | ref contains the resolved image digest-based reference.<br />The digest format allows you to use other tooling to fetch the exact OCI manifests<br />that were used to extract the catalog contents. |  | MaxLength: 1000 <br />Required: \{\} <br /> |
-
-
-#### RevisionStatus
-
-
-
-RevisionStatus defines the observed state of a ClusterObjectSet.
-
-
-
-_Appears in:_
-- [ClusterExtensionStatus](#clusterextensionstatus)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `name` _string_ | name of the ClusterObjectSet resource |  |  |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | conditions optionally expose the Available condition of the revision,<br />in case when it is not yet marked as successfully installed (completedAt is not set).<br />Given that a ClusterExtension should remain available during upgrades, an observer may use these conditions<br />to get more insights about reasons for its current state. |  | Optional: \{\} <br /> |
 
 
 #### SelectorType

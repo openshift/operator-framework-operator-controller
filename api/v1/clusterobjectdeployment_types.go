@@ -26,14 +26,37 @@ const (
 
 	// Condition types.
 	ClusterObjectDeploymentTypeProgressing = "Progressing"
+	ClusterObjectDeploymentTypeAvailable   = "Available"
 
-	// Condition reasons.
+	// Progressing condition reasons.
 	ClusterObjectDeploymentReasonNewClusterObjectSetProgressed  = "NewClusterObjectSetProgressed"
 	ClusterObjectDeploymentReasonNewClusterObjectSetProgressing = "NewClusterObjectSetProgressing"
+	ClusterObjectDeploymentReasonProgressDeadlineExceeded       = ReasonProgressDeadlineExceeded
+
+	// Available condition reasons.
+	ClusterObjectDeploymentReasonAvailable        = "Available"
+	ClusterObjectDeploymentReasonUnavailable      = "Unavailable"
+	ClusterObjectDeploymentReasonNoActiveRevision = "NoActiveRevision"
 )
 
 // ClusterObjectDeploymentSpec defines the mutable desired state of a deployment.
 type ClusterObjectDeploymentSpec struct {
+	// revisionHistoryLimit is the maximum number of archived (superseded)
+	// ClusterObjectSet revisions to retain, so that rollout history can be
+	// inspected and earlier revisions rolled back to. Active revisions are never
+	// removed and do not count against this limit. When the number of archived
+	// revisions exceeds this value, the oldest archived revisions are deleted
+	// until the limit is met.
+	//
+	// A value of 0 retains no archived revisions. The minimum is 0, the maximum
+	// is 50, and the default is 5.
+	//
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=50
+	// +kubebuilder:default=5
+	// +optional
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+
 	// template is the desired content of newly created ClusterObjectSets.
 	// Changes to template create a new revision; existing revisions remain immutable.
 	// +required
@@ -60,6 +83,18 @@ type ClusterObjectDeploymentTemplateSpec struct {
 	// +listMapKey=name
 	Phases []ClusterObjectSetPhase `json:"phases"` //nolint:kubeapilinter // These are ordered groups of objects, not an enum describing lifecycle state.
 
+	// progressDeadlineMinutes is an optional field that defines the maximum period
+	// of time in minutes after which an installation should be considered failed and
+	// require manual intervention. This functionality is disabled when no value
+	// is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
+	//
+	// The value is passed through to each ClusterObjectSet revision created from this template.
+	//
+	// +kubebuilder:validation:Minimum:=10
+	// +kubebuilder:validation:Maximum:=720
+	// +optional
+	ProgressDeadlineMinutes int32 `json:"progressDeadlineMinutes,omitempty"`
+
 	// progressionProbes supplies custom readiness probes for objects in every phase.
 	// The existing ClusterObjectSet selector and assertion semantics apply.
 	// +optional
@@ -68,22 +103,28 @@ type ClusterObjectDeploymentTemplateSpec struct {
 	// +listType=atomic
 	ProgressionProbes []ProgressionProbe `json:"progressionProbes,omitempty"`
 
-	// collisionProtection is the default strategy for objects in the revision.
-	// Objects and phases may override it. When omitted the controller uses Prevent
-	// in the generated ClusterObjectSet. Omission remains distinct from explicit
-	// Prevent for template identity; admission does not default this field.
-	// +optional
+	// collisionProtection is the required default collision protection strategy for objects in the revision.
+	// Objects and phases may override it.
+	// +required
 	// +kubebuilder:validation:Enum=Prevent;IfNoController;None
-	CollisionProtection CollisionProtection `json:"collisionProtection,omitempty"`
+	CollisionProtection CollisionProtection `json:"collisionProtection"`
 }
 
 // ClusterObjectDeploymentStatus reports rollout progress.
 type ClusterObjectDeploymentStatus struct {
-	// conditions describes rollout progress for the observed generation.
+	// conditions describes rollout progress and availability for the observed generation.
+	//
 	// Progressing is True with reason NewClusterObjectSetProgressing while the desired
 	// rollout is incomplete, or False with reason NewClusterObjectSetProgressed after
 	// completion. Completion remains recorded even if the completed revision later
-	// becomes unhealthy.
+	// becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when
+	// the latest revision does not roll out within its spec.progressDeadlineMinutes.
+	//
+	// Available is True with reason Available when at least one active (non-archived)
+	// ClusterObjectSet revision is Ready, so the deployment remains available across
+	// rollouts while a previous revision is still Ready. It is False with reason
+	// Unavailable when active revisions exist but none are Ready yet, or with reason
+	// NoActiveRevision when no active revision exists.
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -97,6 +138,7 @@ type ClusterObjectDeploymentStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster,shortName=cod
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=Available,type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
 // +kubebuilder:printcolumn:name=Progressing,type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
 // +kubebuilder:printcolumn:name=Age,type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 52 && self.metadata.name.matches('^[a-z]([a-z0-9-]*[a-z0-9])?$')",message="name must be 1 to 52 lowercase alphanumeric or hyphen characters, starting with a letter and ending with an alphanumeric character"
@@ -107,7 +149,7 @@ type ClusterObjectDeployment struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// metadata is the standard object's metadata. Names are valid COS groups of at
-	// most 52 characters; generated child names also include an int64 revision suffix.
+	// most 52 characters; child names also include a hyphen and up to ten revision digits.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

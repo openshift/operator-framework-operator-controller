@@ -34,6 +34,7 @@ func TestClusterObjectDeploymentValidity(t *testing.T) {
 		{name: "collision protection IfNoController", mutate: codCollisionProtection(CollisionProtectionIfNoController), valid: true},
 		{name: "collision protection None", mutate: codCollisionProtection(CollisionProtectionNone), valid: true},
 		{name: "collision protection invalid", mutate: codCollisionProtection("Invalid")},
+		{name: "collision protection empty", mutate: codCollisionProtection("")},
 		{name: "phases omitted", mutate: func(cod *ClusterObjectDeployment) { cod.Spec.Template.Spec.Phases = nil }},
 		{name: "phases empty", mutate: func(cod *ClusterObjectDeployment) { cod.Spec.Template.Spec.Phases = []ClusterObjectSetPhase{} }},
 		{name: "20 phases", mutate: codPhases(20), valid: true},
@@ -104,24 +105,28 @@ func TestClusterObjectDeploymentValidity(t *testing.T) {
 	}
 }
 
-func TestClusterObjectDeploymentDoesNotDefaultTemplate(t *testing.T) {
+func TestClusterObjectDeploymentCollisionProtectionIsRequired(t *testing.T) {
 	c := newClient(t)
-	cod := newTestClusterObjectDeployment("cod-no-defaults")
+
+	// collisionProtection missing rejects the object.
+	cod := newTestClusterObjectDeployment("cod-cp-required")
+	cod.Spec.Template.Spec.CollisionProtection = ""
+	err := c.Create(t.Context(), cod)
+	require.True(t, apierrors.IsInvalid(err), "expected missing collisionProtection to be invalid, got: %v", err)
+
+	// Valid values round-trip correctly; phase and object collisionProtection remain optional.
+	cod = newTestClusterObjectDeployment("cod-cp-roundtrip")
 	require.NoError(t, c.Create(t.Context(), cod))
 	cod = getTestClusterObjectDeployment(t, c, cod.Name)
-	require.Empty(t, cod.Spec.Template.Spec.CollisionProtection)
+	require.Equal(t, CollisionProtectionPrevent, cod.Spec.Template.Spec.CollisionProtection)
 	require.Empty(t, cod.Spec.Template.Spec.Phases[0].CollisionProtection)
 	require.Empty(t, cod.Spec.Template.Spec.Phases[0].Objects[0].CollisionProtection)
 
-	// Omitted and explicitly supplied Prevent remain distinguishable templates.
-	cod.Spec.Template.Spec.CollisionProtection = CollisionProtectionPrevent
+	// The field can be changed to another valid value.
+	cod.Spec.Template.Spec.CollisionProtection = CollisionProtectionNone
 	require.NoError(t, c.Update(t.Context(), cod))
 	cod = getTestClusterObjectDeployment(t, c, cod.Name)
-	require.Equal(t, CollisionProtectionPrevent, cod.Spec.Template.Spec.CollisionProtection)
-	cod.Spec.Template.Spec.CollisionProtection = ""
-	require.NoError(t, c.Update(t.Context(), cod))
-	cod = getTestClusterObjectDeployment(t, c, cod.Name)
-	require.Empty(t, cod.Spec.Template.Spec.CollisionProtection)
+	require.Equal(t, CollisionProtectionNone, cod.Spec.Template.Spec.CollisionProtection)
 }
 
 func TestClusterObjectDeploymentTemplateIsMutable(t *testing.T) {
@@ -154,7 +159,6 @@ func TestClusterObjectDeploymentTemplateIsMutable(t *testing.T) {
 
 	// Optional fields can also be removed after being set.
 	cod.Spec.Template.Spec.ProgressionProbes = nil
-	cod.Spec.Template.Spec.CollisionProtection = ""
 	require.NoError(t, c.Update(t.Context(), cod))
 }
 
@@ -166,6 +170,7 @@ func TestClusterObjectDeploymentUpdateValidation(t *testing.T) {
 	}{
 		{name: "no phases", mutate: func(cod *ClusterObjectDeployment) { cod.Spec.Template.Spec.Phases = nil }},
 		{name: "invalid collision protection", mutate: codCollisionProtection("Invalid")},
+		{name: "empty collision protection", mutate: codCollisionProtection("")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cod := newTestClusterObjectDeployment(fmt.Sprintf("cod-update-validity-%d", i))
@@ -233,18 +238,32 @@ func TestClusterObjectDeploymentTemplateSchema(t *testing.T) {
 		raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cod)
 		require.NoError(t, err)
 		for field, value := range map[string]interface{}{
-			"group": "example", "revision": int64(42), "lifecycleState": "Active", "progressDeadlineMinutes": int64(10),
+			"group": "example", "revision": int64(42), "lifecycleState": "Active",
 		} {
 			require.NoError(t, unstructured.SetNestedField(raw, value, "spec", "template", "spec", field))
 		}
 		obj := &unstructured.Unstructured{Object: raw}
 		require.NoError(t, c.Create(t.Context(), obj))
 		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(obj), obj))
-		for _, field := range []string{"group", "revision", "lifecycleState", "progressDeadlineMinutes"} {
+		for _, field := range []string{"group", "revision", "lifecycleState"} {
 			_, found, err := unstructured.NestedFieldNoCopy(obj.Object, "spec", "template", "spec", field)
 			require.NoError(t, err)
 			require.False(t, found, "template must not expose %s", field)
 		}
+	})
+
+	t.Run("progressDeadlineMinutes is retained and passed through", func(t *testing.T) {
+		cod := newTestClusterObjectDeployment("cod-template-progress-deadline")
+		raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cod)
+		require.NoError(t, err)
+		require.NoError(t, unstructured.SetNestedField(raw, int64(10), "spec", "template", "spec", "progressDeadlineMinutes"))
+		obj := &unstructured.Unstructured{Object: raw}
+		require.NoError(t, c.Create(t.Context(), obj))
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(obj), obj))
+		value, found, err := unstructured.NestedInt64(obj.Object, "spec", "template", "spec", "progressDeadlineMinutes")
+		require.NoError(t, err)
+		require.True(t, found, "template must expose progressDeadlineMinutes")
+		require.Equal(t, int64(10), value)
 	})
 }
 
@@ -306,7 +325,8 @@ func newTestClusterObjectDeployment(name string) *ClusterObjectDeployment {
 		Spec: ClusterObjectDeploymentSpec{
 			Template: ClusterObjectDeploymentTemplate{
 				Spec: ClusterObjectDeploymentTemplateSpec{
-					Phases: []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{{Object: configMap()}}}},
+					CollisionProtection: CollisionProtectionPrevent,
+					Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{{Object: configMap()}}}},
 				},
 			},
 		},

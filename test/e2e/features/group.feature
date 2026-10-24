@@ -178,7 +178,7 @@ Feature: Track ClusterObjectSet revisions by group
       apiVersion: olm.operatorframework.io/v1
       kind: ClusterObjectSet
       metadata:
-        name: ${COS_NAME}
+        name: ${NAME}-other-1
         labels:
           olm.operatorframework.io/owner-name: ${NAME}
       spec:
@@ -218,7 +218,6 @@ Feature: Track ClusterObjectSet revisions by group
     When ClusterExtension version is updated to "1.0.6"
     Then ClusterExtension is rolled out
     And ClusterExtension is available
-    And ClusterExtension reports "${NAME}-7" as active revision
     And ClusterObjectSet "${NAME}-7" has group "${NAME}"
     And resource "clusterobjectset/${NAME}-1" is eventually not found
     # The existing retention policy keeps five prior revisions plus the current one.

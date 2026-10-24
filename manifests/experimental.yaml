@@ -1138,88 +1138,6 @@ spec:
             description: status is an optional field that defines the observed state
               of the ClusterExtension.
             properties:
-              activeRevisions:
-                description: |-
-                  activeRevisions holds a list of currently active (non-archived) ClusterObjectSets,
-                  including both installed and rolling out revisions.
-                items:
-                  description: RevisionStatus defines the observed state of a ClusterObjectSet.
-                  properties:
-                    conditions:
-                      description: |-
-                        conditions optionally expose the Available condition of the revision,
-                        in case when it is not yet marked as successfully installed (completedAt is not set).
-                        Given that a ClusterExtension should remain available during upgrades, an observer may use these conditions
-                        to get more insights about reasons for its current state.
-                      items:
-                        description: Condition contains details for one aspect of
-                          the current state of this API Resource.
-                        properties:
-                          lastTransitionTime:
-                            description: |-
-                              lastTransitionTime is the last time the condition transitioned from one status to another.
-                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                            format: date-time
-                            type: string
-                          message:
-                            description: |-
-                              message is a human readable message indicating details about the transition.
-                              This may be an empty string.
-                            maxLength: 32768
-                            type: string
-                          observedGeneration:
-                            description: |-
-                              observedGeneration represents the .metadata.generation that the condition was set based upon.
-                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                              with respect to the current state of the instance.
-                            format: int64
-                            minimum: 0
-                            type: integer
-                          reason:
-                            description: |-
-                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                              Producers of specific condition types may define expected values and meanings for this field,
-                              and whether the values are considered a guaranteed API.
-                              The value should be a CamelCase string.
-                              This field may not be empty.
-                            maxLength: 1024
-                            minLength: 1
-                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                            type: string
-                          status:
-                            description: status of the condition, one of True, False,
-                              Unknown.
-                            enum:
-                            - "True"
-                            - "False"
-                            - Unknown
-                            type: string
-                          type:
-                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                            maxLength: 316
-                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                            type: string
-                        required:
-                        - lastTransitionTime
-                        - message
-                        - reason
-                        - status
-                        - type
-                        type: object
-                      type: array
-                      x-kubernetes-list-map-keys:
-                      - type
-                      x-kubernetes-list-type: map
-                    name:
-                      description: name of the ClusterObjectSet resource
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
               conditions:
                 description: |-
                   conditions represents the current state of the ClusterExtension.
@@ -1375,7 +1293,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
     olm.operatorframework.io/generator: experimental
   name: clusterobjectdeployments.olm.operatorframework.io
 spec:
@@ -1390,6 +1308,9 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Available
+      type: string
     - jsonPath: .status.conditions[?(@.type=='Progressing')].status
       name: Progressing
       type: string
@@ -1423,6 +1344,22 @@ spec:
           spec:
             description: spec defines the desired deployment template.
             properties:
+              revisionHistoryLimit:
+                default: 5
+                description: |-
+                  revisionHistoryLimit is the maximum number of archived (superseded)
+                  ClusterObjectSet revisions to retain, so that rollout history can be
+                  inspected and earlier revisions rolled back to. Active revisions are never
+                  removed and do not count against this limit. When the number of archived
+                  revisions exceeds this value, the oldest archived revisions are deleted
+                  until the limit is met.
+
+                  A value of 0 retains no archived revisions. The minimum is 0, the maximum
+                  is 50, and the default is 5.
+                format: int32
+                maximum: 50
+                minimum: 0
+                type: integer
               template:
                 description: |-
                   template is the desired content of newly created ClusterObjectSets.
@@ -1435,10 +1372,8 @@ spec:
                     properties:
                       collisionProtection:
                         description: |-
-                          collisionProtection is the default strategy for objects in the revision.
-                          Objects and phases may override it. When omitted the controller uses Prevent
-                          in the generated ClusterObjectSet. Omission remains distinct from explicit
-                          Prevent for template identity; admission does not default this field.
+                          collisionProtection is the required default collision protection strategy for objects in the revision.
+                          Objects and phases may override it.
                         enum:
                         - Prevent
                         - IfNoController
@@ -1570,8 +1505,8 @@ spec:
                                 x-kubernetes-validations:
                                 - message: exactly one of the fields in [object ref]
                                     must be set
-                                  rule: '[has(self.object),has(self.ref)].filter(x,x==true).size()
-                                    == 1'
+                                  rule: (has(self.object)?1:0)+(has(self.ref)?1:0)
+                                    == 1
                               maxItems: 50
                               type: array
                           required:
@@ -1584,6 +1519,18 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      progressDeadlineMinutes:
+                        description: |-
+                          progressDeadlineMinutes is an optional field that defines the maximum period
+                          of time in minutes after which an installation should be considered failed and
+                          require manual intervention. This functionality is disabled when no value
+                          is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
+
+                          The value is passed through to each ClusterObjectSet revision created from this template.
+                        format: int32
+                        maximum: 720
+                        minimum: 10
+                        type: integer
                       progressionProbes:
                         description: |-
                           progressionProbes supplies custom readiness probes for objects in every phase.
@@ -1841,6 +1788,7 @@ spec:
                         type: array
                         x-kubernetes-list-type: atomic
                     required:
+                    - collisionProtection
                     - phases
                     type: object
                 required:
@@ -1855,11 +1803,19 @@ spec:
             properties:
               conditions:
                 description: |-
-                  conditions describes rollout progress for the observed generation.
+                  conditions describes rollout progress and availability for the observed generation.
+
                   Progressing is True with reason NewClusterObjectSetProgressing while the desired
                   rollout is incomplete, or False with reason NewClusterObjectSetProgressed after
                   completion. Completion remains recorded even if the completed revision later
-                  becomes unhealthy.
+                  becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when
+                  the latest revision does not roll out within its spec.progressDeadlineMinutes.
+
+                  Available is True with reason Available when at least one active (non-archived)
+                  ClusterObjectSet revision is Ready, so the deployment remains available across
+                  rollouts while a previous revision is still Ready. It is False with reason
+                  Unavailable when active revisions exist but none are Ready yet, or with reason
+                  NoActiveRevision when no active revision exists.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -1936,7 +1892,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
     olm.operatorframework.io/generator: experimental
   name: clusterobjectsets.olm.operatorframework.io
 spec:
@@ -1986,6 +1942,9 @@ spec:
           single revision at a time. Ownership of objects is transitioned from one revision
           to the next as new revisions are rolled out. Once the latest revision has rolled
           out successfully, previous active revisions are archived for posterity.
+          Set metadata.name explicitly to <spec.group>-<spec.revision>, using decimal
+          notation without leading zeros. This ensures revision uniqueness within a group.
+          Name generation through metadata.generateName is not supported.
         properties:
           apiVersion:
             description: |-
@@ -2009,13 +1968,11 @@ spec:
             properties:
               collisionProtection:
                 description: |-
-                  collisionProtection specifies the default collision protection strategy for all objects
-                  in this revision. Individual phases or objects can override this value.
+                  collisionProtection is a required field that specifies the default collision protection
+                  strategy for all objects in this revision. Individual phases or objects can override this value.
 
-                  When set, this value is used as the default for any phase or object that does not
-                  explicitly specify its own collisionProtection.
-
-                  The resolution order is: object > phase > spec
+                  This value is used as the default for any phase or object that does not explicitly specify
+                  its own collisionProtection. The resolution order is: object > phase > spec.
                 enum:
                 - Prevent
                 - IfNoController
@@ -2201,8 +2158,7 @@ spec:
                         x-kubernetes-validations:
                         - message: exactly one of the fields in [object ref] must
                             be set
-                          rule: '[has(self.object),has(self.ref)].filter(x,x==true).size()
-                            == 1'
+                          rule: (has(self.object)?1:0)+(has(self.ref)?1:0) == 1
                       maxItems: 50
                       type: array
                   required:
@@ -2240,6 +2196,9 @@ spec:
                   a ConfigMap if that particular object does not pass the probe check.
 
                   The maximum number of probes is 20.
+
+                  Once set, even if empty, the progressionProbes field is immutable, as it is
+                  part of the immutable content of a revision.
                 items:
                   description: ProgressionProbe provides a custom probe definition,
                     consisting of an object selection method and assertions.
@@ -2486,14 +2445,18 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: progressionProbes is immutable
+                  rule: self == oldSelf || oldSelf.size() == 0
               revision:
                 description: |-
                   revision is a required, immutable sequence number identifying a specific
                   ClusterObjectSet within a sequence of related revisions.
 
-                  The revision field must be a positive integer.
-                  Each ClusterObjectSet in the same revision sequence must have a unique revision number.
+                  The revision field must be an integer from 1 to 9999999999, inclusive.
+                  Each ClusterObjectSet in the same group must have a unique revision number.
                 format: int64
+                maximum: 9999999999
                 minimum: 1
                 type: integer
                 x-kubernetes-validations:
@@ -2602,6 +2565,8 @@ spec:
                 description: |-
                   objectCounts reports aggregate object counts across all phases.
                   Values are sums of the per-phase counts in observedPhases.
+                  It is omitted until counts have been computed; when present, all count
+                  fields are reported (including zeros).
                 properties:
                   present:
                     description: |-
@@ -2636,6 +2601,9 @@ spec:
                     minimum: 0
                     type: integer
                 required:
+                - present
+                - ready
+                - synced
                 - total
                 type: object
               observedPhases:
@@ -2672,8 +2640,10 @@ spec:
                           character.
                         rule: '!format.dns1123Label().validate(self).hasValue()'
                     objectCounts:
-                      description: objectCounts reports the number of objects in this
-                        phase by state.
+                      description: |-
+                        objectCounts reports the number of objects in this phase by state.
+                        It is omitted until counts have been computed; when present, all count
+                        fields are reported (including zeros).
                       properties:
                         present:
                           description: |-
@@ -2708,12 +2678,14 @@ spec:
                           minimum: 0
                           type: integer
                       required:
+                      - present
+                      - ready
+                      - synced
                       - total
                       type: object
                   required:
                   - digest
                   - name
-                  - objectCounts
                   type: object
                 maxItems: 20
                 type: array
@@ -2727,6 +2699,9 @@ spec:
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be <spec.group>-<spec.revision>
+          rule: self.metadata.name == '%s-%d'.format([self.spec.group, self.spec.revision])
     selectableFields:
     - jsonPath: .spec.group
     served: true

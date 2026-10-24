@@ -25,6 +25,11 @@ import (
 const (
 	ClusterObjectSetKind = "ClusterObjectSet"
 
+	// ClusterObjectSetMaxRevision is the largest revision whose canonical name fits
+	// in a 63-character label value with a 52-character group and a separating hyphen.
+	// Keep the revision validation maximum below in sync with this value.
+	ClusterObjectSetMaxRevision int64 = 9999999999
+
 	// Condition Types
 	ClusterObjectSetTypeReady = "Ready"
 
@@ -75,11 +80,12 @@ type ClusterObjectSetSpec struct {
 	// revision is a required, immutable sequence number identifying a specific
 	// ClusterObjectSet within a sequence of related revisions.
 	//
-	// The revision field must be a positive integer.
-	// Each ClusterObjectSet in the same revision sequence must have a unique revision number.
+	// The revision field must be an integer from 1 to 9999999999, inclusive.
+	// Each ClusterObjectSet in the same group must have a unique revision number.
 	//
 	// +required
 	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=9999999999
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="revision is immutable"
 	Revision int64 `json:"revision"`
 
@@ -131,6 +137,10 @@ type ClusterObjectSetSpec struct {
 	//
 	// The maximum number of probes is 20.
 	//
+	// Once set, even if empty, the progressionProbes field is immutable, as it is
+	// part of the immutable content of a revision.
+	//
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf || oldSelf.size() == 0", message="progressionProbes is immutable"
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=20
 	// +listType=atomic
@@ -138,18 +148,16 @@ type ClusterObjectSetSpec struct {
 	// <opcon:experimental>
 	ProgressionProbes []ProgressionProbe `json:"progressionProbes,omitempty"`
 
-	// collisionProtection specifies the default collision protection strategy for all objects
-	// in this revision. Individual phases or objects can override this value.
+	// collisionProtection is a required field that specifies the default collision protection
+	// strategy for all objects in this revision. Individual phases or objects can override this value.
 	//
-	// When set, this value is used as the default for any phase or object that does not
-	// explicitly specify its own collisionProtection.
-	//
-	// The resolution order is: object > phase > spec
+	// This value is used as the default for any phase or object that does not explicitly specify
+	// its own collisionProtection. The resolution order is: object > phase > spec.
 	//
 	// +required
 	// +kubebuilder:validation:Enum=Prevent;IfNoController;None
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="collisionProtection is immutable"
-	CollisionProtection CollisionProtection `json:"collisionProtection,omitempty"`
+	CollisionProtection CollisionProtection `json:"collisionProtection"`
 }
 
 // ProgressionProbe provides a custom probe definition, consisting of an object selection method and assertions.
@@ -532,8 +540,10 @@ type ClusterObjectSetStatus struct {
 
 	// objectCounts reports aggregate object counts across all phases.
 	// Values are sums of the per-phase counts in observedPhases.
+	// It is omitted until counts have been computed; when present, all count
+	// fields are reported (including zeros).
 	// +optional
-	ObjectCounts ObjectCounts `json:"objectCounts,omitempty"`
+	ObjectCounts ObjectCounts `json:"objectCounts,omitzero"`
 
 	// observedPhases records the content hashes of resolved phases
 	// at first successful reconciliation. This is used to detect if
@@ -577,8 +587,10 @@ type ObservedPhase struct {
 	Digest string `json:"digest"`
 
 	// objectCounts reports the number of objects in this phase by state.
-	// +required
-	ObjectCounts ObjectCounts `json:"objectCounts"`
+	// It is omitted until counts have been computed; when present, all count
+	// fields are reported (including zeros).
+	// +optional
+	ObjectCounts ObjectCounts `json:"objectCounts,omitzero"`
 }
 
 // ObjectCounts reports the number of objects in a ClusterObjectSet or phase by state.
@@ -593,24 +605,24 @@ type ObjectCounts struct {
 	// cluster. During reconcile, this counts objects that the controller
 	// has found or created. During teardown, this decrements toward zero
 	// as objects are deleted.
-	// +optional
+	// +required
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=1000
-	Present int64 `json:"present,omitempty"`
+	Present int64 `json:"present"`
 
 	// synced is the number of objects in this phase whose cluster state
 	// matches the desired state.
-	// +optional
+	// +required
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=1000
-	Synced int64 `json:"synced,omitempty"`
+	Synced int64 `json:"synced"`
 
 	// ready is the number of objects in this phase that are synced
 	// and pass their assertions.
-	// +optional
+	// +required
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=1000
-	Ready int64 `json:"ready,omitempty"`
+	Ready int64 `json:"ready"`
 }
 
 // TODO(COD): Update the archival description below when archival decisions move
@@ -621,6 +633,7 @@ type ObjectCounts struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
+// +kubebuilder:validation:XValidation:rule="self.metadata.name == '%s-%d'.format([self.spec.group, self.spec.revision])",message="metadata.name must be <spec.group>-<spec.revision>"
 // +kubebuilder:selectablefield:JSONPath=`.spec.group`
 // +kubebuilder:printcolumn:name="Group",type=string,JSONPath=`.spec.group`
 // +kubebuilder:printcolumn:name="Revision",type=integer,JSONPath=`.spec.revision`
@@ -638,6 +651,9 @@ type ObjectCounts struct {
 // single revision at a time. Ownership of objects is transitioned from one revision
 // to the next as new revisions are rolled out. Once the latest revision has rolled
 // out successfully, previous active revisions are archived for posterity.
+// Set metadata.name explicitly to <spec.group>-<spec.revision>, using decimal
+// notation without leading zeros. This ensures revision uniqueness within a group.
+// Name generation through metadata.generateName is not supported.
 type ClusterObjectSet struct {
 	metav1.TypeMeta `json:",inline"`
 

@@ -119,7 +119,6 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)ClusterExtension is removed$`, ClusterExtensionIsRemoved)
 	sc.Step(`^(?i)ClusterExtension (?:latest generation )?has (?:been )?reconciled(?: the latest generation)?$`, ClusterExtensionReconciledLatestGeneration)
 	sc.Step(`^(?i)the ClusterExtension's constituent resources are removed$`, ClusterExtensionResourcesRemoved)
-	sc.Step(`^(?i)ClusterExtension reports "([^"]+)" as active revision(s?)$`, ClusterExtensionReportsActiveRevisions)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message:$`, ClusterExtensionReportsCondition)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, ClusterExtensionReportsConditionWithMessageFragment)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterExtensionReportsConditionWithoutMsg)
@@ -127,12 +126,15 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterObjectSetReportsConditionWithoutMsg)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message:$`, ClusterObjectSetReportsConditionWithMsg)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, ClusterObjectSetReportsConditionWithMessageFragment)
+
+	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterObjectDeploymentReportsConditionWithoutMsg)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) transition between (\d+) and (\d+) minutes since its creation$`, ClusterExtensionReportsConditionTransitionTime)
 	sc.Step(`^(?i)ClusterObjectSet is applied(?:\s+.*)?$`, ResourceIsApplied)
 	sc.Step(`^(?i)ClusterObjectSet with Namespace owner "([^"]*)" is applied$`, ClusterObjectSetWithNamespaceOwnerApplied)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reconciliation is triggered$`, TriggerClusterObjectSetReconciliation)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" has observed phase "([^"]+)" with a non-empty digest$`, ClusterObjectSetHasObservedPhase)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" is archived$`, ClusterObjectSetIsArchived)
+	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" is eventually deleted$`, ClusterObjectSetIsEventuallyDeleted)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports phase "([^"]+)" object counts: total=(\d+), present=(\d+), synced=(\d+), ready=(\d+)$`, ClusterObjectSetPhaseHasObjectCounts)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports aggregate object counts: total=(\d+), present=(\d+), synced=(\d+), ready=(\d+)$`, ClusterObjectSetHasAggregateObjectCounts)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" contains annotation "([^"]+)" with value$`, ClusterObjectSetHasAnnotationWithValue)
@@ -202,7 +204,7 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)operator "([^"]+)" target namespace is "([^"]+)"$`, OperatorTargetNamespace)
 	sc.Step(`^(?i)Prometheus metrics are returned in the response$`, PrometheusMetricsAreReturned)
 
-	sc.Step(`^(?i)min value for (ClusterExtension|ClusterObjectSet) ((?:\.[a-zA-Z]+)+) is set to (\d+)$`, SetCRDFieldMinValue)
+	sc.Step(`^(?i)min value for (ClusterExtension|ClusterObjectSet|ClusterObjectDeployment) ((?:\.[a-zA-Z]+)+) is set to (\d+)$`, SetCRDFieldMinValue)
 
 	sc.Step(`^(?i)ClusterExtension "([^"]+)" owns (\d+) ClusterObjectSets?$`, ClusterExtensionOwnsClusterObjectSets)
 	sc.Step(`^(?i)ClusterExtension "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+)$`, NamedClusterExtensionReportsCondition)
@@ -964,33 +966,6 @@ func ClusterExtensionReportsConditionTransitionTime(ctx context.Context, conditi
 	return nil
 }
 
-// ClusterExtensionReportsActiveRevisions waits for the ClusterExtension's active revisions to match the expected
-// set of revision names. Polls with timeout.
-func ClusterExtensionReportsActiveRevisions(ctx context.Context, rawRevisionNames string) error {
-	sc := scenarioCtx(ctx)
-	expectedRevisionNames := sets.New[string]()
-	for _, rev := range strings.Split(rawRevisionNames, ",") {
-		expectedRevisionNames.Insert(substituteScenarioVars(strings.TrimSpace(rev), sc))
-	}
-
-	waitFor(ctx, func() bool {
-		v, err := k8sClient(ctx, "get", "clusterextension", sc.clusterExtensionName, "-o", "jsonpath={.status.activeRevisions}")
-		if err != nil {
-			return false
-		}
-		var activeRevisions []ocv1.RevisionStatus
-		if err := json.Unmarshal([]byte(v), &activeRevisions); err != nil {
-			return false
-		}
-		activeRevisionsNames := sets.New[string]()
-		for _, rev := range activeRevisions {
-			activeRevisionsNames.Insert(rev.Name)
-		}
-		return activeRevisionsNames.Equal(expectedRevisionNames)
-	})
-	return nil
-}
-
 // ClusterObjectSetReportsConditionWithoutMsg waits for the named ClusterObjectSet to have a condition
 // matching type, status, and reason. Polls with timeout.
 func ClusterObjectSetReportsConditionWithoutMsg(ctx context.Context, revisionName, conditionType, conditionStatus, conditionReason string) error {
@@ -1007,6 +982,12 @@ func ClusterObjectSetReportsConditionWithMsg(ctx context.Context, revisionName, 
 // matching type, status, reason, with a message containing the specified fragment. Polls with timeout.
 func ClusterObjectSetReportsConditionWithMessageFragment(ctx context.Context, revisionName, conditionType, conditionStatus, conditionReason string, msgFragment *godog.DocString) error {
 	return waitForCondition(ctx, "clusterobjectset", substituteScenarioVars(revisionName, scenarioCtx(ctx)), conditionType, conditionStatus, &conditionReason, messageFragmentComparison(ctx, msgFragment))
+}
+
+// ClusterObjectDeploymentReportsConditionWithoutMsg waits for the named ClusterObjectDeployment to have a
+// condition matching type, status, and reason. Polls with timeout.
+func ClusterObjectDeploymentReportsConditionWithoutMsg(ctx context.Context, name, conditionType, conditionStatus, conditionReason string) error {
+	return waitForCondition(ctx, "clusterobjectdeployment", substituteScenarioVars(name, scenarioCtx(ctx)), conditionType, conditionStatus, &conditionReason, nil)
 }
 
 // TriggerClusterObjectSetReconciliation annotates the named ClusterObjectSet
@@ -1041,6 +1022,21 @@ func ClusterObjectSetHasObservedPhase(ctx context.Context, cosName, phaseName st
 // with reason Archived. Polls with timeout.
 func ClusterObjectSetIsArchived(ctx context.Context, revisionName string) error {
 	return waitForCondition(ctx, "clusterobjectset", substituteScenarioVars(revisionName, scenarioCtx(ctx)), "Ready", "False", ptr.To("Archived"), nil)
+}
+
+// ClusterObjectSetIsEventuallyDeleted waits for the named ClusterObjectSet to be
+// removed from the cluster, e.g. garbage collected once it is archived beyond the
+// owning ClusterObjectDeployment's revisionHistoryLimit. Polls with timeout.
+func ClusterObjectSetIsEventuallyDeleted(ctx context.Context, revisionName string) error {
+	revisionName = substituteScenarioVars(strings.TrimSpace(revisionName), scenarioCtx(ctx))
+	waitFor(ctx, func() bool {
+		out, err := k8sClient(ctx, "get", "clusterobjectset", revisionName, "--ignore-not-found", "-o", "json")
+		if err != nil {
+			return false
+		}
+		return strings.TrimSpace(out) == ""
+	})
+	return nil
 }
 
 // ClusterObjectSetPhaseHasObjectCounts waits for a specific phase of the named ClusterObjectSet to
@@ -2182,6 +2178,8 @@ func SetCRDFieldMinValue(ctx context.Context, resourceType, jsonPath string, min
 		crdName = "clusterextensions.olm.operatorframework.io"
 	case "ClusterObjectSet":
 		crdName = "clusterobjectsets.olm.operatorframework.io"
+	case "ClusterObjectDeployment":
+		crdName = "clusterobjectdeployments.olm.operatorframework.io"
 	default:
 		return fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
