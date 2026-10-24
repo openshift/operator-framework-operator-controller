@@ -1,7 +1,9 @@
 package specs
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,6 +20,117 @@ import (
 	"github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util/architecture"
 	olmv1util "github.com/openshift/operator-framework-operator-controller/openshift/tests-extension/test/qe/util/olmv1util"
 )
+
+const (
+	authfileNotReadyExitCode = 42
+	authfileRegistry         = "fake.registry"
+	authfileProbe            = `for authfile in $1; do
+	[ -e "$authfile" ] || continue
+	grep -Fq -- "$2" "$authfile"
+	status=$?
+	case $status in
+		0) exit 0 ;;
+		1) ;;
+		*) exit "$status" ;;
+	esac
+done
+exit 42`
+)
+
+type authfileCommandRunner func(context.Context, ...string) ([]byte, []byte, int, error)
+
+func runAuthfileCommand(ctx context.Context, args ...string) ([]byte, []byte, int, error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "oc", args...) //nolint:gosec // arguments are fixed by the test
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		return stdout.Bytes(), stderr.Bytes(), 0, nil
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return stdout.Bytes(), stderr.Bytes(), exitErr.ExitCode(), err
+	}
+	return stdout.Bytes(), stderr.Bytes(), -1, err
+}
+
+func isAuthfilePodReadinessError(stderr []byte) bool {
+	message := strings.ToLower(string(stderr))
+	return (strings.Contains(message, "pods \"") && strings.Contains(message, " not found")) ||
+		strings.Contains(message, "pod does not exist") ||
+		strings.Contains(message, "container not found") ||
+		strings.Contains(message, "pod is not running") ||
+		strings.Contains(message, "completed pod")
+}
+
+func waitForRegistryInAuthfile(omega o.Gomega, ctx context.Context, runner authfileCommandRunner, component, namespace, selector, authfileGlob string, interval, timeout time.Duration) {
+	deadlineCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	var lastReadinessErr error
+
+	contextError := func(ctx context.Context) error {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && lastReadinessErr != nil {
+			return lastReadinessErr
+		}
+		return ctx.Err()
+	}
+	retry := func(err error) error {
+		lastReadinessErr = err
+		return err
+	}
+
+	omega.Eventually(func(ctx context.Context) error {
+		stdout, _, _, err := runner(ctx,
+			"--kubeconfig="+exutil.KubeConfigPath(),
+			"get", "pods",
+			"-n", namespace,
+			"-l", selector,
+			"--field-selector=status.phase=Running",
+			"-o=jsonpath={.items[*].metadata.name}",
+		)
+		if err != nil {
+			if ctx.Err() != nil {
+				return contextError(ctx)
+			}
+			return o.StopTrying(fmt.Sprintf("failed to resolve %s pod", component)).Wrap(err)
+		}
+
+		pods := strings.Fields(string(stdout))
+		if len(pods) == 0 {
+			return retry(fmt.Errorf("no running %s pod matched selector %q", component, selector))
+		}
+		pod := pods[0]
+
+		// Exit with a dedicated code for both a missing authfile and a file that does not
+		// contain the registry yet. The probe is quiet so authentication data is never logged.
+		_, stderr, exitCode, err := runner(ctx,
+			"--kubeconfig="+exutil.KubeConfigPath(),
+			"exec", "-n", namespace, pod,
+			"--", "bash", "-c", authfileProbe, "--", authfileGlob, authfileRegistry,
+		)
+		if err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return contextError(ctx)
+		}
+		if exitCode == authfileNotReadyExitCode {
+			return retry(fmt.Errorf("%s pod %q authfile does not contain %q yet", component, pod, authfileRegistry))
+		}
+		if isAuthfilePodReadinessError(stderr) {
+			return retry(fmt.Errorf("%s pod %q became unavailable during the authfile check", component, pod))
+		}
+		if exitCode >= 0 {
+			return o.StopTrying(fmt.Sprintf("%s pod %q authfile probe failed with exit code %d", component, pod, exitCode))
+		}
+		return o.StopTrying(fmt.Sprintf("failed to execute %s pod %q authfile probe", component, pod)).Wrap(err)
+	}).WithContext(deadlineCtx).
+		WithTimeout(timeout).
+		WithPolling(interval).
+		Should(o.Succeed(), "waiting for %s authfile readiness", component)
+}
 
 var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperShiftHOST"), func() {
 	defer g.GinkgoRecover()
@@ -773,7 +886,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 
 	})
 
-	g.It("PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:40m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]"), func() {
+	g.It("PolarionID:76985-[OTP][Skipped:Disconnected]authfile is updated automatically[Timeout:40m] [Disruptive][Slow]", g.Label("original-name:[sig-olmv1][Jira:OLM] clusterextension PolarionID:76985-[Skipped:Disconnected]authfile is updated automatically[Timeout:30m] [Serial][Disruptive][Slow]"), func(ctx g.SpecContext) {
 		exutil.SkipForSNOCluster(oc)
 		var (
 			caseID = "76985"
@@ -825,56 +938,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		o.Expect(olmv1util.HealthyMCP4OLM(oc)).To(o.BeTrue())
 
 		g.By("check if auth is updated for catalogd")
-		catalogDPod, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("pods", "-l", "control-plane=catalogd-controller-manager",
-			"-o=jsonpath={.items[0].metadata.name}", "-n", "openshift-catalogd").Output()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(catalogDPod).NotTo(o.BeEmpty())
-
-		// Use exec command directly to avoid logging sensitive authentication data
-		checkAuthCmdCatalogd := `grep -q "fake.registry" /tmp/catalogd-global-pull-secret-*.json`
-		finalArgsCatalogd := []string{
-			"--kubeconfig=" + exutil.KubeConfigPath(),
-			"exec",
-			"-n",
-			"openshift-catalogd",
-			catalogDPod,
-			"--",
-			"bash",
-			"-c",
-			checkAuthCmdCatalogd,
-		}
-
-		e2e.Logf("cmdCatalogd: %v", "oc"+" "+strings.Join(finalArgsCatalogd, " "))
-		cmdCatalogd := exec.Command("oc", finalArgsCatalogd...)
-		_, err = cmdCatalogd.CombinedOutput()
-		// Output not logged to prevent leaking authentication credentials
-		o.Expect(err).NotTo(o.HaveOccurred(), "auth for catalogd is not updated")
+		waitForRegistryInAuthfile(o.Default, ctx, runAuthfileCommand,
+			"catalogd", "openshift-catalogd", "control-plane=catalogd-controller-manager",
+			"/tmp/catalogd-global-pull-secret-*.json", 5*time.Second, 3*time.Minute)
 
 		g.By("check if auth is updated for operator-controller")
-		operatorControlerPod, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("pods", "-l", "control-plane=operator-controller-controller-manager",
-			"-o=jsonpath={.items[0].metadata.name}", "-n", "openshift-operator-controller").Output()
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(operatorControlerPod).NotTo(o.BeEmpty())
-
-		// Use exec command directly to avoid logging sensitive authentication data
-		checkAuthCmdOperatorController := `grep -q "registry" /tmp/operator-controller-global-pull-secrets-*.json`
-		finalArgsOperatorController := []string{
-			"--kubeconfig=" + exutil.KubeConfigPath(),
-			"exec",
-			"-n",
-			"openshift-operator-controller",
-			operatorControlerPod,
-			"--",
-			"bash",
-			"-c",
-			checkAuthCmdOperatorController,
-		}
-
-		e2e.Logf("cmdOperatorController: %v", "oc"+" "+strings.Join(finalArgsOperatorController, " "))
-		cmdOperatorController := exec.Command("oc", finalArgsOperatorController...)
-		_, err = cmdOperatorController.CombinedOutput()
-		// Output not logged to prevent leaking authentication credentials
-		o.Expect(err).NotTo(o.HaveOccurred(), "auth for operator-controller is not updated")
+		waitForRegistryInAuthfile(o.Default, ctx, runAuthfileCommand,
+			"operator-controller", "openshift-operator-controller", "control-plane=operator-controller-controller-manager",
+			"/tmp/operator-controller-global-pull-secrets-*.json", 5*time.Second, 3*time.Minute)
 
 	})
 
