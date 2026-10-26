@@ -118,7 +118,7 @@ require (
 	k8s.io/controller-manager v0.33.2 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
-	k8s.io/kubectl v0.36.2 // indirect
+	k8s.io/kubectl v0.37.0 // indirect
 	k8s.io/kubelet v0.31.1 // indirect
 	k8s.io/pod-security-admission v0.33.4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
