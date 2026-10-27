@@ -1547,12 +1547,13 @@ spec:
                         x-kubernetes-list-type: map
                       progressDeadlineMinutes:
                         description: |-
-                          progressDeadlineMinutes is an optional field that defines the maximum period
-                          of time in minutes after which an installation should be considered failed and
-                          require manual intervention. This functionality is disabled when no value
-                          is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
-
-                          The value is passed through to each ClusterObjectSet revision created from this template.
+                          progressDeadlineMinutes is the maximum number of minutes a revision may take
+                          to roll out, measured from the ClusterObjectSet's creation timestamp. Time
+                          spent waiting for the ClusterObjectSet to be created is not counted. The
+                          deadline covers all phases together; completing a phase does not reset it.
+                          Once a revision has completed, the deadline no longer applies, even if it
+                          later becomes unhealthy. When omitted, no deadline is enforced. The minimum
+                          period is 10 minutes, and the maximum is 720 minutes (12 hours).
                         format: int32
                         maximum: 720
                         minimum: 10
@@ -1835,7 +1836,7 @@ spec:
                   rollout is incomplete, or False with reason NewClusterObjectSetProgressed after
                   completion. Completion remains recorded even if the completed revision later
                   becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when
-                  the latest revision does not roll out within its spec.progressDeadlineMinutes.
+                  the latest revision does not roll out within spec.template.spec.progressDeadlineMinutes.
                   Progressing is False with reason InvalidSpecification when spec.template.metadata
                   contains labels or annotations that are not valid for the resulting
                   ClusterObjectSet; no new revision is created until the metadata is corrected.
@@ -2509,7 +2510,7 @@ spec:
                 format: date-time
                 type: string
                 x-kubernetes-validations:
-                - message: completedAt is immutable
+                - message: completedAt is immutable, once set
                   rule: self == oldSelf || oldSelf == null
               conditions:
                 description: |-
@@ -2600,9 +2601,9 @@ spec:
                   present:
                     description: |-
                       present is the number of objects in this phase that exist on the
-                      cluster. During reconcile, this counts objects that the controller
-                      has found or created. During teardown, this decrements toward zero
-                      as objects are deleted.
+                      cluster and are owned by this object set, or another in the same group.
+                      During reconcile, this counts objects that the controller has found or
+                      created. During teardown, this decrements toward zero as objects are deleted.
                     format: int64
                     maximum: 1000
                     minimum: 0
@@ -2618,7 +2619,7 @@ spec:
                   synced:
                     description: |-
                       synced is the number of objects in this phase whose cluster state
-                      matches the desired state.
+                      matches the desired state. Set to zero during teardown.
                     format: int64
                     maximum: 1000
                     minimum: 0
@@ -2646,6 +2647,16 @@ spec:
                   description: ObservedPhase records the observed content digest of
                     a resolved phase.
                   properties:
+                    completedAt:
+                      description: |-
+                        completedAt is the timestamp when this phase first became Ready.
+                        Set once and never modified. Nil means the phase has never been
+                        Ready.
+                      format: date-time
+                      type: string
+                      x-kubernetes-validations:
+                      - message: completedAt is immutable, once set
+                        rule: self == oldSelf || oldSelf == null
                     digest:
                       description: |-
                         digest is the digest of the phase's resolved object content
@@ -2658,6 +2669,20 @@ spec:
                         rule: self == oldSelf || oldSelf.size() == 0
                       - message: digest must be in the format '<algorithm>:<hex>'
                         rule: self.matches('^[a-z0-9]+:[a-f0-9]+$')
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the phase transitioned
+                        from one status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a phase-level message providing context about the
+                        current status (e.g. a validation error for InvalidSpecification
+                        phases, or a summary for Pending phases). At most 1024 characters;
+                        longer messages are truncated by the controller.
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
                     name:
                       description: name is the phase name matching a phase in spec.phases.
                       maxLength: 63
@@ -2669,17 +2694,15 @@ spec:
                           character.
                         rule: '!format.dns1123Label().validate(self).hasValue()'
                     objectCounts:
-                      description: |-
-                        objectCounts reports the number of objects in this phase by state.
-                        It is omitted until counts have been computed; when present, all count
-                        fields are reported (including zeros).
+                      description: objectCounts reports the number of objects in this
+                        phase by state.
                       properties:
                         present:
                           description: |-
                             present is the number of objects in this phase that exist on the
-                            cluster. During reconcile, this counts objects that the controller
-                            has found or created. During teardown, this decrements toward zero
-                            as objects are deleted.
+                            cluster and are owned by this object set, or another in the same group.
+                            During reconcile, this counts objects that the controller has found or
+                            created. During teardown, this decrements toward zero as objects are deleted.
                           format: int64
                           maximum: 1000
                           minimum: 0
@@ -2695,7 +2718,7 @@ spec:
                         synced:
                           description: |-
                             synced is the number of objects in this phase whose cluster state
-                            matches the desired state.
+                            matches the desired state. Set to zero during teardown.
                           format: int64
                           maximum: 1000
                           minimum: 0
@@ -2712,10 +2735,31 @@ spec:
                       - synced
                       - total
                       type: object
+                    status:
+                      description: |-
+                        status is the current state of this phase in the rollout. Must be one of
+                        InvalidSpecification, Pending, Reconciling,
+                        Stabilizing, Ready, Unknown, Superseded, Archiving, or Archived.
+                      enum:
+                      - InvalidSpecification
+                      - Pending
+                      - Reconciling
+                      - Stabilizing
+                      - Ready
+                      - Unknown
+                      - Superseded
+                      - Archiving
+                      - Archived
+                      type: string
                   required:
                   - digest
+                  - lastTransitionTime
                   - name
+                  - status
                   type: object
+                  x-kubernetes-validations:
+                  - message: completedAt cannot be removed once set
+                    rule: '!has(oldSelf.completedAt) || has(self.completedAt)'
                 maxItems: 20
                 type: array
                 x-kubernetes-list-map-keys:
