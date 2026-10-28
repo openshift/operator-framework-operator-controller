@@ -255,6 +255,11 @@ type CreateOptions struct {
 	// will contain all unknown and duplicate fields encountered.
 	FieldValidation string
 
+	// DisableReadYourWritesConsistency indicates that subsequent read requests will not
+	// wait for the cache to have observed this write. It has no effect if the client
+	// was not configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
+
 	// Raw represents raw CreateOptions, as passed to the API server.
 	Raw *metav1.CreateOptions
 }
@@ -295,6 +300,9 @@ func (o *CreateOptions) ApplyToCreate(co *CreateOptions) {
 	if o.FieldValidation != "" {
 		co.FieldValidation = o.FieldValidation
 	}
+	if o.DisableReadYourWritesConsistency {
+		co.DisableReadYourWritesConsistency = true
+	}
 	if o.Raw != nil {
 		co.Raw = o.Raw
 	}
@@ -328,6 +336,11 @@ type DeleteOptions struct {
 	// 'Foreground' - a cascading policy that deletes all dependents in the
 	// foreground.
 	PropagationPolicy *metav1.DeletionPropagation
+
+	// DisableReadYourWritesConsistency indicates that subsequent read requests will not
+	// wait for the cache to have observed this delete. It has no effect if the client
+	// was not configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
 
 	// Raw represents raw DeleteOptions, as passed to the API server.
 	Raw *metav1.DeleteOptions
@@ -378,6 +391,9 @@ func (o *DeleteOptions) ApplyToDelete(do *DeleteOptions) {
 	}
 	if o.PropagationPolicy != nil {
 		do.PropagationPolicy = o.PropagationPolicy
+	}
+	if o.DisableReadYourWritesConsistency {
+		do.DisableReadYourWritesConsistency = true
 	}
 	if o.Raw != nil {
 		do.Raw = o.Raw
@@ -454,6 +470,11 @@ type GetOptions struct {
 	// otherwise you will mutate the object in the cache.
 	// +optional
 	UnsafeDisableDeepCopy *bool
+
+	// DisableReadYourWritesConsistency indicates that the request will not wait for the
+	// cache to have observed previous writes. It has no effect if the client was not
+	// configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
 }
 
 var _ GetOption = &GetOptions{}
@@ -465,6 +486,9 @@ func (o *GetOptions) ApplyToGet(lo *GetOptions) {
 	}
 	if o.UnsafeDisableDeepCopy != nil {
 		lo.UnsafeDisableDeepCopy = o.UnsafeDisableDeepCopy
+	}
+	if o.DisableReadYourWritesConsistency {
+		lo.DisableReadYourWritesConsistency = true
 	}
 }
 
@@ -524,6 +548,11 @@ type ListOptions struct {
 	// +optional
 	UnsafeDisableDeepCopy *bool
 
+	// DisableReadYourWritesConsistency indicates that the request will not wait for the
+	// cache to have observed previous writes. It has no effect if the client was not
+	// configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
+
 	// Raw represents raw ListOptions, as passed to the API server.  Note
 	// that these may not be respected by all implementations of interface,
 	// and the LabelSelector, FieldSelector, Limit and Continue fields are ignored.
@@ -554,6 +583,10 @@ func (o *ListOptions) ApplyToList(lo *ListOptions) {
 	}
 	if o.UnsafeDisableDeepCopy != nil {
 		lo.UnsafeDisableDeepCopy = o.UnsafeDisableDeepCopy
+	}
+
+	if o.DisableReadYourWritesConsistency {
+		lo.DisableReadYourWritesConsistency = true
 	}
 }
 
@@ -783,6 +816,11 @@ type UpdateOptions struct {
 	// will contain all unknown and duplicate fields encountered.
 	FieldValidation string
 
+	// DisableReadYourWritesConsistency indicates that subsequent read requests will not
+	// wait for the cache to have observed this write. It has no effect if the client
+	// was not configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
+
 	// Raw represents raw UpdateOptions, as passed to the API server.
 	Raw *metav1.UpdateOptions
 }
@@ -824,6 +862,9 @@ func (o *UpdateOptions) ApplyToUpdate(uo *UpdateOptions) {
 	}
 	if o.FieldValidation != "" {
 		uo.FieldValidation = o.FieldValidation
+	}
+	if o.DisableReadYourWritesConsistency {
+		uo.DisableReadYourWritesConsistency = true
 	}
 	if o.Raw != nil {
 		uo.Raw = o.Raw
@@ -870,6 +911,11 @@ type PatchOptions struct {
 	// duplicate fields are present. The error returned from the server
 	// will contain all unknown and duplicate fields encountered.
 	FieldValidation string
+
+	// DisableReadYourWritesConsistency indicates that subsequent read requests will not
+	// wait for the cache to have observed this write. It has no effect if the client
+	// was not configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
 
 	// Raw represents raw PatchOptions, as passed to the API server.
 	Raw *metav1.PatchOptions
@@ -924,6 +970,9 @@ func (o *PatchOptions) ApplyToPatch(po *PatchOptions) {
 	}
 	if o.FieldValidation != "" {
 		po.FieldValidation = o.FieldValidation
+	}
+	if o.DisableReadYourWritesConsistency {
+		po.DisableReadYourWritesConsistency = true
 	}
 	if o.Raw != nil {
 		po.Raw = o.Raw
@@ -1002,6 +1051,11 @@ type ApplyOptions struct {
 	//
 	// +required
 	FieldManager string
+
+	// DisableReadYourWritesConsistency indicates that subsequent read requests will not
+	// wait for the cache to have observed this write. It has no effect if the client
+	// was not configured with CacheOptions.EnableReadYourWritesConsistency.
+	DisableReadYourWritesConsistency bool
 }
 
 // ApplyOptions applies the given opts onto the ApplyOptions
@@ -1023,6 +1077,10 @@ func (o *ApplyOptions) ApplyToApply(opts *ApplyOptions) {
 
 	if o.FieldManager != "" {
 		opts.FieldManager = o.FieldManager
+	}
+
+	if o.DisableReadYourWritesConsistency {
+		opts.DisableReadYourWritesConsistency = true
 	}
 }
 
