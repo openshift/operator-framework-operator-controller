@@ -1,7 +1,7 @@
 # Get the directory where this Makefile is, so we can use it below for including
-# Include the same Bingo variables used by the project
+# Use OpenShift Bingo variables independently of the upstream root tooling.
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
-include $(DIR)/../../.bingo/Variables.mk
+include $(DIR)/../.bingo/Variables.mk
 
 #SECTION General
 
