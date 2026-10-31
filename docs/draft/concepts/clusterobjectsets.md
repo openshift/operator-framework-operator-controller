@@ -6,7 +6,7 @@ This document explains what ClusterObjectSets are, how they enable safe phased r
 
 A `ClusterObjectSet` is a cluster-scoped Kubernetes API that represents a versioned set of Kubernetes resources organized into ordered phases. It provides a declarative way to roll out a group of related resources sequentially, with built-in readiness checks between phases.
 
-The revision content — the `group` identifier, `revision` number, `collisionProtection` strategy, and `phases` (including all objects within them) — is immutable once set. This guarantees that the record of what was deployed at a given revision cannot change after creation. Other fields like `lifecycleState` can change over the object's lifecycle (e.g. transitioning from `Active` to `Archived`), and optional fields like `progressDeadlineMinutes` and `progressionProbes` can be configured independently.
+The revision content — the `group` identifier, `revision` number, `collisionProtection` strategy, and `phases` (including all objects within them) — is immutable once set. This guarantees that the record of what was deployed at a given revision cannot change after creation. Other fields like `lifecycleState` can change over the object's lifecycle (e.g. transitioning from `Active` to `Archived`), and optional fields like `progressionProbes` can be configured independently.
 
 Each ClusterObjectSet has:
 
@@ -226,7 +226,6 @@ Indicates whether all objects in the revision have been successfully rolled out 
 | False | `ObjectCollision` | One or more objects are controlled by another owner, or are unowned and collision protection prevents adoption |
 | False | `PreconditionsNotMet` | A precondition for applying the revision is not yet satisfied (a referenced Secret is mutable or has invalid or changed content, or a preflight dry-run was rejected, e.g. an immutable field, a conflicting object, or RBAC/dependency CRDs not yet propagated); the revision keeps retrying and recovers once the precondition is met |
 | False | `InvalidSpecification` | The revision spec is invalid (a malformed revision/phase object or progression probe); requires a spec change |
-| False | `ProgressDeadlineExceeded` | The revision did not roll out within `spec.progressDeadlineMinutes` |
 | False | `Archiving` | The revision is being archived; owned objects are still being torn down |
 | False | `Archived` | Objects torn down after archival |
 | Unknown | `Pending` | The revision has not yet been evaluated (initial state) |
@@ -235,17 +234,14 @@ On a revision's first reconciliation the `Ready` condition is initialized to `Un
 
 ### Progress deadline
 
-`spec.progressDeadlineMinutes` sets one time budget for the entire
-ClusterObjectSet (COS) revision, measured from its creation timestamp until its
-first successful rollout, recorded in `status.completedAt`. Completing a phase
-does not reset the timer.
-
-For a ClusterObjectDeployment (COD), this is the time allowed for the deployment to
-progress to its desired new revision. Configure it through
-`spec.template.spec.progressDeadlineMinutes`. The COD enforces this budget without
-setting `spec.progressDeadlineMinutes` on the ClusterObjectSets it creates. Time
-spent waiting for the ClusterObjectSet to be created is not counted. Each new
-revision receives its own budget.
+The progress deadline is a ClusterObjectDeployment (COD) concept: the time allowed
+for the deployment to progress to its desired new revision. Configure it through
+`spec.template.spec.progressDeadlineMinutes`. The COD enforces this budget itself;
+the ClusterObjectSets it creates do not carry a deadline. Time spent waiting for
+the ClusterObjectSet to be created is not counted, and each new revision receives
+its own budget, measured from the revision's creation timestamp until its first
+successful rollout (recorded in `status.completedAt`). Completing a phase does not
+reset the timer.
 
 If the desired revision is still incomplete when that budget expires, the COD
 reports `Progressing=False` with reason `ProgressDeadlineExceeded`. A five-phase
@@ -263,6 +259,33 @@ recorded, the COD reports `Progressing=False` with reason
 `NewClusterObjectSetProgressed`. Later health regressions do not restart deadline
 timing. The COD can remain `Available=True` if an older active revision is still
 ready.
+
+### ClusterObjectDeployment Progressing
+
+While a rollout is incomplete, a ClusterObjectDeployment (COD) reflects *why* its
+head active revision is not yet `Ready` on its own `Progressing` condition, so you
+can tell a rollout that is merely in progress from one that is stalled on
+something you must fix. Each reason names the revision; inspect that
+ClusterObjectSet for the specific cause.
+
+| Status | Reason | Meaning | What to do |
+| --- | --- | --- | --- |
+| True | `NewClusterObjectSetProgressing` | The head revision is rolling out (`Pending`/`ObjectsNotReady`) | Wait |
+| True | `RevisionPreconditionsNotMet` | The head revision's precondition is not yet met (e.g. a mutable/invalid referenced Secret, or RBAC/dependency CRDs not yet propagated); it keeps retrying | Satisfy the precondition (grant RBAC, install the dependency, fix the Secret); it recovers automatically |
+| False | `RevisionObjectCollision` | The head revision's objects are owned by another controller or already exist; it will not roll out without intervention | Resolve ownership of the conflicting objects |
+| False | `RevisionInvalidSpecification` | The head revision's own objects are invalid | Correct the template so the rendered objects are valid |
+| False | `ProgressDeadlineExceeded` | A still-retrying revision exceeded its deadline (see [Progress deadline](#progress-deadline)) | See above |
+| False | `InvalidSpecification` | The deployment's own `spec.template.metadata` is invalid, so no revision is created | Fix the template labels/annotations |
+| False | `NewClusterObjectSetProgressed` | The head revision completed its rollout | None |
+
+`RevisionObjectCollision` and `RevisionInvalidSpecification` are *hard stalls*:
+they will not resolve on their own, so they report `Progressing=False` and take
+precedence over `ProgressDeadlineExceeded` (the actionable cause is more useful
+than "the clock ran out"). `RevisionPreconditionsNotMet` keeps retrying, so it
+stays `Progressing=True` and the progress deadline still governs it. Note that
+`RevisionInvalidSpecification` (the revision's rendered objects) is distinct from
+the deployment's own `InvalidSpecification` (invalid `spec.template.metadata`,
+reported before any revision is created).
 
 ### Completion (`status.completedAt`)
 

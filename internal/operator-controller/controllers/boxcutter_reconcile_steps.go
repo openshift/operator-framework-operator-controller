@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io/fs"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,14 +41,34 @@ type BoxcutterRevisionStatesGetter struct {
 }
 
 func (d *BoxcutterRevisionStatesGetter) GetRevisionStates(ctx context.Context, ext *ocv1.ClusterExtension) (*RevisionStates, error) {
+	rs := &RevisionStates{}
+	cod := &ocv1.ClusterObjectDeployment{}
+	if err := d.Reader.Get(ctx, client.ObjectKey{Name: ext.Name}, cod); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Without a COD, there is no revision state this ClusterExtension should report.
+			return rs, nil
+		}
+		return nil, fmt.Errorf("getting ClusterObjectDeployment %q: %w", ext.Name, err)
+	}
+	if !metav1.IsControlledBy(cod, ext) {
+		// Do not report status for a deployment owned by someone else, even if it
+		// has the name this ClusterExtension expects to use.
+		return rs, nil
+	}
+
 	existingRevisions, err := revisions.ListForGroup(ctx, d.Reader, ext.Name)
 	if err != nil {
 		return nil, fmt.Errorf("listing revisions: %w", err)
 	}
 
-	rs := &RevisionStates{}
 	for _, rev := range existingRevisions {
 		if rev.Spec.LifecycleState == ocv1.ClusterObjectSetLifecycleStateArchived {
+			continue
+		}
+
+		// Group membership is based on the name and does not prove ownership.
+		// Ignore revisions outside this deployment's ownership chain.
+		if !metav1.IsControlledBy(&rev, cod) {
 			continue
 		}
 
@@ -126,10 +148,31 @@ func ApplyBundleWithBoxcutter(apply func(ctx context.Context, contentFS fs.FS, e
 			return nil, err
 		}
 
-		setAvailableFromRevisionStates(ext, state.revisionStates)
-		setProgressingFromRevisionStates(ext, state.revisionStates)
-		setInstalledStatusFromRevisionStates(ext, state.revisionStates)
+		// Success-path status (Available, Progressing, Installed) is reflected from the
+		// ClusterObjectDeployment by the ReflectClusterObjectDeploymentStatus step.
+		return nil, nil
+	}
+}
 
+// ReflectClusterObjectDeploymentStatus reads the ClusterObjectDeployment the applier manages for the
+// ClusterExtension and maps its rolled-up Available, Progressing, and installed-bundle state onto the
+// ClusterExtension. The deployment is the single object the ClusterExtension observes for rollout
+// health, replacing per-ClusterObjectSet observation.
+func ReflectClusterObjectDeploymentStatus(reader client.Reader) ReconcileStepFunc {
+	return func(ctx context.Context, _ *reconcileState, ext *ocv1.ClusterExtension) (*ctrl.Result, error) {
+		cod := &ocv1.ClusterObjectDeployment{}
+		switch err := reader.Get(ctx, client.ObjectKey{Name: ext.Name}, cod); {
+		case apierrors.IsNotFound(err):
+			// The deployment was just applied and is not yet visible in the cache; its status is empty
+			// anyway. Mapping from an empty deployment reports "rolling out"; the watch re-triggers
+			// reconciliation once the deployment and its status become visible.
+			cod = &ocv1.ClusterObjectDeployment{}
+		case err != nil:
+			return nil, fmt.Errorf("getting ClusterObjectDeployment %q: %w", ext.Name, err)
+		}
+		setAvailableFromClusterObjectDeployment(ext, cod)
+		setProgressingFromClusterObjectDeployment(ext, cod)
+		setInstalledFromClusterObjectDeployment(ext, cod)
 		return nil, nil
 	}
 }

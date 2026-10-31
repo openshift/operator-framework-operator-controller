@@ -114,17 +114,6 @@ type ClusterObjectSetSpec struct {
 	// +optional
 	Phases []ClusterObjectSetPhase `json:"phases,omitempty"`
 
-	// progressDeadlineMinutes is an optional field that defines the maximum period
-	// of time in minutes after which an installation should be considered failed and
-	// require manual intervention. This functionality is disabled when no value
-	// is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
-	//
-	// +kubebuilder:validation:Minimum:=10
-	// +kubebuilder:validation:Maximum:=720
-	// +optional
-	// <opcon:experimental>
-	ProgressDeadlineMinutes int32 `json:"progressDeadlineMinutes,omitempty"`
-
 	// progressionProbes is an optional field which provides the ability to define custom readiness probes
 	// for objects defined within spec.phases. As documented in that field, most kubernetes-native objects
 	// within the phases already have some kind of readiness check built-in, but this field allows for checks
@@ -527,7 +516,6 @@ type ClusterObjectSetStatus struct {
 	//   - False with reason ObjectCollision: one or more objects are controlled by another owner, or are unowned while collision protection prevents adoption, so this revision cannot take ownership of them.
 	//   - False with reason PreconditionsNotMet: a precondition for applying the revision is not yet satisfied (a referenced Secret is mutable or has invalid or changed content, or a preflight dry-run was rejected, e.g. an immutable field, a conflicting object, or RBAC/dependency CRDs not yet propagated); the revision keeps retrying and recovers once the precondition is met.
 	//   - False with reason InvalidSpecification: the revision spec is invalid (a malformed revision/phase object or progression probe) and requires a spec change to proceed.
-	//   - False with reason ProgressDeadlineExceeded: the revision did not roll out within spec.progressDeadlineMinutes.
 	//   - False with reason Archiving: the revision is being archived and its owned objects are still being torn down.
 	//   - False with reason Archived: the revision has been archived and its objects have been torn down.
 	//
@@ -578,7 +566,7 @@ type ObservedPhase struct {
 	Name string `json:"name"`
 
 	// status is the current state of this phase in the rollout. Must be one of
-	// InvalidSpecification, Pending, Reconciling,
+	// InvalidSpecification, PreconditionsNotMet, Pending, Reconciling,
 	// Stabilizing, Ready, Unknown, Superseded, Archiving, or Archived.
 	// +required
 	Status PhaseStatus `json:"status"`
@@ -618,6 +606,19 @@ type ObservedPhase struct {
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Format=date-time
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitzero"`
+
+	// objectDetails lists objects in this phase that are not yet
+	// complete. For Reconciling, Pending, and Stabilizing phases, this
+	// includes probe failures, collisions, creation/update errors, and
+	// any other condition preventing completion. For Archiving phases,
+	// this lists objects still awaiting deletion. Each entry identifies
+	// the object and carries failure messages. Empty when status is
+	// Ready, Superseded, Archived, or Unknown. The list may contain at
+	// most 50 entries, matching the maximum number of objects per phase.
+	// +kubebuilder:validation:MaxItems=50
+	// +listType=atomic
+	// +optional
+	ObjectDetails []ObjectStatus `json:"objectDetails,omitempty"`
 }
 
 // ObjectCounts reports the number of objects in a ClusterObjectSet or phase by state.
@@ -652,15 +653,69 @@ type ObjectCounts struct {
 	Ready int64 `json:"ready"`
 }
 
+// ObjectStatus identifies a managed object and its failure messages.
+type ObjectStatus struct {
+	// group is the API group of the object (empty string for core
+	// resources). At most 253 characters (DNS subdomain max).
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// version is the API version of the object. Must be between 1 and
+	// 63 characters.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +required
+	Version string `json:"version"`
+
+	// kind is the kind of the object. Must be between 1 and 63
+	// characters.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +required
+	Kind string `json:"kind"`
+
+	// namespace is the namespace of the object. Empty for cluster-scoped
+	// resources. At most 253 characters (DNS subdomain max).
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+
+	// name is the name of the object. Must be between 1 and 253
+	// characters (DNS subdomain max).
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +required
+	Name string `json:"name"`
+
+	// messages lists the failure reasons for this object. The maximum
+	// of 18 entries accounts for up to 16 assertion probe failures,
+	// one collision message, and one message to note truncation if necessary.
+	// Each message is at most 1024 characters; longer messages are truncated
+	// by the controller.
+	// +kubebuilder:validation:MaxItems=18
+	// +kubebuilder:validation:items:MaxLength=1024
+	// +listType=atomic
+	// +optional
+	Messages []string `json:"messages,omitempty"`
+}
+
 // PhaseStatus describes the current state of a phase in the rollout.
 //
-// +kubebuilder:validation:Enum=InvalidSpecification;Pending;Reconciling;Stabilizing;Ready;Unknown;Superseded;Archiving;Archived
+// +kubebuilder:validation:Enum=InvalidSpecification;PreconditionsNotMet;Pending;Reconciling;Stabilizing;Ready;Unknown;Superseded;Archiving;Archived
 type PhaseStatus string
 
 const (
 	// PhaseStatusInvalidSpecification indicates the phase failed preflight validation
-	// in a permanent way (e.g. cross-phase duplication).
+	// in a permanent way that requires a spec change to resolve (e.g. a schema
+	// violation, cross-phase object duplication, or an invalid phase name).
 	PhaseStatusInvalidSpecification PhaseStatus = "InvalidSpecification"
+
+	// PhaseStatusPreconditionsNotMet indicates the phase failed a recoverable preflight
+	// dry-run check — for example, RBAC permissions or a dependency CRD that has not
+	// yet propagated to the cluster. The controller retries automatically; no spec
+	// change is required.
+	PhaseStatusPreconditionsNotMet PhaseStatus = "PreconditionsNotMet"
 
 	// PhaseStatusPending indicates the phase is not being actively
 	// reconciled, but the controller has checked and some objects do not

@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	k8sresource "k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -129,6 +130,7 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterObjectDeploymentReportsConditionWithoutMsg)
 	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, ClusterObjectDeploymentReportsConditionWithMessageFragment)
+	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" consistently reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) for "([^"]+)"$`, ClusterObjectDeploymentConsistentlyReportsCondition)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) transition between (\d+) and (\d+) minutes since ClusterObjectSet "([^"]+)" was created$`, ClusterExtensionReportsConditionTransitionTime)
 	sc.Step(`^(?i)ClusterObjectSet is applied(?:\s+.*)?$`, ResourceIsApplied)
 	sc.Step(`^(?i)ClusterObjectSet with Namespace owner "([^"]*)" is applied$`, ClusterObjectSetWithNamespaceOwnerApplied)
@@ -152,6 +154,7 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" referred secrets are immutable$`, ClusterObjectSetReferredSecretsAreImmutable)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" referred secrets contain labels$`, ClusterObjectSetReferredSecretsContainLabels)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" referred secrets are owned by the object set$`, ClusterObjectSetReferredSecretsOwnedByObjectSet)
+	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" referred secrets are owned by ClusterExtension "([^"]+)"$`, ClusterObjectSetReferredSecretsOwnedByClusterExtension)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" referred secrets have type "([^"]+)"$`, ClusterObjectSetReferredSecretsHaveType)
 
 	sc.Step(`^(?i)resource "([^"]+)" is installed$`, ResourceAvailable)
@@ -208,6 +211,8 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)min value for (ClusterExtension|ClusterObjectSet|ClusterObjectDeployment) ((?:\.[a-zA-Z]+)+) is set to (\d+)$`, SetCRDFieldMinValue)
 
 	sc.Step(`^(?i)ClusterExtension "([^"]+)" owns (\d+) ClusterObjectSets?$`, ClusterExtensionOwnsClusterObjectSets)
+	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" owns (\d+) ClusterObjectSets?$`, ClusterObjectDeploymentOwnsClusterObjectSets)
+	sc.Step(`^(?i)ClusterObjectDeployment "([^"]+)" is owned by ClusterExtension "([^"]+)"$`, ClusterObjectDeploymentIsOwnedByClusterExtension)
 	sc.Step(`^(?i)ClusterExtension "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+)$`, NamedClusterExtensionReportsCondition)
 	sc.Step(`^(?i)ClusterExtension "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, NamedClusterExtensionReportsConditionWithMessageFragment)
 
@@ -628,6 +633,52 @@ func ClusterExtensionOwnsClusterObjectSets(ctx context.Context, extName string, 
 	return nil
 }
 
+// ClusterObjectDeploymentOwnsClusterObjectSets waits until the named ClusterObjectDeployment is the
+// controller owner of exactly expectedCount ClusterObjectSet revisions in its group.
+func ClusterObjectDeploymentOwnsClusterObjectSets(ctx context.Context, codName string, expectedCount int) error {
+	sc := scenarioCtx(ctx)
+	codName = substituteScenarioVars(codName, sc)
+	waitFor(ctx, func() bool {
+		revisions, err := listClusterObjectSetsInGroup(ctx, codName)
+		if err != nil || len(revisions) != expectedCount {
+			return false
+		}
+		cod, err := getResource("clusterobjectdeployment", codName, "")
+		if err != nil {
+			return false
+		}
+		for i := range revisions {
+			owner := metav1.GetControllerOf(&revisions[i])
+			if owner == nil || owner.Kind != ocv1.ClusterObjectDeploymentKind || owner.Name != codName || owner.UID != cod.GetUID() {
+				return false
+			}
+		}
+		return true
+	})
+	return nil
+}
+
+// ClusterObjectDeploymentIsOwnedByClusterExtension waits until the named ClusterObjectDeployment has
+// the named ClusterExtension as its controller owner.
+func ClusterObjectDeploymentIsOwnedByClusterExtension(ctx context.Context, codName, extName string) error {
+	sc := scenarioCtx(ctx)
+	codName = substituteScenarioVars(codName, sc)
+	extName = substituteScenarioVars(extName, sc)
+	waitFor(ctx, func() bool {
+		cod, err := getResource("clusterobjectdeployment", codName, "")
+		if err != nil {
+			return false
+		}
+		ext, err := getResource("clusterextension", extName, "")
+		if err != nil {
+			return false
+		}
+		owner := metav1.GetControllerOf(cod)
+		return owner != nil && owner.Kind == ocv1.ClusterExtensionKind && owner.Name == extName && owner.UID == ext.GetUID()
+	})
+	return nil
+}
+
 // NamedClusterExtensionReportsCondition waits for a specific ClusterExtension (by name) to have a condition
 // matching type and status. Polls with timeout.
 func NamedClusterExtensionReportsCondition(ctx context.Context, extName, conditionType, conditionStatus string) error {
@@ -993,6 +1044,91 @@ func ClusterObjectDeploymentReportsConditionWithoutMsg(ctx context.Context, name
 // condition matching type, status, reason, with a message containing the specified fragment. Polls with timeout.
 func ClusterObjectDeploymentReportsConditionWithMessageFragment(ctx context.Context, name, conditionType, conditionStatus, conditionReason string, msgFragment *godog.DocString) error {
 	return waitForCondition(ctx, "clusterobjectdeployment", substituteScenarioVars(name, scenarioCtx(ctx)), conditionType, conditionStatus, &conditionReason, messageFragmentComparison(ctx, msgFragment))
+}
+
+// ClusterObjectDeploymentConsistentlyReportsCondition fails if, over the given
+// duration, the named ClusterObjectDeployment's condition ever deviates from the
+// expected type/status/reason. Use it to prove a reason persists (e.g. that a hard
+// stall keeps its reason past the progress deadline rather than flipping to
+// ProgressDeadlineExceeded).
+func ClusterObjectDeploymentConsistentlyReportsCondition(ctx context.Context, name, conditionType, conditionStatus, conditionReason, durationStr string) error {
+	d, err := time.ParseDuration(durationStr)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", durationStr, err)
+	}
+	return consistentlyCondition(ctx, "clusterobjectdeployment", substituteScenarioVars(name, scenarioCtx(ctx)), conditionType, conditionStatus, conditionReason, d)
+}
+
+// consistently invokes check every tick until duration elapses. Each call is one
+// observation of the live cluster state: check returns a non-nil error to report a
+// transient failure whose true state is unknown (e.g. a failed API read), which is
+// tolerated only within maxTransientGap; it uses require/assert for hard failures that
+// must fail the test immediately (e.g. an observed value that deviates from what is
+// expected). A nil return is a successful observation. consistently fails if no
+// observation ever succeeds within the window, so it cannot pass vacuously when the
+// resource is never successfully read.
+func consistently(ctx context.Context, duration time.Duration, check func(context.Context) error) error {
+	t := godog.T(ctx)
+	const maxTransientGap = 10 * time.Second
+	lastObserved := time.Now()
+	observed := false
+	// Poll for the whole window rather than until a condition becomes true: the condition
+	// always returns false, so PollUntilContextTimeout runs check every tick (starting
+	// immediately) until it times out, which is the success case. A transient check error is
+	// tolerated only within maxTransientGap; a hard failure inside check fails the test
+	// immediately via require.
+	err := wait.PollUntilContextTimeout(ctx, tick, duration, true, func(ctx context.Context) (bool, error) {
+		if cerr := check(ctx); cerr != nil {
+			require.LessOrEqualf(t, time.Since(lastObserved), maxTransientGap,
+				"consistency check could not observe the expected state for over %s during the window: %v", maxTransientGap, cerr)
+		} else {
+			observed = true
+			lastObserved = time.Now()
+		}
+		return false, nil
+	})
+	// A full-window run ends with a timeout (or context cancellation), which is expected;
+	// anything else is a real error.
+	if err != nil && !wait.Interrupted(err) {
+		return err
+	}
+	require.Truef(t, observed,
+		"consistency check never observed the expected state during the window")
+	return nil
+}
+
+// conditionCheck returns a consistently check that verifies a single condition's status
+// and reason on the named resource. A failed API read is returned as a transient error
+// (the condition's real state is unknown while the read is failing). A successful read
+// that does not contain the condition, or shows a different status or reason, fails
+// immediately: a condition that disappears or changes is not being reported consistently.
+func conditionCheck(resourceType, resourceName, conditionType, conditionStatus, conditionReason string) func(context.Context) error {
+	return func(ctx context.Context) error {
+		t := godog.T(ctx)
+		v, err := k8sClient(ctx, "get", resourceType, resourceName, "-o",
+			fmt.Sprintf("jsonpath={.status.conditions[?(@.type==\"%s\")]}", conditionType))
+		if err != nil {
+			return fmt.Errorf("reading %s %q: %w", resourceType, resourceName, err)
+		}
+		require.NotEmptyf(t, v,
+			"%s %s condition disappeared during the consistency window", resourceType, conditionType)
+		var condition metav1.Condition
+		require.NoErrorf(t, json.Unmarshal([]byte(v), &condition),
+			"unmarshaling %s %s condition during the consistency window", resourceType, conditionType)
+		require.Equalf(t, metav1.ConditionStatus(conditionStatus), condition.Status,
+			"%s %s condition status changed during the consistency window", resourceType, conditionType)
+		require.Equalf(t, conditionReason, condition.Reason,
+			"%s %s condition reason changed during the consistency window", resourceType, conditionType)
+		return nil
+	}
+}
+
+// consistentlyCondition fails the test if, at any point during duration, the named
+// resource's condition deviates from the expected type/status/reason or disappears.
+// Transient API read failures are tolerated only briefly; see consistently and
+// conditionCheck for the exact semantics.
+func consistentlyCondition(ctx context.Context, resourceType, resourceName, conditionType, conditionStatus, conditionReason string, duration time.Duration) error {
+	return consistently(ctx, duration, conditionCheck(resourceType, resourceName, conditionType, conditionStatus, conditionReason))
 }
 
 // TriggerClusterObjectSetReconciliation annotates the named ClusterObjectSet
@@ -1390,6 +1526,45 @@ func ClusterObjectSetReferredSecretsHaveType(ctx context.Context, revisionName, 
 	return nil
 }
 
+// ClusterObjectSetReferredSecretsOwnedByClusterExtension verifies that every referred Secret of the
+// named revision is controller-owned by the named ClusterExtension. On the current operator-controller
+// path the ClusterExtension owns the content Secrets directly (so deleting it garbage-collects them).
+func ClusterObjectSetReferredSecretsOwnedByClusterExtension(ctx context.Context, revisionName, extName string) error {
+	sc := scenarioCtx(ctx)
+	revisionName = substituteScenarioVars(strings.TrimSpace(revisionName), sc)
+	extName = substituteScenarioVars(strings.TrimSpace(extName), sc)
+
+	ext, err := getResource("clusterextension", extName, "")
+	if err != nil {
+		return fmt.Errorf("getting ClusterExtension %q: %w", extName, err)
+	}
+
+	secrets, err := listReferredSecrets(ctx, revisionName)
+	if err != nil {
+		return err
+	}
+	if len(secrets) == 0 {
+		return fmt.Errorf("no referred secrets found for revision %q", revisionName)
+	}
+
+	for _, s := range secrets {
+		found := false
+		for _, ref := range s.OwnerReferences {
+			if ref.Kind == ocv1.ClusterExtensionKind && ref.Name == extName && ref.UID == ext.GetUID() {
+				if ref.Controller == nil || !*ref.Controller {
+					return fmt.Errorf("secret %s/%s has ownerReference to ClusterExtension but controller is not true", s.Namespace, s.Name)
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("secret %s/%s is not owned by ClusterExtension %q (uid %s)", s.Namespace, s.Name, extName, ext.GetUID())
+		}
+	}
+	return nil
+}
+
 // collectReferredSecretNames returns the unique set of Secret names referenced by the ClusterObjectSet's phase objects.
 func collectReferredSecretNames(ctx context.Context, revisionName string) ([]string, error) {
 	var names []string
@@ -1427,19 +1602,79 @@ func collectReferredSecretNames(ctx context.Context, revisionName string) ([]str
 	return names, nil
 }
 
-// listReferredSecrets lists all Secrets in the OLM namespace that have the revision-name label
-// matching the given revision name.
+type referredSecretRef struct {
+	name      string
+	namespace string
+}
+
+// collectReferredSecretRefs returns the unique Secrets (name + namespace) referenced by the
+// ClusterObjectSet's phase objects. An empty ref namespace defaults to the OLM system namespace.
+func collectReferredSecretRefs(ctx context.Context, revisionName string) ([]referredSecretRef, error) {
+	var refs []referredSecretRef
+	seen := sets.New[string]()
+
+	var obj *unstructured.Unstructured
+	waitFor(ctx, func() bool {
+		var err error
+		obj, err = getResource("clusterobjectset", revisionName, "")
+		return err == nil
+	})
+
+	phases, _, _ := unstructured.NestedSlice(obj.Object, "spec", "phases")
+	for _, p := range phases {
+		phase, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		objects, _, _ := unstructured.NestedSlice(phase, "objects")
+		for _, o := range objects {
+			phaseObj, ok := o.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name, _, _ := unstructured.NestedString(phaseObj, "ref", "name")
+			if name == "" {
+				continue
+			}
+			ns, _, _ := unstructured.NestedString(phaseObj, "ref", "namespace")
+			if ns == "" {
+				ns = olmNamespace
+			}
+			key := ns + "/" + name
+			if seen.Has(key) {
+				continue
+			}
+			seen.Insert(key)
+			refs = append(refs, referredSecretRef{name: name, namespace: ns})
+		}
+	}
+	if len(refs) == 0 {
+		return nil, fmt.Errorf("no referred secret refs found in ClusterObjectSet %q", revisionName)
+	}
+	return refs, nil
+}
+
+// listReferredSecrets returns the Secrets referenced by the named ClusterObjectSet's phase refs.
+// Discovery is driven off the ClusterObjectSet spec rather than a label, so it is robust to how the
+// Secrets are named or labeled.
 func listReferredSecrets(ctx context.Context, revisionName string) ([]corev1.Secret, error) {
-	out, err := k8sClient(ctx, "get", "secrets", "-n", olmNamespace,
-		"-l", "olm.operatorframework.io/revision-name="+revisionName, "-o", "json")
+	refs, err := collectReferredSecretRefs(ctx, revisionName)
 	if err != nil {
-		return nil, fmt.Errorf("listing referred secrets for revision %q: %w", revisionName, err)
+		return nil, err
 	}
-	var secretList corev1.SecretList
-	if err := json.Unmarshal([]byte(out), &secretList); err != nil {
-		return nil, fmt.Errorf("unmarshalling Secret list: %w", err)
+	secrets := make([]corev1.Secret, 0, len(refs))
+	for _, r := range refs {
+		out, err := k8sClient(ctx, "get", "secret", r.name, "-n", r.namespace, "-o", "json")
+		if err != nil {
+			return nil, fmt.Errorf("getting referred secret %s/%s: %w", r.namespace, r.name, err)
+		}
+		var s corev1.Secret
+		if err := json.Unmarshal([]byte(out), &s); err != nil {
+			return nil, fmt.Errorf("unmarshalling secret %s/%s: %w", r.namespace, r.name, err)
+		}
+		secrets = append(secrets, s)
 	}
-	return secretList.Items, nil
+	return secrets, nil
 }
 
 // ResourceAvailable waits for the specified resource (kind/name format) to exist in the test namespace. Polls with timeout.
