@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -37,7 +38,28 @@ func InitClusterEnv() {
 		panic("TestContext is nil, cannot proceed with initialization")
 	}
 
-	e2e.AfterReadingAllFlags(TestContext)
+	configureKubernetesTestContext()
+}
+
+func configureKubernetesTestContext() {
+	// AfterReadingAllFlags calls ginkgo.PreviewSpecs, which cannot clone the
+	// suite after the tests extension has built its tree to discover tests.
+	// Configure the framework settings needed by these tests without previewing
+	// the suite.
+	gomega.SetDefaultEventuallyPollingInterval(2 * time.Second)
+	gomega.SetDefaultConsistentlyPollingInterval(2 * time.Second)
+	gomega.SetDefaultEventuallyTimeout(5 * time.Minute)
+	gomega.SetDefaultConsistentlyDuration(2 * time.Minute)
+	gomega.EnforceDefaultTimeoutsWhenUsingContexts()
+
+	if TestContext.Provider == "" {
+		TestContext.Provider = "skeleton"
+	}
+	provider, err := e2e.SetupProviderConfig(TestContext.Provider)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize Kubernetes test provider: %v", err))
+	}
+	TestContext.CloudConfig.Provider = provider
 	e2e.TestContext.OutputDir = os.TempDir()
 
 	// Configure logging behavior
