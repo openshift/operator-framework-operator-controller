@@ -196,8 +196,10 @@ func (specs ExtensionTestSpecs) Names() []string {
 // are written to the given ResultWriter after each spec has completed execution.  BeforeEach,
 // BeforeAll, AfterEach, AfterAll hooks are executed when specified. "Each" hooks must be thread
 // safe. Returns an error if any test spec failed, indicating the quantity of failures.
-func (specs ExtensionTestSpecs) Run(ctx context.Context, w ResultWriter, maxConcurrent int) ([]*ExtensionTestResult, error) {
-	queue := make(chan *ExtensionTestSpec)
+//
+// Tests are scheduled using isolation-aware scheduling that respects conflicts, taints, and
+// tolerations defined in each spec's Resources.Isolation field.
+func (specs ExtensionTestSpecs) Run(ctx context.Context, w ResultWriter, maxConcurrent int, opts ...SchedulerOption) ([]*ExtensionTestResult, error) {
 	terminalFailures := atomic.Int64{}
 	nonTerminalFailures := atomic.Int64{}
 
@@ -251,11 +253,16 @@ func (specs ExtensionTestSpecs) Run(ctx context.Context, w ResultWriter, maxConc
 						}
 					}
 
-				// We can't assume the runner will set the name of a test; it may not know it. Even if
-				// it does, we may want to modify it (e.g. k8s-tests for annotations currently).
-				res.Name = spec.Name
-				w.Write(res)
-				resultChan <- res
+					for _, afterEachTask := range spec.afterEach {
+						afterEachTask.Run(res)
+					}
+
+					// We can't assume the runner will set the name of a test; it may not know it. Even if
+					// it does, we may want to modify it (e.g. k8s-tests for annotations currently).
+					res.Name = spec.Name
+					w.Write(res)
+					resultChan <- res
+				}()
 			}
 		}()
 	}
