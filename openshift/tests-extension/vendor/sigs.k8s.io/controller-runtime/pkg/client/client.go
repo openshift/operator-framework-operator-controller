@@ -57,6 +57,28 @@ type Options struct {
 
 	// DryRun instructs the client to only perform dry run requests.
 	DryRun *bool
+
+	// FieldOwner, if provided, sets the default field manager for all write operations
+	// (Create, Update, Patch, Apply) performed by this client. The field manager is used by
+	// the server for Server-Side Apply to track field ownership.
+	// For more details, see: https://kubernetes.io/docs/reference/using-api/server-side-apply/#field-management
+	//
+	// This default can be overridden for a specific call by passing a [FieldOwner] option
+	// to the method.
+	FieldOwner string
+
+	// FieldValidation sets the field validation strategy for all mutating operations performed by this client
+	// and subresource clients created from it.
+	// The exception are apply requests which are always strict, regardless of the FieldValidation setting.
+	// Available values for this option can be found in "k8s.io/apimachinery/pkg/apis/meta/v1" package and are:
+	//  - FieldValidationIgnore
+	//  - FieldValidationWarn
+	//  - FieldValidationStrict
+	// For more details, see: https://kubernetes.io/docs/reference/using-api/api-concepts/#field-validation
+	FieldValidation string
+
+	// Log will be used by the client if it encounters any errors.
+	Log logr.Logger
 }
 
 // CacheOptions are options for creating a cache-backed client.
@@ -129,7 +151,14 @@ func wrapClient(c Client, options Options) Client {
 	if options.DryRun != nil && *options.DryRun {
 		c = NewDryRunClient(c)
 	}
-	return c, err
+	if fo := options.FieldOwner; fo != "" {
+		c = WithFieldOwner(c, fo)
+	}
+	if fv := options.FieldValidation; fv != "" {
+		c = WithFieldValidation(c, FieldValidation(fv))
+	}
+
+	return c
 }
 
 func newClient(config *rest.Config, options Options) (*client, Client, error) {
@@ -599,6 +628,30 @@ func (po *SubResourcePatchOptions) ApplyToSubResourcePatch(o *SubResourcePatchOp
 	}
 }
 
+// SubResourceApplyOptions are the options for a subresource
+// apply request.
+type SubResourceApplyOptions struct {
+	ApplyOptions
+	SubResourceBody runtime.ApplyConfiguration
+}
+
+// ApplyOpts applies the given options.
+func (ao *SubResourceApplyOptions) ApplyOpts(opts []SubResourceApplyOption) *SubResourceApplyOptions {
+	for _, o := range opts {
+		o.ApplyToSubResourceApply(ao)
+	}
+
+	return ao
+}
+
+// ApplyToSubResourceApply applies the configuration on the given patch options.
+func (ao *SubResourceApplyOptions) ApplyToSubResourceApply(o *SubResourceApplyOptions) {
+	ao.ApplyOptions.ApplyToApply(&o.ApplyOptions)
+	if ao.SubResourceBody != nil {
+		o.SubResourceBody = ao.SubResourceBody
+	}
+}
+
 func (sc *subResourceClient) Get(ctx context.Context, obj Object, subResource Object, opts ...SubResourceGetOption) error {
 	switch obj.(type) {
 	case runtime.Unstructured:
@@ -648,5 +701,15 @@ func (sc *subResourceClient) Patch(ctx context.Context, obj Object, patch Patch,
 		return sc.client.metadataClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
 	default:
 		return sc.client.typedClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
+	}
+}
+
+func (sc *subResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...SubResourceApplyOption) error {
+	switch obj := obj.(type) {
+	case *unstructuredApplyConfiguration:
+		defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+		return sc.client.unstructuredClient.ApplySubResource(ctx, obj, sc.subResource, opts...)
+	default:
+		return sc.client.typedClient.ApplySubResource(ctx, obj, sc.subResource, opts...)
 	}
 }

@@ -3,6 +3,7 @@ package cmdrun
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -95,7 +96,7 @@ func NewRunSuiteCommand(registry *extension.Registry) *cobra.Command {
 			if opts.htmlPath != "" {
 				htmlWriter, err := extensiontests.NewHTMLResultWriter(opts.htmlPath, suite.Name)
 				if err != nil {
-					return errors.Wrap(err, "couldn't create html writer")
+					return fmt.Errorf("couldn't create html writer: %w", err)
 				}
 				compositeWriter.AddWriter(htmlWriter)
 			}
@@ -113,11 +114,23 @@ func NewRunSuiteCommand(registry *extension.Registry) *cobra.Command {
 				return fmt.Errorf("couldn't filter specs: %w", err)
 			}
 
+			if suite.TestTimeout != nil {
+				for _, spec := range specs {
+					if spec.Timeout == 0 {
+						spec.Timeout = *suite.TestTimeout
+					}
+				}
+			}
+
 			concurrency := opts.concurrencyFlags.MaxConcurency
 			if suite.Parallelism > 0 {
 				concurrency = min(concurrency, suite.Parallelism)
 			}
-			results, runErr := specs.Run(ctx, compositeWriter, concurrency)
+			var runOpts []extensiontests.SchedulerOption
+			if len(suite.ResourcePools) > 0 {
+				runOpts = append(runOpts, extensiontests.WithResourcePoolCapacity(suite.ResourcePools))
+			}
+			results, runErr := specs.Run(ctx, compositeWriter, concurrency, runOpts...)
 			if opts.junitPath != "" {
 				// we want to commit the results to disk regardless of the success or failure of the specs
 				if err := writeResults(opts.junitPath, results); err != nil {
