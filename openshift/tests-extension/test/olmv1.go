@@ -187,7 +187,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 				g.Expect(progressing).ToNot(BeNil())
 				g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(progressing.Reason).To(Equal("Retrying"))
-				g.Expect(progressing.Message).To(ContainSubstring(`no bundles found`))
+				g.Expect(progressing.Message).To(ContainSubstring(`not found in any eligible catalog`))
 
 				installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
 				g.Expect(installed).ToNot(BeNil())
