@@ -1880,6 +1880,17 @@ spec:
                   contains labels or annotations that are not valid for the resulting
                   ClusterObjectSet; no new revision is created until the metadata is corrected.
 
+                  While a rollout is incomplete, Progressing also reflects why the latest (head
+                  active) ClusterObjectSet revision is not yet Ready. It is True with reason
+                  RevisionPreconditionsNotMet when the revision's preconditions are not yet met
+                  (for example RBAC or a dependency CRD that has not propagated); the controller
+                  keeps retrying. It is False with reason RevisionObjectCollision when the
+                  revision's objects are owned by another controller or already exist, which the
+                  user must resolve. It is False with reason RevisionInvalidSpecification when the
+                  revision's own objects are invalid; this is distinct from InvalidSpecification
+                  above, which refers to the deployment's spec.template.metadata. Inspect the
+                  named ClusterObjectSet revision for the specific cause.
+
                   Available is True with reason Available when at least one active (non-archived)
                   ClusterObjectSet revision is Ready, so the deployment remains available across
                   rollouts while a previous revision is still Ready. It is False with reason
@@ -2242,16 +2253,6 @@ spec:
                 x-kubernetes-validations:
                 - message: phases is immutable
                   rule: self == oldSelf || oldSelf.size() == 0
-              progressDeadlineMinutes:
-                description: |-
-                  progressDeadlineMinutes is an optional field that defines the maximum period
-                  of time in minutes after which an installation should be considered failed and
-                  require manual intervention. This functionality is disabled when no value
-                  is provided. The minimum period is 10 minutes, and the maximum is 720 minutes (12 hours).
-                format: int32
-                maximum: 720
-                minimum: 10
-                type: integer
               progressionProbes:
                 description: |-
                   progressionProbes is an optional field which provides the ability to define custom readiness probes
@@ -2567,7 +2568,6 @@ spec:
                     - False with reason ObjectCollision: one or more objects are controlled by another owner, or are unowned while collision protection prevents adoption, so this revision cannot take ownership of them.
                     - False with reason PreconditionsNotMet: a precondition for applying the revision is not yet satisfied (a referenced Secret is mutable or has invalid or changed content, or a preflight dry-run was rejected, e.g. an immutable field, a conflicting object, or RBAC/dependency CRDs not yet propagated); the revision keeps retrying and recovers once the precondition is met.
                     - False with reason InvalidSpecification: the revision spec is invalid (a malformed revision/phase object or progression probe) and requires a spec change to proceed.
-                    - False with reason ProgressDeadlineExceeded: the revision did not roll out within spec.progressDeadlineMinutes.
                     - False with reason Archiving: the revision is being archived and its owned objects are still being torn down.
                     - False with reason Archived: the revision has been archived and its objects have been torn down.
 
@@ -2774,13 +2774,82 @@ spec:
                       - synced
                       - total
                       type: object
+                    objectDetails:
+                      description: |-
+                        objectDetails lists objects in this phase that are not yet
+                        complete. For Reconciling, Pending, and Stabilizing phases, this
+                        includes probe failures, collisions, creation/update errors, and
+                        any other condition preventing completion. For Archiving phases,
+                        this lists objects still awaiting deletion. Each entry identifies
+                        the object and carries failure messages. Empty when status is
+                        Ready, Superseded, Archived, or Unknown. The list may contain at
+                        most 50 entries, matching the maximum number of objects per phase.
+                      items:
+                        description: ObjectStatus identifies a managed object and
+                          its failure messages.
+                        properties:
+                          group:
+                            description: |-
+                              group is the API group of the object (empty string for core
+                              resources). At most 253 characters (DNS subdomain max).
+                            maxLength: 253
+                            type: string
+                          kind:
+                            description: |-
+                              kind is the kind of the object. Must be between 1 and 63
+                              characters.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                          messages:
+                            description: |-
+                              messages lists the failure reasons for this object. The maximum
+                              of 18 entries accounts for up to 16 assertion probe failures,
+                              one collision message, and one message to note truncation if necessary.
+                              Each message is at most 1024 characters; longer messages are truncated
+                              by the controller.
+                            items:
+                              maxLength: 1024
+                              type: string
+                            maxItems: 18
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          name:
+                            description: |-
+                              name is the name of the object. Must be between 1 and 253
+                              characters (DNS subdomain max).
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              namespace is the namespace of the object. Empty for cluster-scoped
+                              resources. At most 253 characters (DNS subdomain max).
+                            maxLength: 253
+                            type: string
+                          version:
+                            description: |-
+                              version is the API version of the object. Must be between 1 and
+                              63 characters.
+                            maxLength: 63
+                            minLength: 1
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        - version
+                        type: object
+                      maxItems: 50
+                      type: array
+                      x-kubernetes-list-type: atomic
                     status:
                       description: |-
                         status is the current state of this phase in the rollout. Must be one of
-                        InvalidSpecification, Pending, Reconciling,
+                        InvalidSpecification, PreconditionsNotMet, Pending, Reconciling,
                         Stabilizing, Ready, Unknown, Superseded, Archiving, or Archived.
                       enum:
                       - InvalidSpecification
+                      - PreconditionsNotMet
                       - Pending
                       - Reconciling
                       - Stabilizing

@@ -436,16 +436,14 @@ func run() error {
 	})
 
 	resolver := &resolve.CatalogResolver{
-		WalkCatalogsFunc: resolve.CatalogWalker(
-			func(ctx context.Context, option ...client.ListOption) ([]ocv1.ClusterCatalog, error) {
-				var catalogs ocv1.ClusterCatalogList
-				if err := cl.List(ctx, &catalogs, option...); err != nil {
-					return nil, err
-				}
-				return catalogs.Items, nil
-			},
-			catalogClient.GetPackage,
-		),
+		ListCatalogsFunc: func(ctx context.Context, option ...client.ListOption) ([]ocv1.ClusterCatalog, error) {
+			var catalogs ocv1.ClusterCatalogList
+			if err := cl.List(ctx, &catalogs, option...); err != nil {
+				return nil, err
+			}
+			return catalogs.Items, nil
+		},
+		GetPackageFunc: catalogClient.GetPackage,
 		Validations: []resolve.ValidationFunc{
 			resolve.NoDependencyValidation,
 		},
@@ -618,6 +616,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 	rg := &applier.SimpleRevisionGenerator{
 		Scheme:           c.mgr.GetScheme(),
 		ManifestProvider: c.regv1ManifestProvider,
+		SystemNamespace:  cfg.systemNamespace,
 	}
 	fieldOwner := fmt.Sprintf("%s/clusterextension-controller", fieldOwnerPrefix)
 	appl := &applier.Boxcutter{
@@ -647,6 +646,7 @@ func (c *boxcutterReconcilerConfigurator) Configure(ceReconciler *controllers.Cl
 		controllers.UnpackBundle(c.imagePuller, c.imageCache),
 		controllers.ValidateInstallNamespace(coreClient),
 		controllers.ApplyBundleWithBoxcutter(appl.Apply),
+		controllers.ReflectClusterObjectDeploymentStatus(c.mgr.GetClient()),
 	}
 
 	return nil
