@@ -243,7 +243,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServi
 
 		// Test that OLMv1 cleans up webhook configurations when an extension is uninstalled.
 		// This validates that no webhook configurations are left behind after ClusterExtension deletion.
-		It("should clean up webhooks when the extension is uninstalled [Serial]", func(ctx SpecContext) {
+		It("should clean up webhooks when the extension is uninstalled [Serial]", Label("original-name:[sig-olmv1][OCPFeatureGate:NewOLMWebhookProviderOpenshiftServiceCA] OLMv1 operator with webhooks should clean up webhooks when the extension is uninstalled [Serial]"), func(ctx SpecContext) {
 			By("verifying that the webhook operator's webhooks are present")
 			Eventually(func(g Gomega) {
 				whList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}

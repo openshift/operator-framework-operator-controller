@@ -417,8 +417,9 @@ func (f *featureGate) unsafeSetFromMap(logger klog.Logger, enabled map[Feature]b
 		key := Feature(k)
 		versionedSpecs, ok := known[key]
 		if !ok {
-			klog.Warningf("unrecognized feature gate: %s", k)
-			continue
+			// early return if encounters an unknown feature.
+			errs = append(errs, fmt.Errorf("unrecognized feature gate: %s", k))
+			return errs
 		}
 		featureSpec := featureSpecAtEmulationAndMinCompatVersion(versionedSpecs, emulationVersion, minCompatibilityVersion)
 		if featureSpec.LockToDefault && featureSpec.Default != v {
