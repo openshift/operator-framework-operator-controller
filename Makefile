@@ -128,10 +128,18 @@ test-ext-dev-e2e: $(OPERATOR_SDK) $(KUSTOMIZE) $(KIND) #HELP Run extension creat
 	go test -v ./test/extension-developer-e2e/...
 
 .PHONY: test-unit
-ENVTEST_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.x/')
+# Compute the envtest binary version from k8s.io/client-go (v0.29.3 -> 1.29.0)
+ENVTEST_BIN_VERSION := $(shell go list -m k8s.io/client-go | cut -d" " -f2 | sed 's/^v0\.\([[:digit:]]\{1,\}\)\.[[:digit:]]\{1,\}$$/1.\1.0/')
+ENVTEST_BINARIES_DIR := $(shell pwd)/envtest-binaries/$(ENVTEST_BIN_VERSION)
+ENVTEST_ARCHIVE_URL := https://github.com/kubernetes-sigs/controller-tools/releases/download/envtest-v$(ENVTEST_BIN_VERSION)/envtest-v$(ENVTEST_BIN_VERSION)-linux-amd64.tar.gz
 UNIT_TEST_DIRS := $(shell go list ./... | grep -v /test/)
-test-unit: $(SETUP_ENVTEST) #HELP Run the unit tests
-	eval $$($(SETUP_ENVTEST) use -p env $(ENVTEST_VERSION) $(SETUP_ENVTEST_BIN_DIR_OVERRIDE)) && go test -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
+test-unit: #HELP Run the unit tests
+	@if [ ! -f "$(ENVTEST_BINARIES_DIR)/kube-apiserver" ]; then \
+		echo "Downloading envtest binaries v$(ENVTEST_BIN_VERSION) from GitHub releases..."; \
+		mkdir -p "$(ENVTEST_BINARIES_DIR)"; \
+		curl -fsSL "$(ENVTEST_ARCHIVE_URL)" | tar xz --strip-components=2 -C "$(ENVTEST_BINARIES_DIR)"; \
+	fi
+	KUBEBUILDER_ASSETS="$(ENVTEST_BINARIES_DIR)" go test -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
 
 image-registry: ## Setup in-cluster image registry
 	./test/tools/image-registry.sh $(E2E_REGISTRY_NAMESPACE) $(E2E_REGISTRY_NAME)

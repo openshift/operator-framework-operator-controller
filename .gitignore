@@ -8,6 +8,7 @@ vendor
 *.dylib
 bin/*
 testbin/*
+envtest-binaries/
 /hack/tools/bin/*
 Dockerfile.cross
 
