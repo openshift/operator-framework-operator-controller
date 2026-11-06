@@ -1,0 +1,16 @@
+site_name: Conftest
+theme:
+  name: "material"
+repo_url: https://github.com/open-policy-agent/conftest
+nav:
+    - "Home": "index.md"
+    - "Options": "options.md"
+    - "Installation": "install.md"
+    - "Examples": "examples.md"
+    - "Exceptions": "exceptions.md"
+    - "Sharing policies": "sharing.md"
+    - "Debugging policies": "debug.md"
+    - "Documenting policies": "documentation.md"
+    - "Plugins": "plugins.md"
+markdown_extensions:
+    - codehilite
