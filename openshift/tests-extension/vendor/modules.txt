@@ -332,7 +332,7 @@ github.com/operator-framework/api/pkg/operators/v1alpha1
 # github.com/operator-framework/operator-controller v1.8.1-0.20260319123036-8ccea5a0cf67 => ../../
 ## explicit; go 1.26.5
 github.com/operator-framework/operator-controller/api/v1
-# github.com/operator-framework/operator-registry v1.71.0
+# github.com/operator-framework/operator-registry v1.74.0
 ## explicit; go 1.26.3
 github.com/operator-framework/operator-registry/alpha/property
 # github.com/pborman/uuid v1.2.1
@@ -485,7 +485,7 @@ golang.org/x/crypto/internal/alias
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+# golang.org/x/exp v0.0.0-20260603202125-055de637280b
 ## explicit; go 1.25.0
 golang.org/x/exp/slices
 # golang.org/x/mod v0.42.0

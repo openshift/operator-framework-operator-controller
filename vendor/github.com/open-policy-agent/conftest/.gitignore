@@ -1,0 +1,19 @@
+conftest
+conftest.exe
+dist
+site
+
+# IDEs
+.vscode
+.DS*
+.idea
+
+# NodeJS files/dirs created when installing bats
+node_modules/
+package.json
+package-lock.json
+
+# ignore generated doc in tests
+/tests/document/*.md
+# ignore prospective golden files
+/document/testdata/doc/*.golden
