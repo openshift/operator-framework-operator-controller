@@ -11,6 +11,8 @@ options:
       replicas: 1
     podDisruptionBudget:
       enabled: false
+  objectController:
+    enabled: false
   operatorController:
     enabled: false
   openshift:
