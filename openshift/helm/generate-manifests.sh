@@ -22,3 +22,5 @@ ${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/operator-c
 ${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/operator-controller.yaml" --values "${HELMDIR}/experimental.yaml" | ${YQ} > "${DOWNSTREAM}/operator-controller/manifests-experimental.yaml"
 ${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/catalogd.yaml" | ${YQ} > "${DOWNSTREAM}/catalogd/manifests.yaml"
 ${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/catalogd.yaml" --values "${HELMDIR}/experimental.yaml" | ${YQ} > "${DOWNSTREAM}/catalogd/manifests-experimental.yaml"
+${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/object-controller.yaml" | ${YQ} > "${DOWNSTREAM}/object-controller/manifests.yaml"
+${HELM} template olmv1 "${REPO_ROOT}/helm/olmv1" --values "${HELMDIR}/object-controller.yaml" --values "${HELMDIR}/experimental.yaml" | ${YQ} > "${DOWNSTREAM}/object-controller/manifests-experimental.yaml"
