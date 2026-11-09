@@ -1,0 +1,61 @@
+# Default values for OLMv1.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# List of components to include
+options:
+  operatorController:
+    # enabled is intentionally left false for now as the object-controller is currently
+    # piggybacking off the operator-controller for deployment:
+    #  - the object-controller binary is included in the operator-controller image
+    #  - the object-controller resources are rendered in the operator-controller namespace
+    #  - the object-controller resource rendering is controlled in the operator-controller.yaml
+    #    by leaving options.objectController.enabled unset, which makes it governed by the BoxcutterRuntime
+    #    feature-gate being enabled.
+    enabled: false
+  catalogd:
+    enabled: false
+  openshift:
+    enabled: true
+
+# This can be one of: standard or experimental
+featureSet: standard
+
+# The set of namespaces
+namespaces:
+  olmv1:
+    name: openshift-object-controller
+
+# Deployment values for object-controller
+deployments:
+  templateSpec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  control-plane: object-controller-controller-manager
+    priorityClassName: system-cluster-critical
+    securityContext:
+      seLinuxOptions:
+        type: spc_t
+    nodeSelector:
+      node-role.kubernetes.io/master: ""
+    tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      - effect: NoExecute
+        key: node.kubernetes.io/unreachable
+        operator: Exists
+        tolerationSeconds: 120
+      - effect: NoExecute
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+        tolerationSeconds: 120
