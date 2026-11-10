@@ -5,8 +5,6 @@ include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/,
     targets/openshift/deps.mk \
 )
 
-include $(DIR)/.bingo/Variables.mk
-
 # Prefer the upstream source commit that the Dockerfile passes in via
 # `ENV GIT_COMMIT=<sha>`. If that variable is not already defined fall back to
 # the commit recorded by the OpenShift image build pipeline.
@@ -24,7 +22,7 @@ verify: ## Run downstream-specific verify
 	git diff --exit-code
 
 .PHONY: manifests
-manifests: $(YQ) $(HELM)
+manifests:
 	$(DIR)/helm/generate-manifests.sh
 
 .PHONY: verify-manifests
