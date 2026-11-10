@@ -97,7 +97,7 @@ Examples:
 
 			cleanWriter.SetTotalTests(len(specs))
 
-			if err := specs.Run(ctx, cleanWriter, 1); err != nil {
+			if _, err := specs.Run(ctx, cleanWriter, 1); err != nil {
 				if flushErr := cleanWriter.Flush(); flushErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to write results: %v\n", flushErr)
 				}
