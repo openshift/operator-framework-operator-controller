@@ -33,7 +33,6 @@ import (
 	"github.com/operator-framework/operator-controller/internal/testutil"
 	mockapplier "github.com/operator-framework/operator-controller/internal/testutil/mock/applier"
 	mockctrlclient "github.com/operator-framework/operator-controller/internal/testutil/mock/ctrlclient"
-	"github.com/operator-framework/operator-controller/test"
 )
 
 var (
@@ -111,7 +110,8 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 					WithName("configuration").
 					WithObjects(
 						ocv1ac.ClusterObjectSetObject().
-							WithObject(unstructured.Unstructured{
+							WithType(ocv1.ObjectTypeInlineManifest).
+							WithInlineManifest(unstructured.Unstructured{
 								Object: map[string]interface{}{
 									"apiVersion": "v1",
 									"kind":       "ConfigMap",
@@ -127,7 +127,8 @@ func Test_SimpleRevisionGenerator_GenerateRevisionFromHelmRelease(t *testing.T) 
 								},
 							}),
 						ocv1ac.ClusterObjectSetObject().
-							WithObject(unstructured.Unstructured{
+							WithType(ocv1.ObjectTypeInlineManifest).
+							WithInlineManifest(unstructured.Unstructured{
 								Object: map[string]interface{}{
 									"apiVersion": "v1",
 									"kind":       "Secret",
@@ -818,9 +819,9 @@ func TestBoxcutterApply_WritesClusterObjectDeployment(t *testing.T) {
 	sawRef := false
 	for _, ph := range cod.Spec.Template.Spec.Phases {
 		for _, o := range ph.Objects {
-			require.Nil(t, o.Object.Object, "object should be externalized to a Secret ref")
-			require.NotNil(t, o.Ref)
-			refNames[o.Ref.Name] = struct{}{}
+			require.Nil(t, o.InlineManifest.Object, "object should be externalized to a Secret ref")
+			require.NotNil(t, o.ObjectRef)
+			refNames[o.ObjectRef.Name] = struct{}{}
 			sawRef = true
 		}
 	}
@@ -1040,10 +1041,10 @@ func TestBoxcutterApply_Adoption(t *testing.T) {
 
 func TestBoxcutterApply_RecreatesDeploymentAfterDeletion(t *testing.T) {
 	t.Parallel()
-	testEnv := test.NewEnv()
+	testEnv := testutil.NewEnv()
 	config, err := testEnv.Start()
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, test.StopWithRetry(testEnv, time.Minute, time.Second)) })
+	t.Cleanup(func() { require.NoError(t, testutil.StopWithRetry(testEnv, time.Minute, time.Second)) })
 	scheme := codTestScheme(t)
 	cl, err := client.New(config, client.Options{Scheme: scheme})
 	require.NoError(t, err)

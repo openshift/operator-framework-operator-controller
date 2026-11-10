@@ -401,31 +401,56 @@ type ClusterObjectSetPhase struct {
 	CollisionProtection CollisionProtection `json:"collisionProtection,omitempty"`
 }
 
+// ObjectType defines the type of objects provided in the Objects set.
+// +kubebuilder:validation:Enum=InlineManifest;ObjectReference
+type ObjectType string
+
+const (
+	ObjectTypeInlineManifest  ObjectType = "InlineManifest"
+	ObjectTypeObjectReference ObjectType = "ObjectReference"
+)
+
 // ClusterObjectSetObject represents a Kubernetes object to be applied as part
 // of a phase, along with its collision protection settings.
 //
-// Exactly one of object or ref must be set.
+// Exactly one of inlineManifest or objectRef must be set.
 //
-// +kubebuilder:validation:ExactlyOneOf={object,ref}
+// +union
+// +kubebuilder:validation:XValidation:rule="self.type == 'InlineManifest' ?has(self.inlineManifest) : !has(self.inlineManifest)",message="inlineManifest is required when type is InlineManifest, and forbidden otherwise"
+// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectReference' ?has(self.objectRef) : !has(self.objectRef)",message="objectRef is required when type is ObjectReference, and forbidden otherwise"
 type ClusterObjectSetObject struct {
-	// object is an optional embedded Kubernetes object to be applied.
+	// type is a required field which specifies the type of object to use.
 	//
-	// Exactly one of object or ref must be set.
+	// The allowed selector types are "InlineManifest" and "ObjectReference".
+	//
+	// When set to "InlineManifest", object manifests are supplied inline, as valid Kubernetes resources with apiVersion, kind, and metadata fields.
+	// When set to "ObjectReference", objects are supplied as references to a Secret that holds the serialized object manifest.
+	//
+	// +unionDiscriminator
+	// +required
+	// <opcon:experimental>
+	Type ObjectType `json:"type,omitempty"`
+
+	// inlineManifest is an optional embedded Kubernetes object to be applied.
+	//
+	// Exactly one of inlineManifest or objectRef must be set.
 	//
 	// This object must be a valid Kubernetes resource with apiVersion, kind, and metadata fields.
 	//
 	// +kubebuilder:validation:EmbeddedResource
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +unionMember
 	// +optional
-	Object unstructured.Unstructured `json:"object,omitzero"`
+	InlineManifest unstructured.Unstructured `json:"inlineManifest,omitempty,omitzero"`
 
-	// ref is an optional reference to a Secret that holds the serialized
+	// objectRef is an optional reference to a Secret that holds the serialized
 	// object manifest.
 	//
-	// Exactly one of object or ref must be set.
+	// Exactly one of inlineManifest or objectRef must be set.
 	//
+	// +unionMember
 	// +optional
-	Ref ObjectSourceRef `json:"ref,omitzero"`
+	ObjectRef ObjectSourceRef `json:"objectRef,omitzero"`
 
 	// collisionProtection controls whether the operator can adopt and modify objects
 	// that already exist on the cluster.
@@ -664,19 +689,14 @@ type ObjectStatus struct {
 	// +optional
 	Group string `json:"group,omitempty"`
 
-	// version is the API version of the object. Must be between 1 and
-	// 63 characters.
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +required
-	Version string `json:"version,omitempty"`
-
-	// kind is the kind of the object. Must be between 1 and 63
+	// resource is the lowercase, plural resource type of the object
+	// (for example, "pods" or "configmaps"). Must be between 1 and 63
 	// characters.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:XValidation:rule=`!format.dns1035Label().validate(self).hasValue()`,message="the value must consist of only lowercase alphanumeric characters and hyphens, must start with a letter, and must end with an alphanumeric character."
 	// +required
-	Kind string `json:"kind,omitempty"`
+	Resource string `json:"resource,omitempty"`
 
 	// namespace is the namespace of the object. Empty for cluster-scoped
 	// resources. At most 253 characters (DNS subdomain max).

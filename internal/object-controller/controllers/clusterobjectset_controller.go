@@ -243,7 +243,7 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	reconcileTime := metav1.NewTime(c.Clock.Now())
 	// Set object counts and phase status
 	// TODO: refactor and move condition setting operations into status pkg
-	status.UpdateObservedPhasesForReconcile(cos, rres, reconcileTime)
+	status.UpdateObservedPhasesForReconcile(c.Client.RESTMapper(), cos, rres, reconcileTime)
 
 	// Report revision-level preflight validation failures and re-check on a flat timer:
 	// the dry-run can be rejected for reasons that clear without a spec change (e.g. RBAC
@@ -415,7 +415,7 @@ func (c *ClusterObjectSetReconciler) archive(ctx context.Context, revisionEngine
 		return ctrl.Result{}, fmt.Errorf("error archiving revision: %v", err)
 	}
 	teardownTime := metav1.NewTime(c.Clock.Now())
-	status.UpdateObservedPhasesForTeardown(cos, tdres, teardownTime)
+	status.UpdateObservedPhasesForTeardown(c.Client.RESTMapper(), cos, tdres, teardownTime)
 	if tdres != nil && !tdres.IsComplete() {
 		markAsArchiving(cos)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -599,11 +599,11 @@ func (c *ClusterObjectSetReconciler) buildBoxcutterPhases(ctx context.Context, c
 		objs := make([]client.Object, 0, len(specPhase.Objects))
 		for _, specObj := range specPhase.Objects {
 			var obj *unstructured.Unstructured
-			switch {
-			case specObj.Object.Object != nil:
-				obj = specObj.Object.DeepCopy()
-			case specObj.Ref.Name != "":
-				resolved, err := c.resolveObjectRef(ctx, specObj.Ref)
+			switch specObj.Type {
+			case ocv1.ObjectTypeInlineManifest:
+				obj = specObj.InlineManifest.DeepCopy()
+			case ocv1.ObjectTypeObjectReference:
+				resolved, err := c.resolveObjectRef(ctx, specObj.ObjectRef)
 				if err != nil {
 					return nil, nil, nil, fmt.Errorf("resolving ref in phase %q: %w", specPhase.Name, err)
 				}
@@ -865,10 +865,10 @@ func (c *ClusterObjectSetReconciler) verifyReferencedSecretsImmutable(ctx contex
 
 	for _, phase := range cos.Spec.Phases {
 		for _, obj := range phase.Objects {
-			if obj.Ref.Name == "" {
+			if obj.Type != ocv1.ObjectTypeObjectReference {
 				continue
 			}
-			sr := secretRef{name: obj.Ref.Name, namespace: obj.Ref.Namespace}
+			sr := secretRef{name: obj.ObjectRef.Name, namespace: obj.ObjectRef.Namespace}
 			if _, ok := seen[sr]; !ok {
 				seen[sr] = struct{}{}
 				refs = append(refs, sr)
