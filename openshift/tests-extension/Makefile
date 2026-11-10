@@ -1,8 +1,6 @@
 # Get the directory where this Makefile is, so we can use it below for including
-# Include the same Bingo variables used by the project
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
-# Use openshift's Bingo variables
-include $(DIR)/../.bingo/Variables.mk
+GO_TOOL := $(DIR)/../tools/run.sh
 
 # Definitions for the extended tests
 
@@ -117,44 +115,44 @@ vet: #HELP Run go vet against code.
 	go vet ./...
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
-	$(GOLANGCI_LINT) run
+lint: #HELP Run golangci linter.
+	$(GO_TOOL) golangci-lint run
 
 .PHONY: fix-lint
-fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
-	$(GOLANGCI_LINT) run --fix
+fix-lint: #HELP Fix lint issues
+	$(GO_TOOL) golangci-lint run --fix
 
 .PHONY: bindata
-bindata: $(GO_BINDATA)
+bindata:
 
 bindata: pkg/bindata/operator/operator.go
 pkg/bindata/operator/operator.go: $(shell find testdata/operator -type f)
 	mkdir -p $(@D)
-	$(GO_BINDATA) -pkg operator -o $@ -prefix "testdata/operator" testdata/operator/...
+	$(GO_TOOL) go-bindata -pkg operator -o $@ -prefix "testdata/operator" testdata/operator/...
 	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/catalog/catalog.go
 pkg/bindata/catalog/catalog.go: $(shell find testdata/catalog -type f)
 	mkdir -p $(@D)
-	$(GO_BINDATA) -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
+	$(GO_TOOL) go-bindata -pkg catalog -o $@ -prefix "testdata/catalog" testdata/catalog/...
 	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/webhook/bundle/bundle.go
 pkg/bindata/webhook/bundle/bundle.go: $(shell find testdata/webhook/bundle -type f)
 	mkdir -p $(@D)
-	$(GO_BINDATA) -pkg webhookbundle -o $@ -prefix "testdata/webhook/bundle" testdata/webhook/bundle/...
+	$(GO_TOOL) go-bindata -pkg webhookbundle -o $@ -prefix "testdata/webhook/bundle" testdata/webhook/bundle/...
 	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/webhook/index/index.go
 pkg/bindata/webhook/index/index.go: $(shell find testdata/webhook/index -type f)
 	mkdir -p $(@D)
-	$(GO_BINDATA) -pkg webhookindex -o $@ -prefix "testdata/webhook/index" testdata/webhook/index/...
+	$(GO_TOOL) go-bindata -pkg webhookindex -o $@ -prefix "testdata/webhook/index" testdata/webhook/index/...
 	go fmt ./$(@D)/...
 
 bindata: pkg/bindata/qe/bindata.go
 pkg/bindata/qe/bindata.go: FORCE
 	mkdir -p $(@D)
-	$(GO_BINDATA) -nocompress -nometadata \
+	$(GO_TOOL) go-bindata -nocompress -nometadata \
 		-pkg testdata -o $@ -prefix "testextended" test/qe/testdata/...
 	gofmt -s -w $@
 
