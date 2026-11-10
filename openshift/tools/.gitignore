@@ -1,0 +1,2 @@
+# Keep this module's vendored tools in Git despite the repository-wide vendor ignore.
+!vendor/
