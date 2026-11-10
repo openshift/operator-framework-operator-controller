@@ -18,10 +18,13 @@ func subHeader(format string, a ...any) {
 	subHeaderTo(GinkgoWriter, format, a...)
 }
 
+// sectionHeaderTo writes a section header to w, for callers that collect output
+// somewhere other than the GinkgoWriter.
 func sectionHeaderTo(w io.Writer, format string, a ...any) {
 	fmt.Fprintf(w, "\n=== %s ===\n", fmt.Sprintf(format, a...))
 }
 
+// subHeaderTo writes a subsection header to w.
 func subHeaderTo(w io.Writer, format string, a ...any) {
 	fmt.Fprintf(w, "\n--- %s ---\n", fmt.Sprintf(format, a...))
 }

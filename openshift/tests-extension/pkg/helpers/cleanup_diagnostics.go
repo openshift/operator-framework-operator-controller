@@ -2,12 +2,12 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,9 +27,6 @@ const (
 
 	// diagnosticMaxEvents caps how many events are printed for a namespace.
 	diagnosticMaxEvents = 25
-
-	// diagnosticMaxMessage caps the length of a single condition or event message.
-	diagnosticMaxMessage = 512
 )
 
 // diagnosticTimeout bounds the independent context used to capture failure-time
@@ -107,7 +104,8 @@ func runWithDiagnostics(w io.Writer, cleanup, dump func()) {
 		// say that it happened so a broken dump is not mistaken for an empty one.
 		defer func() {
 			if r := recover(); r != nil && w != nil {
-				fmt.Fprintf(w, "[cleanup-diagnostics] dump panicked and was suppressed: %v\n", r)
+				fmt.Fprintf(w,
+					"[cleanup-diagnostics] dump panicked and was suppressed (recovered value of type %T)\n", r)
 			}
 		}()
 		dump()
@@ -130,7 +128,7 @@ func (d CleanupDiagnostics) Dump(ctx context.Context, w io.Writer, r DiagnosticR
 	sectionHeaderTo(w, "[cleanup-diagnostics] namespace=%q clusterExtension=%q",
 		d.Namespace, d.ClusterExtensionName)
 	if d.DeleteErr != nil {
-		fmt.Fprintf(w, "delete request error: %v\n", d.DeleteErr)
+		fmt.Fprintf(w, "delete request error: %s\n", DescribeAPIError(d.DeleteErr))
 	}
 
 	d.dumpNamespace(diagCtx, w, r)
@@ -153,6 +151,8 @@ func detachContext(ctx context.Context) context.Context {
 	return context.WithoutCancel(ctx)
 }
 
+// dumpNamespace reports the namespace's own deletion state: the fields that say
+// whether termination is blocked, and on what.
 func (d CleanupDiagnostics) dumpNamespace(ctx context.Context, w io.Writer, r DiagnosticReader) {
 	if d.Namespace == "" {
 		return
@@ -169,11 +169,14 @@ func (d CleanupDiagnostics) dumpNamespace(ctx context.Context, w io.Writer, r Di
 	fmt.Fprintf(w, "deletionTimestamp: %s\n", formatTimestamp(ns.DeletionTimestamp))
 	fmt.Fprintf(w, "metadata.finalizers: %s\n", formatList(ns.Finalizers))
 	fmt.Fprintf(w, "spec.finalizers: %s\n", formatList(ns.Spec.Finalizers))
-	writeConditions(w, ns.Status.Conditions, func(c corev1.NamespaceCondition) (string, string, string, string) {
-		return string(c.Type), string(c.Status), c.Reason, c.Message
-	})
+	writeConditions(w, ns.Status.Conditions,
+		func(c corev1.NamespaceCondition) (string, string, string, metav1.Time) {
+			return string(c.Type), string(c.Status), c.Reason, c.LastTransitionTime
+		})
 }
 
+// dumpClusterExtension reports the extension's deletion state and what it had
+// installed, which is what a stuck OLMv1 finalizer shows up in.
 func (d CleanupDiagnostics) dumpClusterExtension(ctx context.Context, w io.Writer, r DiagnosticReader) {
 	if d.ClusterExtensionName == "" {
 		return
@@ -194,9 +197,10 @@ func (d CleanupDiagnostics) dumpClusterExtension(ctx context.Context, w io.Write
 	} else {
 		fmt.Fprintf(w, "status.install.bundle: <none>\n")
 	}
-	writeConditions(w, ce.Status.Conditions, func(c metav1.Condition) (string, string, string, string) {
-		return c.Type, string(c.Status), c.Reason, c.Message
-	})
+	writeConditions(w, ce.Status.Conditions,
+		func(c metav1.Condition) (string, string, string, metav1.Time) {
+			return c.Type, string(c.Status), c.Reason, c.LastTransitionTime
+		})
 }
 
 // dumpNamespacedCensus prints the names of the objects still present in the namespace.
@@ -227,12 +231,12 @@ func (d CleanupDiagnostics) dumpNamespacedCensus(ctx context.Context, w io.Write
 	for _, k := range kinds {
 		label := k.kind + ":"
 		if err := r.List(ctx, k.list, client.InNamespace(d.Namespace)); err != nil {
-			fmt.Fprintf(w, "%-24s error: %v\n", label, err)
+			fmt.Fprintf(w, "%-24s error: %s\n", label, DescribeAPIError(err))
 			continue
 		}
 		names, err := objectNames(k.list)
 		if err != nil {
-			fmt.Fprintf(w, "%-24s error: %v\n", label, err)
+			fmt.Fprintf(w, "%-24s error: %s\n", label, DescribeAPIError(err))
 			continue
 		}
 		fmt.Fprintf(w, "%-24s %s\n", label, formatNames(names))
@@ -255,7 +259,7 @@ func (d CleanupDiagnostics) dumpWebhookConfigurations(ctx context.Context, w io.
 		const kind = "validatingwebhookconfiguration"
 		list := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
 		if err := r.List(ctx, list); err != nil {
-			fmt.Fprintf(w, "%ss error: %v\n", kind, err)
+			fmt.Fprintf(w, "%ss error: %s\n", kind, DescribeAPIError(err))
 		} else {
 			matched := 0
 			for i := range list.Items {
@@ -278,7 +282,7 @@ func (d CleanupDiagnostics) dumpWebhookConfigurations(ctx context.Context, w io.
 		const kind = "mutatingwebhookconfiguration"
 		list := &admissionregistrationv1.MutatingWebhookConfigurationList{}
 		if err := r.List(ctx, list); err != nil {
-			fmt.Fprintf(w, "%ss error: %v\n", kind, err)
+			fmt.Fprintf(w, "%ss error: %s\n", kind, DescribeAPIError(err))
 			return
 		}
 		matched := 0
@@ -302,12 +306,16 @@ func writeWebhookConfigHeader(w io.Writer, kind, name string, deletionTimestamp 
 	fmt.Fprintf(w, "%s %s (deletionTimestamp: %s)\n", kind, name, formatTimestamp(deletionTimestamp))
 }
 
+// writeNoneMatching records that a kind was listed successfully and nothing matched,
+// so an empty section is never ambiguous with a skipped one.
 func writeNoneMatching(w io.Writer, kind, prefix string, matched int) {
 	if matched == 0 {
 		fmt.Fprintf(w, "%ss: <none matching %q>\n", kind, prefix)
 	}
 }
 
+// dumpEvents reports a bounded, newest-first slice of the namespace's events,
+// structured fields only.
 func (d CleanupDiagnostics) dumpEvents(ctx context.Context, w io.Writer, r DiagnosticReader) {
 	if d.Namespace == "" {
 		return
@@ -316,7 +324,7 @@ func (d CleanupDiagnostics) dumpEvents(ctx context.Context, w io.Writer, r Diagn
 
 	events := &corev1.EventList{}
 	if err := r.List(ctx, events, client.InNamespace(d.Namespace)); err != nil {
-		fmt.Fprintf(w, "events error: %v\n", err)
+		fmt.Fprintf(w, "events error: %s\n", DescribeAPIError(err))
 		return
 	}
 	if len(events.Items) == 0 {
@@ -334,13 +342,17 @@ func (d CleanupDiagnostics) dumpEvents(ctx context.Context, w io.Writer, r Diagn
 		items = items[:diagnosticMaxEvents]
 	}
 	for i := range items {
-		fmt.Fprintf(w, "%s %s/%s count=%d: %s\n",
+		// Event.Message is free-form text written by arbitrary controllers, so only
+		// the structured fields are reported.
+		fmt.Fprintf(w, "%s %s/%s count=%d\n",
 			formatTime(eventTime(items[i])),
-			items[i].Type, items[i].Reason, eventCount(items[i]),
-			truncate(items[i].Message))
+			items[i].Type, items[i].Reason, eventCount(items[i]))
 	}
 }
 
+// writeWebhookSummary prints the wiring that decides whether a webhook can block
+// namespace termination: its failure policy and the service it calls. The CA bundle is
+// deliberately not printed.
 func writeWebhookSummary(w io.Writer, name string,
 	failurePolicy *admissionregistrationv1.FailurePolicyType,
 	service *admissionregistrationv1.ServiceReference) {
@@ -360,16 +372,23 @@ func writeWebhookSummary(w io.Writer, name string,
 }
 
 // writeConditions prints a condition list. project maps one condition to its type,
-// status, reason and message, so both corev1 and metav1 condition shapes are supported.
-func writeConditions[T any](w io.Writer, conditions []T, project func(T) (string, string, string, string)) {
+// status, reason and last transition time, so both corev1 and metav1 condition shapes
+// are supported.
+//
+// Condition messages are deliberately omitted: they are free-form text written by
+// arbitrary controllers and may embed cluster-internal detail. The reason is the
+// structured discriminator and is kept.
+func writeConditions[T any](w io.Writer, conditions []T,
+	project func(T) (string, string, string, metav1.Time)) {
 	if len(conditions) == 0 {
 		fmt.Fprintf(w, "status.conditions: <none>\n")
 		return
 	}
 	fmt.Fprintf(w, "status.conditions:\n")
 	for _, c := range conditions {
-		condType, status, reason, message := project(c)
-		fmt.Fprintf(w, "  %s=%s reason=%s message=%s\n", condType, status, reason, truncate(message))
+		condType, status, reason, lastTransition := project(c)
+		fmt.Fprintf(w, "  %s=%s reason=%s lastTransitionTime=%s\n",
+			condType, status, reason, formatTime(lastTransition.Time))
 	}
 }
 
@@ -399,6 +418,8 @@ func objectNames(list client.ObjectList) ([]string, error) {
 	return names, nil
 }
 
+// formatNames joins names, capping the list at diagnosticMaxNames and reporting the
+// full count so a truncated census is never mistaken for a complete one.
 func formatNames(names []string) string {
 	if len(names) == 0 {
 		return "<none>"
@@ -422,6 +443,7 @@ func formatList[T ~string](values []T) string {
 	return strings.Join(out, ", ")
 }
 
+// formatTimestamp renders an optional timestamp, distinguishing unset from zero.
 func formatTimestamp(ts *metav1.Time) string {
 	if ts == nil || ts.IsZero() {
 		return "<none>"
@@ -429,6 +451,7 @@ func formatTimestamp(ts *metav1.Time) string {
 	return formatTime(ts.Time)
 }
 
+// formatTime renders a time as UTC RFC3339, or <none> if it is zero.
 func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return "<none>"
@@ -436,11 +459,73 @@ func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// describeGetError renders a failed Get without echoing the server's message.
 func describeGetError(err error) string {
 	if apierrors.IsNotFound(err) {
 		return "(not found)"
 	}
-	return fmt.Sprintf("error: %v", err)
+	return "error: " + DescribeAPIError(err)
+}
+
+// DescribeAPIError renders err as a fixed, non-sensitive category.
+//
+// Diagnostics run on a failing CI path and their output is published as a job
+// artifact, so an error is never rendered with Error(): API server and controller
+// messages are free-form and may embed cluster-internal endpoints or object content.
+// Only the Kubernetes status reason - matched against the known set below - its HTTP
+// status code, and the Go type of anything unrecognised are reported.
+func DescribeAPIError(err error) string {
+	switch {
+	case err == nil:
+		return "<none>"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "DeadlineExceeded"
+	case errors.Is(err, context.Canceled):
+		return "Canceled"
+	}
+
+	var status apierrors.APIStatus
+	if errors.As(err, &status) {
+		return fmt.Sprintf("%s(code=%d)", knownStatusReason(status.Status().Reason), status.Status().Code)
+	}
+	return fmt.Sprintf("Unclassified(type=%T)", err)
+}
+
+// knownStatusReasons is the set of status reasons that may be printed verbatim.
+// Anything else is reported as Unrecognized, because Status.Reason is wire data.
+var knownStatusReasons = map[metav1.StatusReason]struct{}{
+	metav1.StatusReasonUnknown:               {},
+	metav1.StatusReasonUnauthorized:          {},
+	metav1.StatusReasonForbidden:             {},
+	metav1.StatusReasonNotFound:              {},
+	metav1.StatusReasonAlreadyExists:         {},
+	metav1.StatusReasonConflict:              {},
+	metav1.StatusReasonGone:                  {},
+	metav1.StatusReasonInvalid:               {},
+	metav1.StatusReasonServerTimeout:         {},
+	metav1.StatusReasonTimeout:               {},
+	metav1.StatusReasonTooManyRequests:       {},
+	metav1.StatusReasonBadRequest:            {},
+	metav1.StatusReasonMethodNotAllowed:      {},
+	metav1.StatusReasonNotAcceptable:         {},
+	metav1.StatusReasonRequestEntityTooLarge: {},
+	metav1.StatusReasonUnsupportedMediaType:  {},
+	metav1.StatusReasonInternalError:         {},
+	metav1.StatusReasonExpired:               {},
+	metav1.StatusReasonServiceUnavailable:    {},
+}
+
+// knownStatusReason maps a status reason to a printable value: the reason itself when
+// it is one of the known constants, NoReason when the server sent none, and
+// Unrecognized for anything else.
+func knownStatusReason(reason metav1.StatusReason) string {
+	if _, ok := knownStatusReasons[reason]; ok {
+		if reason == metav1.StatusReasonUnknown {
+			return "NoReason"
+		}
+		return string(reason)
+	}
+	return "Unrecognized"
 }
 
 // eventTime returns the most recent time known for e, preferring the series' last
@@ -459,22 +544,11 @@ func eventTime(e corev1.Event) time.Time {
 	return e.FirstTimestamp.Time
 }
 
+// eventCount returns the occurrence count, preferring the series count used by the
+// events.k8s.io API.
 func eventCount(e corev1.Event) int32 {
 	if e.Series != nil && e.Series.Count > 0 {
 		return e.Series.Count
 	}
 	return e.Count
-}
-
-// truncate bounds a message and keeps the result valid UTF-8, because it ends up in the
-// JUnit XML the test extension writes.
-func truncate(s string) string {
-	if len(s) <= diagnosticMaxMessage {
-		return s
-	}
-	cut := s[:diagnosticMaxMessage]
-	for len(cut) > 0 && !utf8.ValidString(cut) {
-		cut = cut[:len(cut)-1]
-	}
-	return cut + "...(truncated)"
 }

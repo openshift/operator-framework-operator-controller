@@ -139,10 +139,11 @@ func terminatingNamespace() *corev1.Namespace {
 		Status: corev1.NamespaceStatus{
 			Phase: corev1.NamespaceTerminating,
 			Conditions: []corev1.NamespaceCondition{{
-				Type:    corev1.NamespaceDeletionContentFailure,
-				Status:  corev1.ConditionTrue,
-				Reason:  "ContentDeletionFailed",
-				Message: "failed calling webhook vwebhooktest-v1.kb.io",
+				Type:               corev1.NamespaceDeletionContentFailure,
+				Status:             corev1.ConditionTrue,
+				Reason:             "ContentDeletionFailed",
+				LastTransitionTime: metav1.NewTime(time.Date(2026, 11, 10, 3, 19, 0, 0, time.UTC)),
+				Message:            "failed calling webhook vwebhooktest-v1.kb.io",
 			}},
 		},
 	}
@@ -237,7 +238,6 @@ func assertNotContains(t *testing.T, out string, forbidden ...string) {
 // namespace phase/deletionTimestamp/finalizers/conditions, ClusterExtension status, a
 // name-only census and only the test's own webhook configurations.
 func TestDumpCapturesCleanupState(t *testing.T) {
-	longMessage := strings.Repeat("x", diagnosticMaxMessage+100)
 	r := &fakeReader{
 		namespace:        terminatingNamespace(),
 		clusterExtension: installedClusterExtension(),
@@ -252,7 +252,6 @@ func TestDumpCapturesCleanupState(t *testing.T) {
 			Type:          corev1.EventTypeWarning,
 			Reason:        "FailedDelete",
 			Count:         3,
-			Message:       longMessage,
 			LastTimestamp: metav1.NewTime(time.Date(2026, 11, 10, 3, 21, 0, 0, time.UTC)),
 		}},
 	}
@@ -267,7 +266,8 @@ func TestDumpCapturesCleanupState(t *testing.T) {
 		"metadata.finalizers: example.com/holds-namespace",
 		"spec.finalizers: kubernetes",
 		"NamespaceDeletionContentFailure=True",
-		"failed calling webhook vwebhooktest-v1.kb.io",
+		"reason=ContentDeletionFailed",
+		"lastTransitionTime=2026-11-10T03:19:00Z",
 		"status.install.bundle: webhook-operator.v0.0.5 0.0.5",
 		"olm.operatorframework.io/cleanup-contentmanager-cache",
 		"Progressing=True",
@@ -282,7 +282,6 @@ func TestDumpCapturesCleanupState(t *testing.T) {
 		"service=<no service ref>",
 		"count=3",
 		"FailedDelete",
-		"...(truncated)",
 		"[cleanup-diagnostics] end",
 	)
 
@@ -293,7 +292,6 @@ func TestDumpCapturesCleanupState(t *testing.T) {
 		"SUPER-SECRET-CA-BUNDLE",
 		"sre-unrelated-validation",
 		"pod-identity-webhook",
-		longMessage,
 		"must be listed as metadata only",
 	)
 }
@@ -306,9 +304,9 @@ func TestDumpReportsDeleteErrorAndEmptyState(t *testing.T) {
 
 	out := dumpToString(d, context.Background(), &fakeReader{})
 
+	assertNotContains(t, out, "admission webhook denied the delete")
 	assertContains(t, out,
-		"delete request error:",
-		"admission webhook denied the delete",
+		"delete request error: InternalError(code=500)",
 		"(not found)",
 		`validatingwebhookconfigurations: <none matching "vwebhooktest">`,
 		`mutatingwebhookconfigurations: <none matching "mwebhooktest">`,
@@ -380,7 +378,7 @@ func TestDumpIsBoundedByDiagnosticTimeout(t *testing.T) {
 
 	select {
 	case out := <-done:
-		assertContains(t, out, context.DeadlineExceeded.Error(), "[cleanup-diagnostics] end")
+		assertContains(t, out, "DeadlineExceeded", "[cleanup-diagnostics] end")
 	case <-time.After(30 * time.Second):
 		t.Fatal("Dump did not honour the diagnostic timeout")
 	}
@@ -393,7 +391,8 @@ func TestDumpIsBestEffortOnReadErrors(t *testing.T) {
 
 	out := dumpToString(fullDiagnostics(), context.Background(), &fakeReader{err: boom})
 
-	assertContains(t, out, boom.Error(), "[cleanup-diagnostics] end")
+	assertNotContains(t, out, boom.Error())
+	assertContains(t, out, "Unclassified(type=", "[cleanup-diagnostics] end")
 }
 
 // TestDumpBoundsCensusAndEvents proves the census and event output stay bounded and
@@ -552,7 +551,9 @@ func TestRunWithDiagnosticsReportsButDoesNotPropagateDumpPanic(t *testing.T) {
 	if !ok || !errors.Is(err, failure) {
 		t.Errorf("diagnostic panic masked the original failure, got %v", recovered)
 	}
-	assertContains(t, sb.String(), "dump panicked and was suppressed", "diagnostics exploded")
+	assertNotContains(t, sb.String(), "diagnostics exploded")
+	assertContains(t, sb.String(),
+		"dump panicked and was suppressed", "recovered value of type")
 }
 
 func TestMetadataOnlyListRequestsMetadataOnly(t *testing.T) {
@@ -564,5 +565,129 @@ func TestMetadataOnlyListRequestsMetadataOnly(t *testing.T) {
 	}
 	if got := pm.GroupVersionKind(); got != gvk {
 		t.Errorf("unexpected GVK %v, want %v", got, gvk)
+	}
+}
+
+// sentinels stand in for the kinds of content that free-form Kubernetes messages are
+// known to carry: cluster-internal endpoints, credentials, addresses and URLs. None of
+// them may reach the diagnostics output, which is published as a CI job artifact.
+var sentinels = []string{
+	"etcd-0.internal.cluster.example.corp",
+	"sha256~AbCdEf0123456789SecretToken",
+	"cluster-admin@internal.example.corp",
+	"https://10.0.22.155:6443/healthz",
+}
+
+func sentinelText(prefix string) string {
+	return prefix + ": " + strings.Join(sentinels, " ")
+}
+
+// TestDumpOmitsFreeFormText injects sentinel content into every free-form string the
+// dump can reach - namespace and ClusterExtension condition messages, event messages,
+// and the error returned by the reader - and asserts none of it is printed while the
+// structured context stays useful.
+func TestDumpOmitsFreeFormText(t *testing.T) {
+	ns := terminatingNamespace()
+	ns.Status.Conditions[0].Message = sentinelText("namespace condition")
+
+	ce := installedClusterExtension()
+	ce.Status.Conditions[0].Message = sentinelText("clusterextension condition")
+
+	r := &fakeReader{
+		namespace:        ns,
+		clusterExtension: ce,
+		events: []corev1.Event{{
+			ObjectMeta:    metav1.ObjectMeta{Name: "evt-leak", Namespace: testNamespace},
+			Type:          corev1.EventTypeWarning,
+			Reason:        "FailedDelete",
+			Count:         7,
+			Message:       sentinelText("event"),
+			LastTimestamp: metav1.NewTime(time.Date(2026, 11, 10, 3, 21, 0, 0, time.UTC)),
+		}},
+	}
+
+	d := fullDiagnostics()
+	d.DeleteErr = apierrors.NewForbidden(
+		schema.GroupResource{Resource: "namespaces"}, testNamespace, errors.New(sentinelText("delete")))
+
+	out := dumpToString(d, context.Background(), r)
+
+	assertNotContains(t, out, sentinels...)
+	// The structured context that makes the dump worth printing survives.
+	assertContains(t, out,
+		"phase: Terminating",
+		"reason=ContentDeletionFailed",
+		"reason=Retrying",
+		"Warning/FailedDelete",
+		"count=7",
+		"delete request error: Forbidden(code=403)",
+		"metadata.finalizers: example.com/holds-namespace",
+	)
+}
+
+// TestDumpOmitsFreeFormReaderErrors covers the reader error paths, which reach every
+// section of the dump.
+func TestDumpOmitsFreeFormReaderErrors(t *testing.T) {
+	out := dumpToString(fullDiagnostics(), context.Background(),
+		&fakeReader{err: errors.New(sentinelText("reader"))})
+
+	assertNotContains(t, out, sentinels...)
+	assertContains(t, out, "Unclassified(type=", "[cleanup-diagnostics] end")
+}
+
+// TestRunWithDiagnosticsOmitsFreeFormPanicValue covers the recovered panic value, which
+// is arbitrary data chosen by whatever panicked.
+func TestRunWithDiagnosticsOmitsFreeFormPanicValue(t *testing.T) {
+	failure := errors.New("primary failure")
+	var sb strings.Builder
+
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		runWithDiagnostics(&sb,
+			func() { panic(failure) },
+			func() { panic(sentinelText("panic")) },
+		)
+	}()
+
+	err, ok := recovered.(error)
+	if !ok || !errors.Is(err, failure) {
+		t.Errorf("diagnostic panic masked the original failure, got %v", recovered)
+	}
+	assertNotContains(t, sb.String(), sentinels...)
+	assertContains(t, sb.String(), "dump panicked and was suppressed", "recovered value of type string")
+}
+
+func TestDescribeAPIError(t *testing.T) {
+	secret := errors.New(sentinelText("api"))
+	for _, tc := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil", nil, "<none>"},
+		{"deadline", fmt.Errorf("get: %w", context.DeadlineExceeded), "DeadlineExceeded"},
+		{"cancelled", fmt.Errorf("list: %w", context.Canceled), "Canceled"},
+		{"notFound", apierrors.NewNotFound(corev1.Resource("namespaces"), "ns"), "NotFound(code=404)"},
+		{"forbidden", apierrors.NewForbidden(corev1.Resource("namespaces"), "ns", secret), "Forbidden(code=403)"},
+		{"internal", apierrors.NewInternalError(secret), "InternalError(code=500)"},
+		{"timeout", apierrors.NewTimeoutError(sentinelText("timeout"), 1), "Timeout(code=504)"},
+		{"unrecognisedReason", &apierrors.StatusError{ErrStatus: metav1.Status{
+			Reason: metav1.StatusReason(sentinelText("reason")), Code: 599,
+		}}, "Unrecognized(code=599)"},
+		{"noReason", &apierrors.StatusError{ErrStatus: metav1.Status{Code: 418}}, "NoReason(code=418)"},
+		{"plain", secret, "Unclassified(type=*errors.errorString)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := DescribeAPIError(tc.err)
+			if got != tc.want {
+				t.Errorf("DescribeAPIError = %q, want %q", got, tc.want)
+			}
+			for _, s := range sentinels {
+				if strings.Contains(got, s) {
+					t.Errorf("DescribeAPIError leaked %q in %q", s, got)
+				}
+			}
+		})
 	}
 }

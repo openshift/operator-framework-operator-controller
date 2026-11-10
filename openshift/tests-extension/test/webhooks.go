@@ -453,7 +453,8 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		if deleteErr != nil {
 			// Reported here as well as in the diagnostics block below, because the
 			// diagnostics only run when the wait that follows fails.
-			fmt.Fprintf(GinkgoWriter, "[diag] namespace %s delete request failed: %v\n", ns.Name, deleteErr)
+			fmt.Fprintf(GinkgoWriter, "[diag] namespace %s delete request failed: %s\n",
+				ns.Name, helpers.DescribeAPIError(deleteErr))
 		}
 
 		diagnostics := helpers.CleanupDiagnostics{
@@ -498,7 +499,8 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 		if deleteErr != nil {
 			// Reported here as well as in the diagnostics block below, because the
 			// diagnostics only run when the waits that follow fail.
-			fmt.Fprintf(GinkgoWriter, "[diag] ClusterExtension %s delete request failed: %v\n", ce.Name, deleteErr)
+			fmt.Fprintf(GinkgoWriter, "[diag] ClusterExtension %s delete request failed: %s\n",
+				ce.Name, helpers.DescribeAPIError(deleteErr))
 		}
 
 		diagnostics := helpers.CleanupDiagnostics{
