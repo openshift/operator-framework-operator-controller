@@ -1,7 +1,7 @@
 # Get the directory where this Makefile is, so we can use it below for including
-# Use OpenShift Bingo variables independently of the upstream root tooling.
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
-include $(DIR)/../.bingo/Variables.mk
+GO_TOOL := $(DIR)/../tools/run.sh
+GO_BUILD_TAGS := containers_image_openpgp
 
 #SECTION General
 
@@ -34,6 +34,7 @@ $(GINKGO): vendor/modules.txt
 .PHONY: test-catalog
 test-catalog: install-tools $(GINKGO) #HELP Run the set of tests to validate the quality of catalogs
 	$(GINKGO) $(if $(ARTIFACT_DIR),--output-dir='$(ARTIFACT_DIR)') \
+		--tags=$(GO_BUILD_TAGS) \
 		--junit-report=junit_olm.xml ./test/validate/...
 
 
@@ -52,12 +53,12 @@ fmt: #HELP Run go fmt against code.
 
 .PHONY: vet
 vet: #HELP Run go vet against code.
-	go vet ./...
+	go vet -tags=$(GO_BUILD_TAGS) ./...
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
-	$(GOLANGCI_LINT) run
+lint: #HELP Run golangci linter.
+	$(GO_TOOL) golangci-lint run --build-tags=$(GO_BUILD_TAGS)
 
 .PHONY: fix-lint
-fix-lint: $(GOLANGCI_LINT) #HELP Fix lint issues
-	$(GOLANGCI_LINT) run --fix
+fix-lint: #HELP Fix lint issues
+	$(GO_TOOL) golangci-lint run --fix --build-tags=$(GO_BUILD_TAGS)
