@@ -51,6 +51,6 @@ test-e2e: ## Run the e2e tests.
 		--godog.tags="$(DOWNSTREAM_GODOG_FLAGS)" \
 		--k8s.cli=oc
 
-PHONY: go-build-local
+.PHONY: go-build-local
 go-build-local:
-	$(MAKE) -f Makefile go-build-local
+	$(MAKE) -C $(DIR)/.. go-build-local
