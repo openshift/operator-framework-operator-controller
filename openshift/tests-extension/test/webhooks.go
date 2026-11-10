@@ -448,15 +448,36 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	DeferCleanup(func(ctx context.Context) {
 		By(" NOW cleaning up ClusterExtension namespace (DeferCleanup executing) ")
 		By(fmt.Sprintf("cleanup: deleting namespace %s", ns.Name))
-		_ = k8sClient.Delete(ctx, ns, client.PropagationPolicy(metav1.DeletePropagationForeground))
+		deleteErr := client.IgnoreNotFound(
+			k8sClient.Delete(ctx, ns, client.PropagationPolicy(metav1.DeletePropagationForeground)))
+		if deleteErr != nil {
+			// Reported here as well as in the diagnostics block below, because the
+			// diagnostics only run when the wait that follows fails.
+			fmt.Fprintf(GinkgoWriter, "[diag] namespace %s delete request failed: %v\n", ns.Name, deleteErr)
+		}
 
-		By(fmt.Sprintf("waiting for namespace %s to be fully deleted", webhookOperatorInstallNamespace))
-		Eventually(func(g Gomega) {
-			tempNs := &corev1.Namespace{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookOperatorInstallNamespace}, tempNs)
-			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "namespace still exists")
-		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		diagnostics := helpers.CleanupDiagnostics{
+			Namespace:               webhookOperatorInstallNamespace,
+			ClusterExtensionName:    webhookOperatorInstallNamespace,
+			ValidatingWebhookPrefix: "vwebhooktest",
+			MutatingWebhookPrefix:   "mwebhooktest",
+			DeleteErr:               deleteErr,
+			IncludeEvents:           true,
+		}
+
+		// Capture state only when this cleanup step actually fails. The AfterEach
+		// diagnostics cannot cover this path: they are guarded by CurrentSpecReport().Failed(),
+		// which is still false while AfterEach runs, because the failure happens later
+		// here in DeferCleanup.
+		diagnostics.Run(ctx, GinkgoWriter, k8sClient, func() {
+			By(fmt.Sprintf("waiting for namespace %s to be fully deleted", webhookOperatorInstallNamespace))
+			Eventually(func(g Gomega) {
+				tempNs := &corev1.Namespace{}
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: webhookOperatorInstallNamespace}, tempNs)
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "namespace still exists")
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		})
 	})
 
 	ceName := webhookOperatorInstallNamespace
@@ -472,23 +493,42 @@ func setupWebhookOperator(ctx SpecContext, k8sClient client.Client, webhookOpera
 	DeferCleanup(func(ctx context.Context) {
 		By(" NOW cleaning up ClusterExtension (DeferCleanup executing) ")
 		By(fmt.Sprintf("cleanup: deleting ClusterExtension %s", ce.Name))
-		_ = k8sClient.Delete(ctx, ce, client.PropagationPolicy(metav1.DeletePropagationBackground))
+		deleteErr := client.IgnoreNotFound(
+			k8sClient.Delete(ctx, ce, client.PropagationPolicy(metav1.DeletePropagationBackground)))
+		if deleteErr != nil {
+			// Reported here as well as in the diagnostics block below, because the
+			// diagnostics only run when the waits that follow fail.
+			fmt.Fprintf(GinkgoWriter, "[diag] ClusterExtension %s delete request failed: %v\n", ce.Name, deleteErr)
+		}
 
-		By(fmt.Sprintf("waiting for ClusterExtension %s to be fully deleted", ce.Name))
-		Eventually(func(g Gomega) {
-			tempCE := &olmv1.ClusterExtension{}
-			err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, tempCE)
-			g.Expect(client.IgnoreNotFound(err)).To(Succeed())
-			g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
-		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+		diagnostics := helpers.CleanupDiagnostics{
+			Namespace:               webhookOperatorInstallNamespace,
+			ClusterExtensionName:    ce.Name,
+			ValidatingWebhookPrefix: "vwebhooktest",
+			MutatingWebhookPrefix:   "mwebhooktest",
+			DeleteErr:               deleteErr,
+			IncludeEvents:           true,
+		}
 
-		// Wait for OLMv1 finalizer cleanup to remove the webhook configurations before
-		// the namespace DeferCleanup runs. The webhook operator registers failurePolicy:Fail
-		// admission webhooks; if they outlive their backing service, the namespace controller
-		// cannot delete resources inside the terminating namespace, causing a 300s deadlock.
-		// This is deterministic on OVN because pod route teardown is immediate.
-		By("waiting for webhook configurations to be removed by OLMv1 cleanup")
-		waitForWebhookConfigurationsDeleted(ctx, k8sClient, "vwebhooktest", "mwebhooktest")
+		// As with the namespace cleanup above, AfterEach diagnostics do not run for a
+		// failure raised from DeferCleanup, so capture it here on the failing path.
+		diagnostics.Run(ctx, GinkgoWriter, k8sClient, func() {
+			By(fmt.Sprintf("waiting for ClusterExtension %s to be fully deleted", ce.Name))
+			Eventually(func(g Gomega) {
+				tempCE := &olmv1.ClusterExtension{}
+				err := k8sClient.Get(ctx, client.ObjectKey{Name: ce.Name}, tempCE)
+				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "ClusterExtension still exists")
+			}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
+
+			// Wait for OLMv1 finalizer cleanup to remove the webhook configurations before
+			// the namespace DeferCleanup runs. The webhook operator registers failurePolicy:Fail
+			// admission webhooks; if they outlive their backing service, the namespace controller
+			// cannot delete resources inside the terminating namespace, causing a 300s deadlock.
+			// This is deterministic on OVN because pod route teardown is immediate.
+			By("waiting for webhook configurations to be removed by OLMv1 cleanup")
+			waitForWebhookConfigurationsDeleted(ctx, k8sClient, "vwebhooktest", "mwebhooktest")
+		})
 	})
 
 	By("waiting for the webhook operator to be installed")

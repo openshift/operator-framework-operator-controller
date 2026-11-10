@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	//nolint:staticcheck // ST1001: dot-imports for readability
@@ -10,11 +11,19 @@ import (
 )
 
 func sectionHeader(format string, a ...any) {
-	fmt.Fprintf(GinkgoWriter, "\n=== %s ===\n", fmt.Sprintf(format, a...))
+	sectionHeaderTo(GinkgoWriter, format, a...)
 }
 
 func subHeader(format string, a ...any) {
-	fmt.Fprintf(GinkgoWriter, "\n--- %s ---\n", fmt.Sprintf(format, a...))
+	subHeaderTo(GinkgoWriter, format, a...)
+}
+
+func sectionHeaderTo(w io.Writer, format string, a ...any) {
+	fmt.Fprintf(w, "\n=== %s ===\n", fmt.Sprintf(format, a...))
+}
+
+func subHeaderTo(w io.Writer, format string, a ...any) {
+	fmt.Fprintf(w, "\n--- %s ---\n", fmt.Sprintf(format, a...))
 }
 
 // GetAllPodLogs prints logs for all containers in all pods in the given namespace.
