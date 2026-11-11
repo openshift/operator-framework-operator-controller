@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -51,6 +52,17 @@ func TestValidate(t *testing.T) {
 			m[fmt.Sprintf("k%d", j)] = "v"
 		}
 		return m
+	}
+	objectSetWithInlineManifest := func(group string, m unstructured.Unstructured) ClusterObjectSetSpec {
+		return ClusterObjectSetSpec{
+			Group:               group,
+			Revision:            1,
+			CollisionProtection: CollisionProtectionPrevent,
+			LifecycleState:      ClusterObjectSetLifecycleStateActive,
+			Phases: []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{
+				{Type: ObjectTypeInlineManifest, InlineManifest: m},
+			}}},
+		}
 	}
 	c := newClient(t)
 	i := 0
@@ -102,15 +114,15 @@ func TestValidate(t *testing.T) {
 			},
 			want: want{valid: true},
 		},
-		"ClusterObjectDeployment: invalid progress deadline < 10": {
+		"ClusterObjectDeployment: valid progress deadline = 1": {
 			args: args{
 				object: ClusterObjectDeploymentSpec{
 					Template: ClusterObjectDeploymentTemplate{
-						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 9},
+						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 1},
 					},
 				},
 			},
-			want: want{valid: false, errContains: "spec.progressDeadlineMinutes"},
+			want: want{valid: true},
 		},
 		"ClusterObjectDeployment: valid progress deadline = 10": {
 			args: args{
@@ -172,6 +184,34 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			want: want{valid: false, errContains: "spec.template.metadata.labels"},
+		},
+		"ClusterObjectSet: valid inline manifest": {
+			args: args{object: objectSetWithInlineManifest("cos-im-valid", configMap())},
+			want: want{valid: true},
+		},
+		"ClusterObjectSet: inline manifest missing metadata.name": {
+			args: args{object: objectSetWithInlineManifest("cos-im-noname", unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]interface{}{},
+			}})},
+			want: want{valid: false, errContains: "metadata.name is required"},
+		},
+		"ClusterObjectSet: inline manifest empty metadata.name": {
+			args: args{object: objectSetWithInlineManifest("cos-im-emptyname", unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]interface{}{"name": ""},
+			}})},
+			want: want{valid: false, errContains: "metadata.name is required"},
+		},
+		"ClusterObjectSet: inline manifest empty apiVersion": {
+			args: args{object: objectSetWithInlineManifest("cos-im-noapiversion", unstructured.Unstructured{Object: map[string]interface{}{
+				"apiVersion": "",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]interface{}{"name": "test-cm"},
+			}})},
+			want: want{valid: false, errContains: "apiVersion and kind must be non-empty"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -287,6 +327,7 @@ func TestClusterObjectSetCompletedAtImmutable(t *testing.T) {
 			Revision:            1,
 			CollisionProtection: CollisionProtectionPrevent,
 			LifecycleState:      ClusterObjectSetLifecycleStateActive,
+			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))
@@ -318,6 +359,7 @@ func TestClusterObjectSetCompletedAtCannotBeRemoved(t *testing.T) {
 			Revision:            1,
 			CollisionProtection: CollisionProtectionPrevent,
 			LifecycleState:      ClusterObjectSetLifecycleStateActive,
+			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))
@@ -344,6 +386,7 @@ func TestClusterObjectSetDigestImmutable(t *testing.T) {
 			Revision:            1,
 			CollisionProtection: CollisionProtectionPrevent,
 			LifecycleState:      ClusterObjectSetLifecycleStateActive,
+			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))
@@ -353,7 +396,6 @@ func TestClusterObjectSetDigestImmutable(t *testing.T) {
 		{
 			Name:               "deploy",
 			Digest:             "sha256:abc123",
-			ObjectCounts:       ObjectCounts{Total: ptr.To(int64(1)), Present: ptr.To(int64(0)), Synced: ptr.To(int64(0)), Ready: ptr.To(int64(0))},
 			Status:             PhaseStatusReady,
 			LastTransitionTime: metav1.Now(),
 		},

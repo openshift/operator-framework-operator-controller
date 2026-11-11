@@ -1411,6 +1411,7 @@ spec:
                       olm.operatorframework.io/template-hash label, whose value is always set by the
                       controller. Changes to metadata change template identity and therefore create
                       a new revision.
+                    minProperties: 1
                     properties:
                       annotations:
                         additionalProperties:
@@ -1421,6 +1422,7 @@ spec:
                           rules (key format and total size) before creating a revision; invalid
                           annotations are reported on the deployment's Progressing condition.
                         maxProperties: 32
+                        minProperties: 1
                         type: object
                       labels:
                         additionalProperties:
@@ -1428,6 +1430,7 @@ spec:
                         description: labels is a set of key/value pairs propagated
                           to each revision's metadata.
                         maxProperties: 32
+                        minProperties: 1
                         type: object
                     type: object
                   spec:
@@ -1437,8 +1440,9 @@ spec:
                     properties:
                       collisionProtection:
                         description: |-
-                          collisionProtection is the required default collision protection strategy for objects in the revision.
-                          Objects and phases may override it.
+                          collisionProtection is the required default collision protection strategy for all objects
+                          in the revision. Individual phases or objects may override this value.
+                          The resolution order is: object > phase > spec.
                         enum:
                         - Prevent
                         - IfNoController
@@ -1447,8 +1451,9 @@ spec:
                       phases:
                         description: |-
                           phases is an ordered list of 1 to 20 uniquely named phases. Each phase contains
-                          at most 50 objects using the existing inline object or immutable Secret reference
-                          representation. Phase, object, and probe order participate in template identity.
+                          at most 50 objects, each expressed either as an inlineManifest (an embedded
+                          Kubernetes object) or a secretRef (a reference to an immutable Secret holding
+                          a serialized manifest). Phase, object, and probe order participate in template identity.
                         items:
                           description: |-
                             ClusterObjectSetPhase represents a group of objects that are applied together. The phase is considered
@@ -1462,8 +1467,9 @@ spec:
                                 When set, this value is used as the default for any object in this phase that does not
                                 explicitly specify its own collisionProtection.
 
-                                When omitted, we use .spec.collistionProtection as the default for any object in this phase that does not
-                                explicitly specify its own collisionProtection.
+                                When omitted, objects in this phase that do not specify their own collisionProtection inherit the
+                                enclosing spec default: the ClusterObjectSet's .spec.collisionProtection or, for a
+                                ClusterObjectDeployment, the .spec.template.spec.collisionProtection.
                               enum:
                               - Prevent
                               - IfNoController
@@ -1498,7 +1504,7 @@ spec:
                                   ClusterObjectSetObject represents a Kubernetes object to be applied as part
                                   of a phase, along with its collision protection settings.
 
-                                  Exactly one of inlineManifest or objectRef must be set.
+                                  Exactly one of inlineManifest or secretRef must be set.
                                 properties:
                                   collisionProtection:
                                     description: |-
@@ -1529,18 +1535,29 @@ spec:
                                     description: |-
                                       inlineManifest is an optional embedded Kubernetes object to be applied.
 
-                                      Exactly one of inlineManifest or objectRef must be set.
+                                      Exactly one of inlineManifest or secretRef must be set.
 
                                       This object must be a valid Kubernetes resource with apiVersion, kind, and metadata fields.
                                     type: object
                                     x-kubernetes-embedded-resource: true
                                     x-kubernetes-preserve-unknown-fields: true
-                                  objectRef:
+                                    x-kubernetes-validations:
+                                    - message: inlineManifest must be a valid Kubernetes
+                                        resource with apiVersion, kind, and metadata
+                                      rule: has(self.apiVersion) && has(self.kind)
+                                        && has(self.metadata)
+                                    - message: apiVersion and kind must be non-empty
+                                      rule: self.apiVersion != '' && self.kind !=
+                                        ''
+                                    - message: metadata.name is required
+                                      rule: has(self.metadata.name) && self.metadata.name
+                                        != ''
+                                  secretRef:
                                     description: |-
-                                      objectRef is an optional reference to a Secret that holds the serialized
+                                      secretRef is an optional reference to a Secret that holds the serialized
                                       object manifest.
 
-                                      Exactly one of inlineManifest or objectRef must be set.
+                                      Exactly one of inlineManifest or secretRef must be set.
                                     properties:
                                       key:
                                         description: |-
@@ -1550,18 +1567,35 @@ spec:
                                         maxLength: 253
                                         minLength: 1
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: must consist only of alphanumeric
+                                            characters, '-', '_', or '.'
+                                          rule: self.matches('^[-._a-zA-Z0-9]+$')
                                       name:
                                         description: name is the name of the referenced
                                           Secret.
                                         maxLength: 253
                                         minLength: 1
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: the value must consist of only
+                                            lowercase alphanumeric characters, hyphens,
+                                            and dots, and must start and end with
+                                            an alphanumeric character.
+                                          rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                                       namespace:
                                         description: |-
                                           namespace is the namespace of the referenced Secret.
                                           When empty, defaults to the OLM system namespace during ref resolution.
                                         maxLength: 63
+                                        minLength: 1
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: the value must consist of only
+                                            lowercase alphanumeric characters and
+                                            hyphens, and must start and end with an
+                                            alphanumeric character.
+                                          rule: '!format.dns1123Label().validate(self).hasValue()'
                                     required:
                                     - key
                                     - name
@@ -1570,13 +1604,13 @@ spec:
                                     description: |-
                                       type is a required field which specifies the type of object to use.
 
-                                      The allowed selector types are "InlineManifest" and "ObjectReference".
+                                      The allowed object types are "InlineManifest" and "SecretReference".
 
                                       When set to "InlineManifest", object manifests are supplied inline, as valid Kubernetes resources with apiVersion, kind, and metadata fields.
-                                      When set to "ObjectReference", objects are supplied as references to a Secret that holds the serialized object manifest.
+                                      When set to "SecretReference", objects are supplied as references to a Secret that holds the serialized object manifest.
                                     enum:
                                     - InlineManifest
-                                    - ObjectReference
+                                    - SecretReference
                                     type: string
                                 required:
                                 - type
@@ -1586,10 +1620,10 @@ spec:
                                     InlineManifest, and forbidden otherwise
                                   rule: 'self.type == ''InlineManifest'' ?has(self.inlineManifest)
                                     : !has(self.inlineManifest)'
-                                - message: objectRef is required when type is ObjectReference,
+                                - message: secretRef is required when type is SecretReference,
                                     and forbidden otherwise
-                                  rule: 'self.type == ''ObjectReference'' ?has(self.objectRef)
-                                    : !has(self.objectRef)'
+                                  rule: 'self.type == ''SecretReference'' ?has(self.secretRef)
+                                    : !has(self.secretRef)'
                               maxItems: 50
                               type: array
                               x-kubernetes-list-type: atomic
@@ -1611,15 +1645,16 @@ spec:
                           deadline covers all phases together; completing a phase does not reset it.
                           Once a revision has completed, the deadline no longer applies, even if it
                           later becomes unhealthy. When omitted, no deadline is enforced. The minimum
-                          period is 10 minutes, and the maximum is 720 minutes (12 hours).
+                          period is 1 minute, and the maximum is 720 minutes (12 hours).
                         format: int32
                         maximum: 720
-                        minimum: 10
+                        minimum: 1
                         type: integer
                       progressionProbes:
                         description: |-
                           progressionProbes supplies custom readiness probes for objects in every phase.
-                          The existing ClusterObjectSet selector and assertion semantics apply.
+                          The same selector and assertion semantics as ClusterObjectSet.spec.progressionProbes apply.
+                          When set, must contain 1 to 20 probes.
                         items:
                           description: ProgressionProbe provides a custom probe definition,
                             consisting of an object selection method and assertions.
@@ -1627,7 +1662,7 @@ spec:
                             assertions:
                               description: |-
                                 assertions is a required list of checks which will run against the objects selected by the selector. If
-                                one or more assertions fail then the phase within which the object lives will be not be considered
+                                one or more assertions fail then the phase within which the object lives will not be considered
                                 'Ready', blocking rollout of all subsequent phases.
                               items:
                                 description: Assertion is a discriminated union which
@@ -1763,7 +1798,11 @@ spec:
                               properties:
                                 groupKind:
                                   description: |-
-                                    groupKind specifies the group and kind of objects to select.
+                                    groupKind specifies the group and kind of objects to select. Note that this selector
+                                    has a limitation in that it does not discriminate based on the version of the object;
+                                    until this gap is closed users of this selector should take into account the possibility
+                                    of different versions of the same groupKind not being able to pass assertions in the
+                                    same way.
 
                                     Required when type is "GroupKind".
 
@@ -2142,7 +2181,7 @@ spec:
                     self
               phases:
                 description: |-
-                  phases is an optional, immutable list of phases that group objects to be applied together.
+                  phases is a required, immutable list of phases that group objects to be applied together.
 
                   Objects are organized into phases based on their Group-Kind. Common phases include:
                     - namespaces: Namespace objects
@@ -2156,7 +2195,7 @@ spec:
                   All objects in a phase are applied in no particular order.
                   The revision progresses to the next phase only after all objects in the current phase pass their readiness probes.
 
-                  Once set, even if empty, the phases field is immutable.
+                  Once set, the phases field is immutable.
 
                   Each phase in the list must have a unique name. The maximum number of phases is 20.
                 items:
@@ -2172,8 +2211,9 @@ spec:
                         When set, this value is used as the default for any object in this phase that does not
                         explicitly specify its own collisionProtection.
 
-                        When omitted, we use .spec.collistionProtection as the default for any object in this phase that does not
-                        explicitly specify its own collisionProtection.
+                        When omitted, objects in this phase that do not specify their own collisionProtection inherit the
+                        enclosing spec default: the ClusterObjectSet's .spec.collisionProtection or, for a
+                        ClusterObjectDeployment, the .spec.template.spec.collisionProtection.
                       enum:
                       - Prevent
                       - IfNoController
@@ -2208,7 +2248,7 @@ spec:
                           ClusterObjectSetObject represents a Kubernetes object to be applied as part
                           of a phase, along with its collision protection settings.
 
-                          Exactly one of inlineManifest or objectRef must be set.
+                          Exactly one of inlineManifest or secretRef must be set.
                         properties:
                           collisionProtection:
                             description: |-
@@ -2239,18 +2279,27 @@ spec:
                             description: |-
                               inlineManifest is an optional embedded Kubernetes object to be applied.
 
-                              Exactly one of inlineManifest or objectRef must be set.
+                              Exactly one of inlineManifest or secretRef must be set.
 
                               This object must be a valid Kubernetes resource with apiVersion, kind, and metadata fields.
                             type: object
                             x-kubernetes-embedded-resource: true
                             x-kubernetes-preserve-unknown-fields: true
-                          objectRef:
+                            x-kubernetes-validations:
+                            - message: inlineManifest must be a valid Kubernetes resource
+                                with apiVersion, kind, and metadata
+                              rule: has(self.apiVersion) && has(self.kind) && has(self.metadata)
+                            - message: apiVersion and kind must be non-empty
+                              rule: self.apiVersion != '' && self.kind != ''
+                            - message: metadata.name is required
+                              rule: has(self.metadata.name) && self.metadata.name
+                                != ''
+                          secretRef:
                             description: |-
-                              objectRef is an optional reference to a Secret that holds the serialized
+                              secretRef is an optional reference to a Secret that holds the serialized
                               object manifest.
 
-                              Exactly one of inlineManifest or objectRef must be set.
+                              Exactly one of inlineManifest or secretRef must be set.
                             properties:
                               key:
                                 description: |-
@@ -2260,17 +2309,32 @@ spec:
                                 maxLength: 253
                                 minLength: 1
                                 type: string
+                                x-kubernetes-validations:
+                                - message: must consist only of alphanumeric characters,
+                                    '-', '_', or '.'
+                                  rule: self.matches('^[-._a-zA-Z0-9]+$')
                               name:
                                 description: name is the name of the referenced Secret.
                                 maxLength: 253
                                 minLength: 1
                                 type: string
+                                x-kubernetes-validations:
+                                - message: the value must consist of only lowercase
+                                    alphanumeric characters, hyphens, and dots, and
+                                    must start and end with an alphanumeric character.
+                                  rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                               namespace:
                                 description: |-
                                   namespace is the namespace of the referenced Secret.
                                   When empty, defaults to the OLM system namespace during ref resolution.
                                 maxLength: 63
+                                minLength: 1
                                 type: string
+                                x-kubernetes-validations:
+                                - message: the value must consist of only lowercase
+                                    alphanumeric characters and hyphens, and must
+                                    start and end with an alphanumeric character.
+                                  rule: '!format.dns1123Label().validate(self).hasValue()'
                             required:
                             - key
                             - name
@@ -2279,13 +2343,13 @@ spec:
                             description: |-
                               type is a required field which specifies the type of object to use.
 
-                              The allowed selector types are "InlineManifest" and "ObjectReference".
+                              The allowed object types are "InlineManifest" and "SecretReference".
 
                               When set to "InlineManifest", object manifests are supplied inline, as valid Kubernetes resources with apiVersion, kind, and metadata fields.
-                              When set to "ObjectReference", objects are supplied as references to a Secret that holds the serialized object manifest.
+                              When set to "SecretReference", objects are supplied as references to a Secret that holds the serialized object manifest.
                             enum:
                             - InlineManifest
-                            - ObjectReference
+                            - SecretReference
                             type: string
                         required:
                         - type
@@ -2295,10 +2359,10 @@ spec:
                             and forbidden otherwise
                           rule: 'self.type == ''InlineManifest'' ?has(self.inlineManifest)
                             : !has(self.inlineManifest)'
-                        - message: objectRef is required when type is ObjectReference,
+                        - message: secretRef is required when type is SecretReference,
                             and forbidden otherwise
-                          rule: 'self.type == ''ObjectReference'' ?has(self.objectRef)
-                            : !has(self.objectRef)'
+                          rule: 'self.type == ''SecretReference'' ?has(self.secretRef)
+                            : !has(self.secretRef)'
                       maxItems: 50
                       type: array
                       x-kubernetes-list-type: atomic
@@ -2307,6 +2371,7 @@ spec:
                   - objects
                   type: object
                 maxItems: 20
+                minItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -2328,7 +2393,7 @@ spec:
 
                   The maximum number of probes is 20.
 
-                  Once set, even if empty, the progressionProbes field is immutable, as it is
+                  Once set, the progressionProbes field is immutable, as it is
                   part of the immutable content of a revision.
                 items:
                   description: ProgressionProbe provides a custom probe definition,
@@ -2337,7 +2402,7 @@ spec:
                     assertions:
                       description: |-
                         assertions is a required list of checks which will run against the objects selected by the selector. If
-                        one or more assertions fail then the phase within which the object lives will be not be considered
+                        one or more assertions fail then the phase within which the object lives will not be considered
                         'Ready', blocking rollout of all subsequent phases.
                       items:
                         description: Assertion is a discriminated union which defines
@@ -2469,7 +2534,11 @@ spec:
                       properties:
                         groupKind:
                           description: |-
-                            groupKind specifies the group and kind of objects to select.
+                            groupKind specifies the group and kind of objects to select. Note that this selector
+                            has a limitation in that it does not discriminate based on the version of the object;
+                            until this gap is closed users of this selector should take into account the possibility
+                            of different versions of the same groupKind not being able to pass assertions in the
+                            same way.
 
                             Required when type is "GroupKind".
 
@@ -2597,8 +2666,14 @@ spec:
             - collisionProtection
             - group
             - lifecycleState
+            - phases
             - revision
             type: object
+            x-kubernetes-validations:
+            - message: phases cannot be removed once set
+              rule: '!has(oldSelf.phases) || has(self.phases)'
+            - message: progressionProbes cannot be removed once set
+              rule: '!has(oldSelf.progressionProbes) || has(self.progressionProbes)'
           status:
             description: |-
               status is optional and defines the observed state of the ClusterObjectSet.
@@ -2696,13 +2771,13 @@ spec:
               objectCounts:
                 description: |-
                   objectCounts reports aggregate object counts across all phases.
-                  Values are sums of the per-phase counts in observedPhases.
+                  Values are sums across all observed phases.
                   It is omitted until counts have been computed; when present, all count
                   fields are reported (including zeros).
                 properties:
                   present:
                     description: |-
-                      present is the number of objects in this phase that exist on the
+                      present is the number of objects in this object set that exist on the
                       cluster and are owned by this object set, or another in the same group.
                       During reconcile, this counts objects that the controller has found or
                       created. During teardown, this decrements toward zero as objects are deleted.
@@ -2712,7 +2787,7 @@ spec:
                     type: integer
                   ready:
                     description: |-
-                      ready is the number of objects in this phase that are synced
+                      ready is the number of objects in this object set that are synced
                       and pass their assertions.
                     format: int64
                     maximum: 1000
@@ -2720,14 +2795,14 @@ spec:
                     type: integer
                   synced:
                     description: |-
-                      synced is the number of objects in this phase whose cluster state
+                      synced is the number of objects in this object set whose cluster state
                       matches the desired state. Set to zero during teardown.
                     format: int64
                     maximum: 1000
                     minimum: 0
                     type: integer
                   total:
-                    description: total is the number of objects in this phase.
+                    description: total is the number of objects in this object set.
                     format: int64
                     maximum: 1000
                     minimum: 0
@@ -2763,6 +2838,7 @@ spec:
                       description: |-
                         digest is the digest of the phase's resolved object content
                         at first successful resolution, in the format "<algorithm>:<hex>".
+                        Currently, sha256 is the only supported algorithm.
                       maxLength: 256
                       minLength: 1
                       type: string
@@ -2795,48 +2871,6 @@ spec:
                           characters and hyphens, and must start and end with an alphanumeric
                           character.
                         rule: '!format.dns1123Label().validate(self).hasValue()'
-                    objectCounts:
-                      description: objectCounts reports the number of objects in this
-                        phase by state.
-                      properties:
-                        present:
-                          description: |-
-                            present is the number of objects in this phase that exist on the
-                            cluster and are owned by this object set, or another in the same group.
-                            During reconcile, this counts objects that the controller has found or
-                            created. During teardown, this decrements toward zero as objects are deleted.
-                          format: int64
-                          maximum: 1000
-                          minimum: 0
-                          type: integer
-                        ready:
-                          description: |-
-                            ready is the number of objects in this phase that are synced
-                            and pass their assertions.
-                          format: int64
-                          maximum: 1000
-                          minimum: 0
-                          type: integer
-                        synced:
-                          description: |-
-                            synced is the number of objects in this phase whose cluster state
-                            matches the desired state. Set to zero during teardown.
-                          format: int64
-                          maximum: 1000
-                          minimum: 0
-                          type: integer
-                        total:
-                          description: total is the number of objects in this phase.
-                          format: int64
-                          maximum: 1000
-                          minimum: 0
-                          type: integer
-                      required:
-                      - present
-                      - ready
-                      - synced
-                      - total
-                      type: object
                     objectDetails:
                       description: |-
                         objectDetails lists objects in this phase that are not yet
@@ -2856,7 +2890,13 @@ spec:
                               group is the API group of the object (empty string for core
                               resources). At most 253 characters (DNS subdomain max).
                             maxLength: 253
+                            minLength: 1
                             type: string
+                            x-kubernetes-validations:
+                            - message: 'the value must be a valid DNS subdomain: lowercase
+                                alphanumeric characters, hyphens, and dots, starting
+                                and ending with an alphanumeric character.'
+                              rule: '!format.dns1123Subdomain().validate(self).hasValue()'
                           messages:
                             description: |-
                               messages lists the failure reasons for this object. The maximum
@@ -2866,6 +2906,7 @@ spec:
                               by the controller.
                             items:
                               maxLength: 1024
+                              minLength: 1
                               type: string
                             maxItems: 18
                             type: array
@@ -2877,12 +2918,23 @@ spec:
                             maxLength: 253
                             minLength: 1
                             type: string
+                            x-kubernetes-validations:
+                            - message: 'name must be a valid object name: it may not
+                                be ''.'' or ''..'' or contain ''/'' or ''%'''
+                              rule: self != "." && self != ".." && !self.contains("/")
+                                && !self.contains("%")
                           namespace:
                             description: |-
                               namespace is the namespace of the object. Empty for cluster-scoped
                               resources. At most 253 characters (DNS subdomain max).
                             maxLength: 253
+                            minLength: 1
                             type: string
+                            x-kubernetes-validations:
+                            - message: the value must consist of only lowercase alphanumeric
+                                characters and hyphens, and must start and end with
+                                an alphanumeric character.
+                              rule: '!format.dns1123Label().validate(self).hasValue()'
                           resource:
                             description: |-
                               resource is the lowercase, plural resource type of the object
