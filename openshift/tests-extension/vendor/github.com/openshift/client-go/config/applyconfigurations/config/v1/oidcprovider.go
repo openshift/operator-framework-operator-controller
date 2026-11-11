@@ -21,7 +21,11 @@ type OIDCProviderApplyConfiguration struct {
 	//
 	// Validation rules are joined via an AND operation.
 	ClaimValidationRules []TokenClaimValidationRuleApplyConfiguration `json:"claimValidationRules,omitempty"`
-	UserValidationRules  []TokenUserValidationRuleApplyConfiguration  `json:"userValidationRules,omitempty"`
+	// userValidationRules is an optional field that configures the set of rules used to validate the cluster user identity that was constructed via mapping token claims to user identity attributes.
+	// Rules are CEL expressions that must evaluate to 'true' for authentication to succeed.
+	// If any rule in the chain of rules evaluates to 'false', authentication will fail.
+	// When specified, at least one rule must be specified and no more than 64 rules may be specified.
+	UserValidationRules []TokenUserValidationRuleApplyConfiguration `json:"userValidationRules,omitempty"`
 }
 
 // OIDCProviderApplyConfiguration constructs a declarative configuration of the OIDCProvider type for use with
@@ -89,19 +93,6 @@ func (b *OIDCProviderApplyConfiguration) WithUserValidationRules(values ...*Toke
 			panic("nil value passed to WithUserValidationRules")
 		}
 		b.UserValidationRules = append(b.UserValidationRules, *values[i])
-	}
-	return b
-}
-
-// WithExternalClaimsSources adds the given value to the ExternalClaimsSources field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ExternalClaimsSources field.
-func (b *OIDCProviderApplyConfiguration) WithExternalClaimsSources(values ...*ExternalClaimsSourceApplyConfiguration) *OIDCProviderApplyConfiguration {
-	for i := range values {
-		if values[i] == nil {
-			panic("nil value passed to WithExternalClaimsSources")
-		}
-		b.ExternalClaimsSources = append(b.ExternalClaimsSources, *values[i])
 	}
 	return b
 }
