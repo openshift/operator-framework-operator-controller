@@ -413,7 +413,7 @@ func durationUntilDeploymentDeadline(clk clock.Clock, cod *ocv1.ClusterObjectDep
 		cos.Spec.LifecycleState == ocv1.ClusterObjectSetLifecycleStateArchived || !cos.DeletionTimestamp.IsZero() {
 		return 0, false
 	}
-	pd := cod.Spec.Template.Spec.ProgressDeadlineMinutes
+	pd := cod.Spec.ProgressDeadlineMinutes
 	if pd <= 0 {
 		return 0, false
 	}
@@ -663,12 +663,10 @@ func buildClusterObjectSet(cod *ocv1.ClusterObjectDeployment, revision int64, ha
 			Annotations: maps.Clone(cod.Spec.Template.Metadata.Annotations),
 		},
 		Spec: ocv1.ClusterObjectSetSpec{
-			Group:               cod.Name,
-			Revision:            revision,
-			LifecycleState:      ocv1.ClusterObjectSetLifecycleStateActive,
-			Phases:              cod.Spec.Template.Spec.Phases,
-			ProgressionProbes:   cod.Spec.Template.Spec.ProgressionProbes,
-			CollisionProtection: cod.Spec.Template.Spec.CollisionProtection,
+			Group:                   cod.Name,
+			Revision:                revision,
+			LifecycleState:          ocv1.ClusterObjectSetLifecycleStateActive,
+			ClusterObjectSetContent: cod.Spec.Template.Spec.ClusterObjectSetContent,
 		},
 	}
 }

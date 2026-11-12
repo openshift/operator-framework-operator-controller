@@ -27,27 +27,10 @@ import (
 //
 // ClusterObjectDeploymentTemplateSpec contains mutable ClusterObjectSet content.
 type ClusterObjectDeploymentTemplateSpecApplyConfiguration struct {
-	// phases is an ordered list of 1 to 20 uniquely named phases. Each phase contains
-	// at most 50 objects, each expressed either as an inlineManifest (an embedded
-	// Kubernetes object) or a secretRef (a reference to an immutable Secret holding
-	// a serialized manifest). Phase, object, and probe order participate in template identity.
-	Phases []ClusterObjectSetPhaseApplyConfiguration `json:"phases,omitempty"`
-	// progressDeadlineMinutes is the maximum number of minutes a revision may take
-	// to roll out, measured from the ClusterObjectSet's creation timestamp. Time
-	// spent waiting for the ClusterObjectSet to be created is not counted. The
-	// deadline covers all phases together; completing a phase does not reset it.
-	// Once a revision has completed, the deadline no longer applies, even if it
-	// later becomes unhealthy. When omitted, no deadline is enforced. The minimum
-	// period is 1 minute, and the maximum is 720 minutes (12 hours).
-	ProgressDeadlineMinutes *int32 `json:"progressDeadlineMinutes,omitempty"`
-	// progressionProbes supplies custom readiness probes for objects in every phase.
-	// The same selector and assertion semantics as ClusterObjectSet.spec.progressionProbes apply.
-	// When set, must contain 1 to 20 probes.
-	ProgressionProbes []ProgressionProbeApplyConfiguration `json:"progressionProbes,omitempty"`
-	// collisionProtection is the required default collision protection strategy for all objects
-	// in the revision. Individual phases or objects may override this value.
-	// The resolution order is: object > phase > spec.
-	CollisionProtection *apiv1.CollisionProtection `json:"collisionProtection,omitempty"`
+	// ClusterObjectSetContent holds the mutable revision content that is
+	// propagated to each ClusterObjectSet created from this template. Changes
+	// to these fields create a new revision; existing revisions remain immutable.
+	ClusterObjectSetContentApplyConfiguration `json:""`
 }
 
 // ClusterObjectDeploymentTemplateSpecApplyConfiguration constructs a declarative configuration of the ClusterObjectDeploymentTemplateSpec type for use with
@@ -64,16 +47,8 @@ func (b *ClusterObjectDeploymentTemplateSpecApplyConfiguration) WithPhases(value
 		if values[i] == nil {
 			panic("nil value passed to WithPhases")
 		}
-		b.Phases = append(b.Phases, *values[i])
+		b.ClusterObjectSetContentApplyConfiguration.Phases = append(b.ClusterObjectSetContentApplyConfiguration.Phases, *values[i])
 	}
-	return b
-}
-
-// WithProgressDeadlineMinutes sets the ProgressDeadlineMinutes field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ProgressDeadlineMinutes field is set to the value of the last call.
-func (b *ClusterObjectDeploymentTemplateSpecApplyConfiguration) WithProgressDeadlineMinutes(value int32) *ClusterObjectDeploymentTemplateSpecApplyConfiguration {
-	b.ProgressDeadlineMinutes = &value
 	return b
 }
 
@@ -85,7 +60,7 @@ func (b *ClusterObjectDeploymentTemplateSpecApplyConfiguration) WithProgressionP
 		if values[i] == nil {
 			panic("nil value passed to WithProgressionProbes")
 		}
-		b.ProgressionProbes = append(b.ProgressionProbes, *values[i])
+		b.ClusterObjectSetContentApplyConfiguration.ProgressionProbes = append(b.ClusterObjectSetContentApplyConfiguration.ProgressionProbes, *values[i])
 	}
 	return b
 }
@@ -94,6 +69,6 @@ func (b *ClusterObjectDeploymentTemplateSpecApplyConfiguration) WithProgressionP
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CollisionProtection field is set to the value of the last call.
 func (b *ClusterObjectDeploymentTemplateSpecApplyConfiguration) WithCollisionProtection(value apiv1.CollisionProtection) *ClusterObjectDeploymentTemplateSpecApplyConfiguration {
-	b.CollisionProtection = &value
+	b.ClusterObjectSetContentApplyConfiguration.CollisionProtection = &value
 	return b
 }

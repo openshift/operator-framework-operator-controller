@@ -55,13 +55,15 @@ func TestValidate(t *testing.T) {
 	}
 	objectSetWithInlineManifest := func(group string, m unstructured.Unstructured) ClusterObjectSetSpec {
 		return ClusterObjectSetSpec{
-			Group:               group,
-			Revision:            1,
-			CollisionProtection: CollisionProtectionPrevent,
-			LifecycleState:      ClusterObjectSetLifecycleStateActive,
-			Phases: []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{
-				{Type: ObjectTypeInlineManifest, InlineManifest: m},
-			}}},
+			Group:          group,
+			Revision:       1,
+			LifecycleState: ClusterObjectSetLifecycleStateActive,
+			ClusterObjectSetContent: ClusterObjectSetContent{
+				CollisionProtection: CollisionProtectionPrevent,
+				Phases: []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{
+					{Type: ObjectTypeInlineManifest, InlineManifest: m},
+				}}},
+			},
 		}
 	}
 	c := newClient(t)
@@ -117,9 +119,7 @@ func TestValidate(t *testing.T) {
 		"ClusterObjectDeployment: valid progress deadline = 1": {
 			args: args{
 				object: ClusterObjectDeploymentSpec{
-					Template: ClusterObjectDeploymentTemplate{
-						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 1},
-					},
+					ProgressDeadlineMinutes: 1,
 				},
 			},
 			want: want{valid: true},
@@ -127,9 +127,7 @@ func TestValidate(t *testing.T) {
 		"ClusterObjectDeployment: valid progress deadline = 10": {
 			args: args{
 				object: ClusterObjectDeploymentSpec{
-					Template: ClusterObjectDeploymentTemplate{
-						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 10},
-					},
+					ProgressDeadlineMinutes: 10,
 				},
 			},
 			want: want{valid: true},
@@ -137,9 +135,7 @@ func TestValidate(t *testing.T) {
 		"ClusterObjectDeployment: valid progress deadline = 720": {
 			args: args{
 				object: ClusterObjectDeploymentSpec{
-					Template: ClusterObjectDeploymentTemplate{
-						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 720},
-					},
+					ProgressDeadlineMinutes: 720,
 				},
 			},
 			want: want{valid: true},
@@ -147,9 +143,7 @@ func TestValidate(t *testing.T) {
 		"ClusterObjectDeployment: invalid progress deadline > 720": {
 			args: args{
 				object: ClusterObjectDeploymentSpec{
-					Template: ClusterObjectDeploymentTemplate{
-						Spec: ClusterObjectDeploymentTemplateSpec{ProgressDeadlineMinutes: 721},
-					},
+					ProgressDeadlineMinutes: 721,
 				},
 			},
 			want: want{valid: false, errContains: "spec.progressDeadlineMinutes"},
@@ -273,9 +267,11 @@ func newRevisionHistoryLimitCOD(name string, limit *int32) *ClusterObjectDeploym
 			RevisionHistoryLimit: limit,
 			Template: ClusterObjectDeploymentTemplate{
 				Spec: ClusterObjectDeploymentTemplateSpec{
-					CollisionProtection: CollisionProtectionPrevent,
-					Phases: []ClusterObjectSetPhase{
-						{Name: "deploy", Objects: []ClusterObjectSetObject{{Type: ObjectTypeInlineManifest, InlineManifest: configMap()}}},
+					ClusterObjectSetContent: ClusterObjectSetContent{
+						CollisionProtection: CollisionProtectionPrevent,
+						Phases: []ClusterObjectSetPhase{
+							{Name: "deploy", Objects: []ClusterObjectSetObject{{Type: ObjectTypeInlineManifest, InlineManifest: configMap()}}},
+						},
 					},
 				},
 			},
@@ -323,11 +319,13 @@ func TestClusterObjectSetCompletedAtImmutable(t *testing.T) {
 	cos := &ClusterObjectSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "cos-completedat-immutable-1"},
 		Spec: ClusterObjectSetSpec{
-			Group:               "cos-completedat-immutable",
-			Revision:            1,
-			CollisionProtection: CollisionProtectionPrevent,
-			LifecycleState:      ClusterObjectSetLifecycleStateActive,
-			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			Group:          "cos-completedat-immutable",
+			Revision:       1,
+			LifecycleState: ClusterObjectSetLifecycleStateActive,
+			ClusterObjectSetContent: ClusterObjectSetContent{
+				CollisionProtection: CollisionProtectionPrevent,
+				Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))
@@ -355,11 +353,13 @@ func TestClusterObjectSetCompletedAtCannotBeRemoved(t *testing.T) {
 	cos := &ClusterObjectSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "cos-completedat-noremove-1"},
 		Spec: ClusterObjectSetSpec{
-			Group:               "cos-completedat-noremove",
-			Revision:            1,
-			CollisionProtection: CollisionProtectionPrevent,
-			LifecycleState:      ClusterObjectSetLifecycleStateActive,
-			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			Group:          "cos-completedat-noremove",
+			Revision:       1,
+			LifecycleState: ClusterObjectSetLifecycleStateActive,
+			ClusterObjectSetContent: ClusterObjectSetContent{
+				CollisionProtection: CollisionProtectionPrevent,
+				Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))
@@ -382,11 +382,13 @@ func TestClusterObjectSetDigestImmutable(t *testing.T) {
 	cos := &ClusterObjectSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "cos-digest-immutable-1"},
 		Spec: ClusterObjectSetSpec{
-			Group:               "cos-digest-immutable",
-			Revision:            1,
-			CollisionProtection: CollisionProtectionPrevent,
-			LifecycleState:      ClusterObjectSetLifecycleStateActive,
-			Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			Group:          "cos-digest-immutable",
+			Revision:       1,
+			LifecycleState: ClusterObjectSetLifecycleStateActive,
+			ClusterObjectSetContent: ClusterObjectSetContent{
+				CollisionProtection: CollisionProtectionPrevent,
+				Phases:              []ClusterObjectSetPhase{{Name: "deploy", Objects: []ClusterObjectSetObject{}}},
+			},
 		},
 	}
 	require.NoError(t, c.Create(t.Context(), cos))

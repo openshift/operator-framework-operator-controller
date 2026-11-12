@@ -63,6 +63,22 @@ type ClusterObjectDeploymentSpec struct {
 	// +optional
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 
+	// progressDeadlineMinutes is the maximum number of minutes a revision may take
+	// to roll out, measured from the ClusterObjectSet's creation timestamp. Time
+	// spent waiting for the ClusterObjectSet to be created is not counted. The
+	// deadline covers all phases together; completing a phase does not reset it.
+	// Once a revision has completed, the deadline no longer applies, even if it
+	// later becomes unhealthy. When omitted, no deadline is enforced. The minimum
+	// period is 1 minute, and the maximum is 720 minutes (12 hours).
+	//
+	// The deadline is rollout policy, not revision content: changing it does not
+	// create a new revision and applies immediately to the latest active revision.
+	//
+	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=720
+	// +optional
+	ProgressDeadlineMinutes int32 `json:"progressDeadlineMinutes,omitempty"`
+
 	// template is the desired content of newly created ClusterObjectSets.
 	// Changes to template create a new revision; existing revisions remain immutable.
 	// +required
@@ -108,44 +124,10 @@ type ClusterObjectDeploymentTemplateMetadata struct {
 
 // ClusterObjectDeploymentTemplateSpec contains mutable ClusterObjectSet content.
 type ClusterObjectDeploymentTemplateSpec struct {
-	// phases is an ordered list of 1 to 20 uniquely named phases. Each phase contains
-	// at most 50 objects, each expressed either as an inlineManifest (an embedded
-	// Kubernetes object) or a secretRef (a reference to an immutable Secret holding
-	// a serialized manifest). Phase, object, and probe order participate in template identity.
-	// +required
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=20
-	// +listType=map
-	// +listMapKey=name
-	Phases []ClusterObjectSetPhase `json:"phases,omitempty"` // These are ordered groups of objects, not an enum describing lifecycle state.
-
-	// progressDeadlineMinutes is the maximum number of minutes a revision may take
-	// to roll out, measured from the ClusterObjectSet's creation timestamp. Time
-	// spent waiting for the ClusterObjectSet to be created is not counted. The
-	// deadline covers all phases together; completing a phase does not reset it.
-	// Once a revision has completed, the deadline no longer applies, even if it
-	// later becomes unhealthy. When omitted, no deadline is enforced. The minimum
-	// period is 1 minute, and the maximum is 720 minutes (12 hours).
-	//
-	// +kubebuilder:validation:Minimum:=1
-	// +kubebuilder:validation:Maximum:=720
-	// +optional
-	ProgressDeadlineMinutes int32 `json:"progressDeadlineMinutes,omitempty"`
-
-	// progressionProbes supplies custom readiness probes for objects in every phase.
-	// The same selector and assertion semantics as ClusterObjectSet.spec.progressionProbes apply.
-	// When set, must contain 1 to 20 probes.
-	// +optional
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=20
-	// +listType=atomic
-	ProgressionProbes []ProgressionProbe `json:"progressionProbes,omitempty"`
-
-	// collisionProtection is the required default collision protection strategy for all objects
-	// in the revision. Individual phases or objects may override this value.
-	// The resolution order is: object > phase > spec.
-	// +required
-	CollisionProtection CollisionProtection `json:"collisionProtection,omitempty"`
+	// ClusterObjectSetContent holds the mutable revision content that is
+	// propagated to each ClusterObjectSet created from this template. Changes
+	// to these fields create a new revision; existing revisions remain immutable.
+	ClusterObjectSetContent `json:",inline"`
 }
 
 // ClusterObjectDeploymentStatus reports rollout progress.
@@ -156,7 +138,7 @@ type ClusterObjectDeploymentStatus struct {
 	// rollout is incomplete, or False with reason NewClusterObjectSetProgressed after
 	// completion. Completion remains recorded even if the completed revision later
 	// becomes unhealthy. Progressing is False with reason ProgressDeadlineExceeded when
-	// the latest revision does not roll out within spec.template.spec.progressDeadlineMinutes.
+	// the latest revision does not roll out within spec.progressDeadlineMinutes.
 	// Progressing is False with reason InvalidSpecification when spec.template.metadata
 	// contains labels or annotations that are not valid for the resulting
 	// ClusterObjectSet; no new revision is created until the metadata is corrected.
