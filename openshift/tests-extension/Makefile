@@ -78,6 +78,11 @@ verify:
 		errors=$$((errors+1)); \
 		failed_steps="$$failed_steps lint"; \
 	fi; \
+	if ! $(MAKE) test-unit; then \
+		echo "ERROR: 'make test-unit' failed"; \
+		errors=$$((errors+1)); \
+		failed_steps="$$failed_steps test-unit"; \
+	fi; \
 	if [ $$errors -gt 0 ]; then \
 		echo "FAILED: The following verification check(s) failed:$$failed_steps"; \
 		exit 1; \
@@ -115,6 +120,10 @@ fmt-without-fix: #HELP Run go fmt against code.
 .PHONY: vet
 vet: #HELP Run go vet against code.
 	go vet ./...
+
+.PHONY: test-unit
+test-unit: #HELP Run the unit tests for this module. They must not require a cluster.
+	go test -count=1 -race ./pkg/...
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT) #HELP Run golangci linter.
