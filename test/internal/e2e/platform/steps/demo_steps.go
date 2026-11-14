@@ -20,6 +20,8 @@ import (
 )
 
 func RegisterDemoSteps(sc *godog.ScenarioContext) {
+	sc.Step(`^(?i)resource "([^"]+)"(?: matching field selector "([^"]+)")? is displayed with columns "([^"]+)"$`, ResourceDisplayedWithColumns)
+	sc.Step(`^(?i)resource "([^"]+)" is controlled by ClusterObjectSet "([^"]+)"$`, ResourceControlledByClusterObjectSet)
 	sc.Step(`^(?i)catalog "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+)$`, CatalogReportsConditionWithoutReason)
 	sc.Step(`^(?i)catalog "([^"]+)" contains some packages$`, CatalogContainsSomePackages)
 	sc.Step(`^(?i)package "([^"]+)" in catalog "([^"]+)" has some channels defined$`, PackageHasSomeChannels)
@@ -96,7 +98,7 @@ func ensureCatalogPortForward(ctx context.Context) (string, error) {
 		resetCatalogPortForward(ctx)
 	}
 
-	ns := shared.ComponentNamespaces["catalogd"]
+	ns := shared.ComponentNamespaces[shared.CatalogdComponent]
 	target, err := catalogdLeaderPod(ctx, ns)
 	port := int32(443)
 	if err != nil {
