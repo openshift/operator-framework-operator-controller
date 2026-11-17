@@ -1,10 +1,10 @@
-@BoxcutterRuntime
+@ObjectController @ClusterObjectSet
 Feature: Install ClusterObjectSet
 
   As an OLM user I would like to install a ClusterObjectSet directly, without using the cluster extension API.
 
   Background:
-    Given OLM is available
+    Given object-controller is available
 
   Scenario: Probe failure for PersistentVolumeClaim halts phase progression
     Given ServiceAccount "pvc-probe-sa" with needed permissions is available in test namespace
@@ -339,6 +339,7 @@ Feature: Install ClusterObjectSet
     And resource "configmap/test-configmap-3" is installed
     And ClusterObjectSet "${COS_NAME}" reports Ready as True with Reason AllObjectsReady
 
+  @COSObjectLifecycle
   Scenario: User can install a ClusterObjectSet with objects stored in Secrets
     Given namespace "${TEST_NAMESPACE}" is available
     When resource is applied
