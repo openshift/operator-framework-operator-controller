@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/utils/ptr"
 )
 
 // {{{ "Functional" Option Interfaces
@@ -97,6 +96,12 @@ type SubResourcePatchOption interface {
 	ApplyToSubResourcePatch(*SubResourcePatchOptions)
 }
 
+// SubResourceApplyOption configures a subresource apply request.
+type SubResourceApplyOption interface {
+	// ApplyToSubResourceApply applies the configuration on the given patch options.
+	ApplyToSubResourceApply(*SubResourceApplyOptions)
+}
+
 // }}}
 
 // {{{ Multi-Type Options
@@ -148,6 +153,10 @@ func (dryRunAll) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
 
+func (dryRunAll) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
+	opts.DryRun = []string{metav1.DryRunAll}
+}
+
 // FieldOwner set the field manager name for the given server-side apply patch.
 type FieldOwner string
 
@@ -184,6 +193,77 @@ func (f FieldOwner) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
 // ApplyToSubResourceUpdate applies this configuration to the given update options.
 func (f FieldOwner) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
 	opts.FieldManager = string(f)
+}
+
+// ApplyToSubResourceApply applies this configuration to the given apply options.
+func (f FieldOwner) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
+	opts.FieldManager = string(f)
+}
+
+// DisableReadYourWritesConsistency disables read-your-own-write consistency for the
+// request it is passed to. It has no effect if the client was not configured with
+// CacheOptions.EnableReadYourWritesConsistency.
+//
+// On a read request, the request will not wait for the cache to have observed
+// previous writes. On a write request, subsequent read requests will not wait
+// for the cache to have observed this write.
+const DisableReadYourWritesConsistency = disableReadYourWritesConsistency(true)
+
+type disableReadYourWritesConsistency bool
+
+// ApplyToGet applies this configuration to the given get options.
+func (disableReadYourWritesConsistency) ApplyToGet(opts *GetOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToList applies this configuration to the given list options.
+func (disableReadYourWritesConsistency) ApplyToList(opts *ListOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToCreate applies this configuration to the given create options.
+func (disableReadYourWritesConsistency) ApplyToCreate(opts *CreateOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToUpdate applies this configuration to the given update options.
+func (disableReadYourWritesConsistency) ApplyToUpdate(opts *UpdateOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToPatch applies this configuration to the given patch options.
+func (disableReadYourWritesConsistency) ApplyToPatch(opts *PatchOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToApply applies this configuration to the given apply options.
+func (disableReadYourWritesConsistency) ApplyToApply(opts *ApplyOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToDelete applies this configuration to the given delete options.
+func (disableReadYourWritesConsistency) ApplyToDelete(opts *DeleteOptions) {
+	opts.DisableReadYourWritesConsistency = true
+}
+
+// ApplyToSubResourceCreate applies this configuration to the given create options.
+func (d disableReadYourWritesConsistency) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
+	d.ApplyToCreate(&opts.CreateOptions)
+}
+
+// ApplyToSubResourceUpdate applies this configuration to the given update options.
+func (d disableReadYourWritesConsistency) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
+	d.ApplyToUpdate(&opts.UpdateOptions)
+}
+
+// ApplyToSubResourcePatch applies this configuration to the given patch options.
+func (d disableReadYourWritesConsistency) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
+	d.ApplyToPatch(&opts.PatchOptions)
+}
+
+// ApplyToSubResourceApply applies this configuration to the given apply options.
+func (d disableReadYourWritesConsistency) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
+	d.ApplyToApply(&opts.ApplyOptions)
 }
 
 // FieldValidation configures field validation for the given requests.
@@ -759,12 +839,12 @@ type UnsafeDisableDeepCopyOption bool
 
 // ApplyToGet applies this configuration to the given an Get options.
 func (d UnsafeDisableDeepCopyOption) ApplyToGet(opts *GetOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
+	opts.UnsafeDisableDeepCopy = new(bool(d))
 }
 
 // ApplyToList applies this configuration to the given an List options.
 func (d UnsafeDisableDeepCopyOption) ApplyToList(opts *ListOptions) {
-	opts.UnsafeDisableDeepCopy = ptr.To(bool(d))
+	opts.UnsafeDisableDeepCopy = new(bool(d))
 }
 
 // UnsafeDisableDeepCopy indicates not to deep copy objects during list objects.
@@ -987,15 +1067,19 @@ var ForceOwnership = forceOwnership{}
 type forceOwnership struct{}
 
 func (forceOwnership) ApplyToPatch(opts *PatchOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 func (forceOwnership) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
 }
 
 func (forceOwnership) ApplyToApply(opts *ApplyOptions) {
-	opts.Force = ptr.To(true)
+	opts.Force = new(true)
+}
+
+func (forceOwnership) ApplyToSubResourceApply(opts *SubResourceApplyOptions) {
+	opts.Force = new(true)
 }
 
 // }}}
