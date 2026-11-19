@@ -421,14 +421,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		defer ceNAN.Delete(oc)
 		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
 			g.By("check non all namespace mode is rejected when the feature gate is disabled")
-			_ = ceNAN.CreateWithoutCheck(oc)
+			err = ceNAN.CreateWithoutCheck(oc)
+			o.Expect(err).NotTo(o.HaveOccurred())
 			ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "bundle does not support AllNamespaces install mode", 10, 180, 0)
 			ceNAN.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
 			ceNAN.Delete(oc)
 		} else {
 			g.By("check watchNamespace is required for non all namespace mode")
 			defer ceMissingWatchNamespace.Delete(oc)
-			_ = ceMissingWatchNamespace.CreateWithoutCheck(oc)
+			err = ceMissingWatchNamespace.CreateWithoutCheck(oc)
+			o.Expect(err).NotTo(o.HaveOccurred())
 			ceMissingWatchNamespace.CheckClusterExtensionCondition(oc, "Progressing", "message", `required field "watchNamespace" is missing`, 10, 180, 0)
 			ceMissingWatchNamespace.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
 			ceMissingWatchNamespace.Delete(oc)
