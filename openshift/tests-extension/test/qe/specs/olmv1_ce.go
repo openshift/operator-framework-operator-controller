@@ -442,7 +442,7 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			o.Expect(ceNAN.InstalledBundle).To(o.ContainSubstring("nginx-ok-v32777-nan.v0.0.1"))
 			deploymentTargetNS, err := olmv1util.GetNoEmpty(oc, "deployment", "nginx-ok-v32777-nan-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
 			o.Expect(err).NotTo(o.HaveOccurred())
-			o.Expect(deploymentTargetNS).To(o.ContainSubstring(ns))
+			o.Expect(deploymentTargetNS).To(o.Equal(ns))
 		}
 
 	})
