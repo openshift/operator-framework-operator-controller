@@ -307,13 +307,14 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 		exutil.SkipForSNOCluster(oc)
 		olmv1util.ValidateAccessEnvironment(oc)
 		var (
-			caseID                   = "74618"
-			ns                       = "ns-" + caseID
-			labelValue               = caseID
-			baseDir                  = exutil.FixturePath("testdata", "olm")
-			clustercatalogTemplate   = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
-			clusterextensionTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
-			clustercatalog           = olmv1util.ClusterCatalogDescription{
+			caseID                               = "74618"
+			ns                                   = "ns-" + caseID
+			labelValue                           = caseID
+			baseDir                              = exutil.FixturePath("testdata", "olm")
+			clustercatalogTemplate               = filepath.Join(baseDir, "clustercatalog-withlabel.yaml")
+			clusterextensionTemplate             = filepath.Join(baseDir, "clusterextension-withselectorlabel.yaml")
+			clusterextensionInlineConfigTemplate = filepath.Join(baseDir, "clusterextension-withselectorlabel-inlineconfig.yaml")
+			clustercatalog                       = olmv1util.ClusterCatalogDescription{
 				Name:       "clustercatalog-74618",
 				Imageref:   "quay.io/olmqe/nginx-ok-index:vokv32777",
 				LabelValue: labelValue,
@@ -364,6 +365,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 				Version:          ">=0.0.1",
 				InstallNamespace: ns,
 				LabelValue:       labelValue,
+				Template:         clusterextensionInlineConfigTemplate,
+				InlineConfig:     fmt.Sprintf(`{"watchNamespace":"%s"}`, ns),
+			}
+			ceMissingWatchNamespace = olmv1util.ClusterExtensionDescription{
+				Name:             "nan-missing-watchnamespace-32777",
+				PackageName:      "nginx-ok-v32777nan",
+				Channel:          "alpha",
+				Version:          ">=0.0.1",
+				InstallNamespace: ns,
+				LabelValue:       labelValue,
 				Template:         clusterextensionTemplate,
 			}
 		)
@@ -407,12 +418,32 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension", g.Label("NonHyperSh
 			ceWBH.Delete(oc)
 		}
 
-		g.By("check non all ns mode fails to be installed.")
 		defer ceNAN.Delete(oc)
-		_ = ceNAN.CreateWithoutCheck(oc)
-		ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "bundle does not support AllNamespaces install mode", 10, 180, 0)
-		ceNAN.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
-		ceNAN.Delete(oc)
+		if !olmv1util.IsFeaturegateEnabled(oc, "NewOLMOwnSingleNamespace") {
+			g.By("check non all namespace mode is rejected when the feature gate is disabled")
+			_ = ceNAN.CreateWithoutCheck(oc)
+			ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "message", "bundle does not support AllNamespaces install mode", 10, 180, 0)
+			ceNAN.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
+			ceNAN.Delete(oc)
+		} else {
+			g.By("check watchNamespace is required for non all namespace mode")
+			defer ceMissingWatchNamespace.Delete(oc)
+			_ = ceMissingWatchNamespace.CreateWithoutCheck(oc)
+			ceMissingWatchNamespace.CheckClusterExtensionCondition(oc, "Progressing", "message", `required field "watchNamespace" is missing`, 10, 180, 0)
+			ceMissingWatchNamespace.CheckClusterExtensionCondition(oc, "Installed", "reason", "Failed", 10, 180, 0)
+			ceMissingWatchNamespace.Delete(oc)
+
+			g.By("check non all namespace mode succeeds with watchNamespace")
+			err = ceNAN.CreateWithoutCheck(oc)
+			o.Expect(err).NotTo(o.HaveOccurred())
+			ceNAN.CheckClusterExtensionCondition(oc, "Progressing", "reason", "Succeeded", 3, 150, 0)
+			ceNAN.WaitClusterExtensionCondition(oc, "Installed", "True", 0)
+			ceNAN.GetBundleResource(oc)
+			o.Expect(ceNAN.InstalledBundle).To(o.ContainSubstring("nginx-ok-v32777-nan.v0.0.1"))
+			deploymentTargetNS, err := olmv1util.GetNoEmpty(oc, "deployment", "nginx-ok-v32777-nan-controller-manager", "-n", ns, "-o", `jsonpath={.spec.template.metadata.annotations.olm\.targetNamespaces}`)
+			o.Expect(err).NotTo(o.HaveOccurred())
+			o.Expect(deploymentTargetNS).To(o.ContainSubstring(ns))
+		}
 
 	})
 
