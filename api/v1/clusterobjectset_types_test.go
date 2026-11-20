@@ -110,6 +110,50 @@ func TestClusterObjectSetImmutability(t *testing.T) {
 			},
 			expectedError: "phases is immutable",
 		},
+		"inline manifest content is immutable": {
+			spec: ClusterObjectSetSpec{
+				Group:          "immutability-inline-manifest-content",
+				LifecycleState: ClusterObjectSetLifecycleStateActive,
+				Revision:       1,
+				ClusterObjectSetContent: ClusterObjectSetContent{
+					CollisionProtection: CollisionProtectionPrevent,
+					Phases: []ClusterObjectSetPhase{{
+						Name: "configuration",
+						Objects: []ClusterObjectSetObject{{
+							Type: ObjectTypeInlineManifest,
+							InlineManifest: unstructured.Unstructured{Object: map[string]interface{}{
+								"apiVersion": "v1",
+								"kind":       "ConfigMap",
+								"metadata":   map[string]interface{}{"name": "test-cm"},
+								"data":       map[string]interface{}{"example": "before"},
+							}},
+						}},
+					}},
+				},
+			},
+			updateFunc: func(cos *ClusterObjectSet) {
+				cos.Spec.Phases[0].Objects[0].InlineManifest.Object["data"] = map[string]interface{}{"example": "after"}
+			},
+			expectedError: "phases is immutable",
+		},
+		"phase order is immutable": {
+			spec: ClusterObjectSetSpec{
+				Group:          "immutability-phase-order",
+				LifecycleState: ClusterObjectSetLifecycleStateActive,
+				Revision:       1,
+				ClusterObjectSetContent: ClusterObjectSetContent{
+					CollisionProtection: CollisionProtectionPrevent,
+					Phases: []ClusterObjectSetPhase{
+						{Name: "configuration", Objects: []ClusterObjectSetObject{}},
+						{Name: "deploy", Objects: []ClusterObjectSetObject{}},
+					},
+				},
+			},
+			updateFunc: func(cos *ClusterObjectSet) {
+				cos.Spec.Phases[0], cos.Spec.Phases[1] = cos.Spec.Phases[1], cos.Spec.Phases[0]
+			},
+			expectedError: "phases is immutable",
+		},
 		"spec collisionProtection is immutable": {
 			spec: ClusterObjectSetSpec{
 				Group:          "immutability-collision-protection",
@@ -385,13 +429,13 @@ func TestClusterObjectSetValidity(t *testing.T) {
 						},
 						{
 							Name:    "deploy",
-							Objects: []ClusterObjectSetObject{},
+							Objects: []ClusterObjectSetObject{{Type: ObjectTypeInlineManifest, InlineManifest: configMap()}},
 						},
 					},
 				},
 			},
 			valid:         false,
-			expectedError: "spec.phases[1]: Duplicate value",
+			expectedError: "phase names must be unique",
 		},
 		"spec collisionProtection accepts Prevent": {
 			spec: ClusterObjectSetSpec{
