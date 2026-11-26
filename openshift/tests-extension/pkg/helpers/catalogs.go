@@ -45,7 +45,7 @@ func ExpectCatalogToBeServing(ctx context.Context, name string) {
 		conditions := catalog.Status.Conditions
 		g.Expect(conditions).NotTo(BeEmpty(), fmt.Sprintf("catalog %q has empty status.conditions", name))
 
-		g.Expect(meta.IsStatusConditionPresentAndEqual(conditions, olmv1.TypeServing, metav1.ConditionTrue)).
+		g.Expect(meta.IsStatusConditionPresentAndEqual(conditions, olmv1.ClusterCatalogTypeServing, metav1.ConditionTrue)).
 			To(BeTrue(), fmt.Sprintf("catalog %q is not serving", name))
 	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())
 }

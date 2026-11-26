@@ -232,10 +232,10 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLMConfigAPI][Skipped:Disconnect
 		Eventually(func(g Gomega) {
 			var ext olmv1.ClusterExtension
 			g.Expect(k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, &ext)).To(Succeed())
-			progressing := apimeta.FindStatusCondition(ext.Status.Conditions, olmv1.TypeProgressing)
+			progressing := apimeta.FindStatusCondition(ext.Status.Conditions, olmv1.ClusterExtensionTypeProgressing)
 			g.Expect(progressing).NotTo(BeNil(), "Progressing condition not found")
 			g.Expect(progressing.Status).To(Equal(metav1.ConditionFalse), "expected Progressing=False for terminal error")
-			g.Expect(progressing.Reason).To(Equal(olmv1.ReasonInvalidConfiguration), "expected Reason=InvalidConfiguration for config validation error")
+			g.Expect(progressing.Reason).To(Equal(olmv1.ClusterExtensionReasonInvalidConfiguration), "expected Reason=InvalidConfiguration for config validation error")
 			for _, sub := range msgSubstrings {
 				g.Expect(progressing.Message).To(ContainSubstring(sub),
 					"expected message to contain %q, got: %s", sub, progressing.Message)
