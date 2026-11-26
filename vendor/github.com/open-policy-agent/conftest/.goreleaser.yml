@@ -1,0 +1,80 @@
+version: 1
+
+before:
+  hooks:
+  - go mod download
+
+builds:
+- main: ./main.go
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - windows
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  - ppc64le
+  - s390x
+  ldflags:
+  - "-s"
+  - "-w"
+  - "-X github.com/open-policy-agent/conftest/internal/commands.version={{.Version}}"
+
+archives:
+- name_template: >-
+    {{ .ProjectName }}_
+    {{- .Version }}_
+    {{- if eq .Os "linux" }}Linux
+    {{- else if eq .Os "windows" }}Windows
+    {{- else if eq .Os "darwin" }}Darwin
+    {{- else }}{{ .Os }}{{ end }}_
+    {{- if eq .Arch "386" }}i386
+    {{- else if eq .Arch "amd64" }}x86_64
+    {{- else }}{{ .Arch }}{{ end }}
+  format: tar.gz
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+      - LICENSE
+      - README.md
+      - plugin/*.sh
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  use: github
+  groups:
+  - title: New Features
+    regexp: '^.*?feat(ure)?(\([[:word:]]+\))??!?:.+$'
+    order: 0
+  - title: Bug Fixes
+    regexp: '^.*?(bug|fix)(\([[:word:]]+\))??!?:.+$'
+    order: 1
+  - title: OPA Changes
+    regexp: '(?i)bump (opa|github.com/open-policy-agent/opa)'
+    order: 5
+  - title: Other Changes
+    order: 999
+  sort: asc
+  filters:
+    exclude:
+    - '^.*?docs(\([[:word:]]+\))??!?:.+$'
+    - '^.*?test(\([[:word:]]+\))??!?:.+$'
+    - '^.*?misc(\([[:word:]]+\))??!?:.+$'
+    - '^.*?typo(\([[:word:]]+\))??!?:.+$'
+    - '(?i) typo( |\.|\r?\n)'
+
+# Publishes the deb and rpm files to the GitHub releases page.
+nfpms:
+  - bindir: /usr/bin
+    description: "Test your configuration using Open Policy Agent"
+    formats:
+      - deb
+      - rpm
+    homepage: https://github.com/open-policy-agent/conftest
+    maintainer: jpreese <john@reese.dev>
+    license: Apache-2.0
