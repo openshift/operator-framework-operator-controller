@@ -351,7 +351,7 @@ func waitForClusterCatalogServing(ctx context.Context, name string) {
 		err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, cc)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		serving := meta.FindStatusCondition(cc.Status.Conditions, olmv1.TypeServing)
+		serving := meta.FindStatusCondition(cc.Status.Conditions, olmv1.ClusterCatalogTypeServing)
 		g.Expect(serving).ToNot(BeNil())
 		g.Expect(serving.Status).To(Equal(metav1.ConditionTrue))
 	}).WithTimeout(DefaultTimeout).WithPolling(DefaultPolling).Should(Succeed())

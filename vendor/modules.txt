@@ -2451,7 +2451,7 @@ github.com/kisielk/errcheck/errcheck
 # github.com/kkHAIKE/contextcheck v1.1.6
 ## explicit; go 1.23.0
 github.com/kkHAIKE/contextcheck
-# github.com/klauspost/compress v1.20.3
+# github.com/klauspost/compress v1.20.4
 ## explicit; go 1.25
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
@@ -3944,7 +3944,7 @@ go.podman.io/common/pkg/auth
 go.podman.io/common/pkg/capabilities
 go.podman.io/common/pkg/completion
 go.podman.io/common/pkg/password
-# go.podman.io/image/v5 v5.42.0
+# go.podman.io/image/v5 v5.42.1
 ## explicit; go 1.26.0
 go.podman.io/image/v5/copy
 go.podman.io/image/v5/directory/explicitfilepath
@@ -4001,7 +4001,7 @@ go.podman.io/image/v5/signature/simplesigning
 go.podman.io/image/v5/transports
 go.podman.io/image/v5/types
 go.podman.io/image/v5/version
-# go.podman.io/storage v1.65.0
+# go.podman.io/storage v1.65.1
 ## explicit; go 1.26.0
 go.podman.io/storage/internal/createpath
 go.podman.io/storage/internal/rawfilelock

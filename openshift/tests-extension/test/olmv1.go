@@ -183,13 +183,13 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM] OLMv1 operator installation
 				err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, ce)
 				g.Expect(err).ToNot(HaveOccurred())
 
-				progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
+				progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeProgressing)
 				g.Expect(progressing).ToNot(BeNil())
 				g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue))
 				g.Expect(progressing.Reason).To(Equal("Retrying"))
 				g.Expect(progressing.Message).To(ContainSubstring(`not found in any eligible catalog`))
 
-				installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+				installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeInstalled)
 				g.Expect(installed).ToNot(BeNil())
 				g.Expect(installed.Status).To(Equal(metav1.ConditionFalse))
 				g.Expect(installed.Reason).To(Equal("Failed"))
