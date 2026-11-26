@@ -113,8 +113,8 @@ func ExpectClusterExtensionToBeInstalled(ctx context.Context, name string) {
 		conditions := ext.Status.Conditions
 		g.Expect(conditions).NotTo(BeEmpty(), fmt.Sprintf("ClusterExtension %q has empty status.conditions", name))
 
-		progressing := meta.FindStatusCondition(conditions, string(olmv1.TypeProgressing))
-		installed := meta.FindStatusCondition(conditions, string(olmv1.TypeInstalled))
+		progressing := meta.FindStatusCondition(conditions, string(olmv1.ClusterExtensionTypeProgressing))
+		installed := meta.FindStatusCondition(conditions, string(olmv1.ClusterExtensionTypeInstalled))
 
 		pStatus, pReason, pMsg := conditionSummary(progressing)
 		iStatus, iReason, iMsg := conditionSummary(installed)

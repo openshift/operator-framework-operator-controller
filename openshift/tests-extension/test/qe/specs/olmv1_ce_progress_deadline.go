@@ -62,14 +62,16 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension progress deadline", g
 			ce := &olmv1.ClusterExtension{}
 			err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterExtension")
-			expectCondition(g, ce.Status.Conditions, olmv1.TypeProgressing, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
+			expectCondition(g, ce.Status.Conditions, olmv1.ClusterExtensionTypeProgressing, metav1.ConditionFalse, olmv1.ClusterExtensionReasonProgressDeadlineExceeded)
 
 			// The ClusterExtension's revisions are managed as ClusterObjectSets whose
 			// names are "<clusterExtensionName>-<revision>", starting at revision 1.
 			cos := &olmv1.ClusterObjectSet{}
 			err = env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: fmt.Sprintf("%s-1", ceName)}, cos)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterObjectSet")
-			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ReasonProgressDeadlineExceeded)
+			// The deadline is enforced at the ClusterObjectDeployment level; the COS itself
+			// reports Ready=False/ObjectsNotReady while its objects fail to roll out.
+			expectCondition(g, cos.Status.Conditions, olmv1.ClusterObjectSetTypeReady, metav1.ConditionFalse, olmv1.ClusterObjectSetReasonObjectsNotReady)
 		}, 12*time.Minute) // 12 minutes for the minimum 10 minute timeout + padding
 	})
 
@@ -94,8 +96,8 @@ var _ = g.Describe("[sig-olmv1][Jira:OLM] clusterextension progress deadline", g
 			ce := &olmv1.ClusterExtension{}
 			err := env.Get().K8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(o.HaveOccurred(), "failed to get ClusterExtension")
-			expectCondition(g, ce.Status.Conditions, olmv1.TypeInstalled, metav1.ConditionTrue, "")
-			expectCondition(g, ce.Status.Conditions, olmv1.TypeProgressing, metav1.ConditionTrue, olmv1.ReasonSucceeded)
+			expectCondition(g, ce.Status.Conditions, olmv1.ClusterExtensionTypeInstalled, metav1.ConditionTrue, "")
+			expectCondition(g, ce.Status.Conditions, olmv1.ClusterExtensionTypeProgressing, metav1.ConditionTrue, olmv1.ClusterExtensionReasonSucceeded)
 		}, 3*time.Minute)
 
 		g.By("updating the ClusterExtension to a version with a persistent rollout error")

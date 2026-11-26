@@ -300,7 +300,7 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Seria
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeInstalled)
 			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
 			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True before catalog deletion")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
@@ -321,12 +321,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Seria
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
+			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeProgressing)
 			g.Expect(progressing).NotTo(BeNil(), "Progressing condition not found")
 			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True after catalog deletion")
 			g.Expect(progressing.Reason).To(Equal("Succeeded"), "expected Progressing reason=Succeeded after fallback to the installed bundle")
 
-			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeInstalled)
 			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
 			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True after catalog deletion")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())
@@ -352,12 +352,12 @@ var _ = Describe("[sig-olmv1][OCPFeatureGate:NewOLM][Skipped:Disconnected][Seria
 			err := k8sClient.Get(ctx, client.ObjectKey{Name: ceName}, ce)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeProgressing)
+			progressing := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeProgressing)
 			g.Expect(progressing).NotTo(BeNil(), "Progressing condition not found")
 			g.Expect(progressing.Status).To(Equal(metav1.ConditionTrue), "expected Progressing=True after source removal")
 			g.Expect(progressing.Reason).To(Equal("Succeeded"), "expected Progressing reason=Succeeded after fallback to the installed bundle")
 
-			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.TypeInstalled)
+			installed := meta.FindStatusCondition(ce.Status.Conditions, olmv1.ClusterExtensionTypeInstalled)
 			g.Expect(installed).NotTo(BeNil(), "Installed condition not found")
 			g.Expect(installed.Status).To(Equal(metav1.ConditionTrue), "expected Installed=True after source removal")
 		}).WithTimeout(helpers.DefaultTimeout).WithPolling(helpers.DefaultPolling).Should(Succeed())

@@ -88,7 +88,7 @@ func FindInstallablePackage(ctx context.Context) (string, string) {
 		g.Expect(k8sClient.List(ctx, catalogList)).To(Succeed(), "failed to list ClusterCatalogs")
 		serving := 0
 		for i := range catalogList.Items {
-			if meta.IsStatusConditionPresentAndEqual(catalogList.Items[i].Status.Conditions, olmv1.TypeServing, metav1.ConditionTrue) {
+			if meta.IsStatusConditionPresentAndEqual(catalogList.Items[i].Status.Conditions, olmv1.ClusterCatalogTypeServing, metav1.ConditionTrue) {
 				serving++
 			}
 		}
@@ -99,7 +99,7 @@ func FindInstallablePackage(ctx context.Context) (string, string) {
 
 	for i := range catalogList.Items {
 		cc := &catalogList.Items[i]
-		if !meta.IsStatusConditionPresentAndEqual(cc.Status.Conditions, olmv1.TypeServing, metav1.ConditionTrue) {
+		if !meta.IsStatusConditionPresentAndEqual(cc.Status.Conditions, olmv1.ClusterCatalogTypeServing, metav1.ConditionTrue) {
 			fmt.Fprintf(GinkgoWriter, "Catalog %q is not serving, skipping\n", cc.Name)
 			continue
 		}
