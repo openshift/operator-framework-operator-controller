@@ -1,0 +1,2590 @@
+{
+  "name": "ack-acm-controller",
+  "pkg": "ack-acm-controller",
+  "ver": "1.8.1",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-acmpca-controller",
+  "pkg": "ack-acmpca-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-apigateway-controller",
+  "pkg": "ack-apigateway-controller",
+  "ver": "1.9.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-apigatewayv2-controller",
+  "pkg": "ack-apigatewayv2-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-applicationautoscaling-controller",
+  "pkg": "ack-applicationautoscaling-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-athena-controller",
+  "pkg": "ack-athena-controller",
+  "ver": "1.8.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-autoscaling-controller",
+  "pkg": "ack-autoscaling-controller",
+  "ver": "1.2.1",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-backup-controller",
+  "pkg": "ack-backup-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-bedrock-controller",
+  "pkg": "ack-bedrock-controller",
+  "ver": "1.4.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-bedrockagent-controller",
+  "pkg": "ack-bedrockagent-controller",
+  "ver": "1.3.1",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-bedrockagentcorecontrol-controller",
+  "pkg": "ack-bedrockagentcorecontrol-controller",
+  "ver": "1.15.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-cloudfront-controller",
+  "pkg": "ack-cloudfront-controller",
+  "ver": "1.8.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-cloudtrail-controller",
+  "pkg": "ack-cloudtrail-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-cloudwatch-controller",
+  "pkg": "ack-cloudwatch-controller",
+  "ver": "1.9.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-cloudwatchlogs-controller",
+  "pkg": "ack-cloudwatchlogs-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-codeartifact-controller",
+  "pkg": "ack-codeartifact-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-cognitoidentityprovider-controller",
+  "pkg": "ack-cognitoidentityprovider-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-dms-controller",
+  "pkg": "ack-dms-controller",
+  "ver": "0.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-documentdb-controller",
+  "pkg": "ack-documentdb-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-dsql-controller",
+  "pkg": "ack-dsql-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-dynamodb-controller",
+  "pkg": "ack-dynamodb-controller",
+  "ver": "1.12.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ec2-controller",
+  "pkg": "ack-ec2-controller",
+  "ver": "1.21.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ecr-controller",
+  "pkg": "ack-ecr-controller",
+  "ver": "1.9.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ecrpublic-controller",
+  "pkg": "ack-ecrpublic-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ecs-controller",
+  "pkg": "ack-ecs-controller",
+  "ver": null,
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "Unknown",
+      "reason": "Absent"
+    },
+    {
+      "type": "Installed",
+      "status": "False",
+      "reason": "Failed"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Retrying"
+    }
+  ]
+}
+{
+  "name": "ack-efs-controller",
+  "pkg": "ack-efs-controller",
+  "ver": "1.5.1",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-eks-controller",
+  "pkg": "ack-eks-controller",
+  "ver": "1.21.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-elasticache-controller",
+  "pkg": "ack-elasticache-controller",
+  "ver": "1.9.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-elbv2-controller",
+  "pkg": "ack-elbv2-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-emr-controller",
+  "pkg": "ack-emr-controller",
+  "ver": "0.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-emrcontainers-controller",
+  "pkg": "ack-emrcontainers-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-emrserverless-controller",
+  "pkg": "ack-emrserverless-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-eventbridge-controller",
+  "pkg": "ack-eventbridge-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-firehose-controller",
+  "pkg": "ack-firehose-controller",
+  "ver": "0.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-glue-controller",
+  "pkg": "ack-glue-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-iam-controller",
+  "pkg": "ack-iam-controller",
+  "ver": null,
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "Unknown",
+      "reason": "Absent"
+    },
+    {
+      "type": "Installed",
+      "status": "False",
+      "reason": "Failed"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Retrying"
+    }
+  ]
+}
+{
+  "name": "ack-kafka-controller",
+  "pkg": "ack-kafka-controller",
+  "ver": "1.12.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-keyspaces-controller",
+  "pkg": "ack-keyspaces-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-kinesis-controller",
+  "pkg": "ack-kinesis-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-kms-controller",
+  "pkg": "ack-kms-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-lambda-controller",
+  "pkg": "ack-lambda-controller",
+  "ver": "1.17.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-lambdamicrovms-controller",
+  "pkg": "ack-lambdamicrovms-controller",
+  "ver": "0.3.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-memorydb-controller",
+  "pkg": "ack-memorydb-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-mq-controller",
+  "pkg": "ack-mq-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-mwaa-controller",
+  "pkg": "ack-mwaa-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-networkfirewall-controller",
+  "pkg": "ack-networkfirewall-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-opensearchserverless-controller",
+  "pkg": "ack-opensearchserverless-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-opensearchservice-controller",
+  "pkg": "ack-opensearchservice-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-organizations-controller",
+  "pkg": "ack-organizations-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-pipes-controller",
+  "pkg": "ack-pipes-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-prometheusservice-controller",
+  "pkg": "ack-prometheusservice-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-quicksight-controller",
+  "pkg": "ack-quicksight-controller",
+  "ver": "1.1.2",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ram-controller",
+  "pkg": "ack-ram-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-rds-controller",
+  "pkg": "ack-rds-controller",
+  "ver": "1.12.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-recyclebin-controller",
+  "pkg": "ack-recyclebin-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-route53-controller",
+  "pkg": "ack-route53-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-route53resolver-controller",
+  "pkg": "ack-route53resolver-controller",
+  "ver": "1.9.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-s3-controller",
+  "pkg": "ack-s3-controller",
+  "ver": "1.11.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-s3control-controller",
+  "pkg": "ack-s3control-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-s3files-controller",
+  "pkg": "ack-s3files-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-s3tables-controller",
+  "pkg": "ack-s3tables-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-s3vectors-controller",
+  "pkg": "ack-s3vectors-controller",
+  "ver": "1.2.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-sagemaker-controller",
+  "pkg": "ack-sagemaker-controller",
+  "ver": "1.10.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-secretsmanager-controller",
+  "pkg": "ack-secretsmanager-controller",
+  "ver": null,
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "Unknown",
+      "reason": "Absent"
+    },
+    {
+      "type": "Installed",
+      "status": "False",
+      "reason": "Failed"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Retrying"
+    }
+  ]
+}
+{
+  "name": "ack-ses-controller",
+  "pkg": "ack-ses-controller",
+  "ver": "1.5.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-sfn-controller",
+  "pkg": "ack-sfn-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-sns-controller",
+  "pkg": "ack-sns-controller",
+  "ver": "1.10.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-sqs-controller",
+  "pkg": "ack-sqs-controller",
+  "ver": "1.7.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-ssm-controller",
+  "pkg": "ack-ssm-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}
+{
+  "name": "ack-wafv2-controller",
+  "pkg": "ack-wafv2-controller",
+  "ver": "1.6.0",
+  "conds": [
+    {
+      "type": "Deprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "PackageDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "ChannelDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "BundleDeprecated",
+      "status": "False",
+      "reason": "NotDeprecated"
+    },
+    {
+      "type": "Installed",
+      "status": "True",
+      "reason": "Succeeded"
+    },
+    {
+      "type": "Progressing",
+      "status": "True",
+      "reason": "Succeeded"
+    }
+  ]
+}

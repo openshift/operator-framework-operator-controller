@@ -351,7 +351,10 @@ func run(ctx context.Context) error {
 	}
 
 	var localStorage storage.Instance
-	metrics.Registry.MustRegister(catalogdmetrics.RequestDurationMetric)
+	metrics.Registry.MustRegister(
+		catalogdmetrics.RequestDurationMetric,
+		catalogdmetrics.NewClusterCatalogCollector(mgr.GetCache()),
+	)
 
 	storeDir := filepath.Join(cfg.cacheDir, storageDir)
 	if err := os.MkdirAll(storeDir, 0700); err != nil {
